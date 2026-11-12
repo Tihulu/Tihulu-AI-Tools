@@ -124,7 +124,7 @@ test("Phase 3: envelope rejects unknown fields, paths and oversized model identi
 
 test("Phase 3: chat limits use UTF-8 bytes and reject extra tool permissions", () => {
   assert.equal(isUiRequest({ schema_version: 1, request_id: "chat", kind: "send_chat", payload: { agent: "advisor", message: "😀".repeat(200) } }), false);
-  assert.equal(isUiRequest({ schema_version: 1, request_id: "chat", kind: "send_chat", payload: { agent: "advisor", message: "\\ud800" } }), false);
+  assert.equal(isUiRequest({ schema_version: 1, request_id: "chat", kind: "send_chat", payload: { agent: "advisor", message: String.fromCharCode(0xd800) } }), false);
   assert.equal(isUiRequest({ schema_version: 1, request_id: "chat", kind: "send_chat", payload: { agent: "advisor", message: "hi", unrestricted_shell: true } }), false);
   assert.equal(isUiRequest(uiRequest(UI_COMMANDS.SEND_CHAT, { agent: "advisor", message: "Hi" })), true);
 });
