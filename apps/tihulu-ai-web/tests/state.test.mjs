@@ -23,7 +23,7 @@ test("L-02 closing Advisor leaves Agent and shared model context", () => {
 });
 
 test("L-03 host lease cleanup keeps independent host and its other clients", () => {
-  const after = applyShutdown(createDemoState(), SHUTDOWN.APP_QUIT);
+  const after = applyShutdown(createDemoState({ independentHost: true }), SHUTDOWN.APP_QUIT);
   assert.equal(status(after, "host-lease"), "released");
   assert.equal(status(after, "host"), "active");
   assert.equal(getResource(after, "host").clients, 2);
@@ -36,13 +36,13 @@ test("L-05 Global Hard Stop releases UI-owned simulated SDR, not readsb", () => 
 });
 
 test("L-12 independent host survives App Quit and warning is visible", () => {
-  const state = createDemoState();
+  const state = createDemoState({ independentHost: true });
   assert.ok(previewShutdown(state, SHUTDOWN.APP_QUIT).warnings.some((x) => x.includes("Independent GPU host")));
   assert.equal(status(applyShutdown(state, SHUTDOWN.APP_QUIT), "host"), "active");
 });
 
 test("L-13 Quit All explicitly warns clients and leaves borrowed external untouched", () => {
-  const state = createDemoState();
+  const state = createDemoState({ independentHost: true });
   const preview = previewShutdown(state, SHUTDOWN.QUIT_ALL);
   assert.ok(preview.warnings.some((x) => x.includes("authorized host clients")));
   const after = applyShutdown(state, SHUTDOWN.QUIT_ALL);
@@ -75,4 +75,16 @@ test("demo chat never exposes fake assistant inference and refuses after App Qui
   assert.match(state.chat.agent[1].text, /No model, tool or inference/);
   const afterQuit = applyShutdown(state, SHUTDOWN.APP_QUIT);
   assert.strictEqual(sendMockMessage(afterQuit, "agent", "another"), afterQuit);
+});
+
+test("Phase 2: independent GPU host is OFF by default, GUI Quit remains separate", () => {
+  const initial = createDemoState();
+  assert.equal(initial.serviceMode, "disabled");
+  assert.equal(status(initial, "host"), "released");
+  assert.equal(getResource(initial, "host").clients, 0);
+  const withHost = createDemoState({ independentHost: true });
+  const closedGui = applyShutdown(withHost, SHUTDOWN.APP_QUIT);
+  assert.equal(closedGui.lifecycle, "stopped");
+  assert.equal(closedGui.serviceMode, "independent");
+  assert.equal(status(closedGui, "host"), "active");
 });
