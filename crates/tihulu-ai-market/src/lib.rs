@@ -15,6 +15,10 @@ pub use advisor::{
     validate_advisor_proposal, AdvisorPolicy, AdvisorProposal, AdvisorValidation, Citation,
     ProposalError,
 };
+pub use inventory_bridge::{
+    inspect_registered_model, registry_format_hint, InventoryCompatibilityReport,
+    InventoryInspection, InventoryReadiness,
+};
 pub use lifecycle::{CleanupAction, MarketPreviewSupervisor, PreviewResource, SupervisorError};
 pub use manifest::{
     HardwareTarget, LanguagePair, License, MemoryRequirements, Modality, ModelArchitecture,
