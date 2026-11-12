@@ -63,8 +63,7 @@ test("borrowed Jan/Ollama/HF models stay borrowed and cannot be presented as TIH
   for (const origin of ["jan", "ollama", "hugging_face"]) {
     assert.ok(data.models.some((m) => m.origin === origin && m.ownership === "borrowed_external"));
   }
-  assert.equal(validateInventoryFixture(tamper((d) => { d.models[1].ownership = "app_managed"; })), true);
-  // Cross-field provenance must be validated by the UI fixture boundary.
+  assert.equal(validateInventoryFixture(tamper((d) => { d.models[1].ownership = "app_managed"; })), false);
 });
 
 test("UI preview state is local and cannot grant a native filesystem scope", () => {
