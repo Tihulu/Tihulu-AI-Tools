@@ -198,8 +198,14 @@ mod tests {
 
         assert_eq!(report.models.len(), 3);
         assert!(report.models.iter().any(|m| m.format == ModelFormat::Gguf));
-        assert!(report.models.iter().any(|m| m.format == ModelFormat::HailoHef));
-        assert!(report.models.iter().any(|m| m.format == ModelFormat::WhisperGgml));
+        assert!(report
+            .models
+            .iter()
+            .any(|m| m.format == ModelFormat::HailoHef));
+        assert!(report
+            .models
+            .iter()
+            .any(|m| m.format == ModelFormat::WhisperGgml));
         assert!(!report.truncated);
         fs::remove_dir_all(root).unwrap();
     }
