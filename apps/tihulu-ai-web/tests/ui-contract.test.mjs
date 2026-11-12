@@ -108,3 +108,43 @@ test("Closed GUI denies new mock host changes, Jan writes and chat messages", ()
   assert.throws(() => adapter.sendChat("advisor", "after quit"), /GUI session closed/);
   assert.equal(read(adapter, UI_COMMANDS.HOST).data.service_phase, "active");
 });
+
+test("Phase 3: envelope rejects unknown fields, paths and oversized model identities", () => {
+  const bad = [
+    { schema_version: 1, request_id: "test", kind: "read_overview", payload: {}, backend_verified: true },
+    { schema_version: 1, request_id: "test", kind: "read_models", payload: { authenticated: true } },
+    { schema_version: 1, request_id: "test", kind: "read_compatibility", payload: { model_id: "/tmp/model.gguf", task_id: "chat", host_id: "pc" } },
+    { schema_version: 1, request_id: "test", kind: "read_compatibility", payload: { model_id: "a".repeat(129), task_id: "chat", host_id: "pc" } },
+    { schema_version: 1, request_id: "test", kind: "read_compatibility", payload: { model_id: "demo:model", task_id: "..", host_id: "pc" } },
+    { schema_version: 1, request_id: "test", kind: "execute_stop", payload: { action: SHUTDOWN.APP_QUIT, confirmed: true, owner_id: "other" } },
+  ];
+  for (const request of bad) assert.equal(isUiRequest(request), false, JSON.stringify(request));
+  assert.equal(isUiRequest(uiRequest(UI_COMMANDS.COMPATIBILITY, { model_id: "demo:external-gguf", task_id: "chat", host_id: "paired.host-01" })), true);
+});
+
+test("Phase 3: chat limits use UTF-8 bytes and reject extra tool permissions", () => {
+  assert.equal(isUiRequest({ schema_version: 1, request_id: "chat", kind: "send_chat", payload: { agent: "advisor", message: "😀".repeat(200) } }), false);
+  assert.equal(isUiRequest({ schema_version: 1, request_id: "chat", kind: "send_chat", payload: { agent: "advisor", message: "hi", unrestricted_shell: true } }), false);
+  assert.equal(isUiRequest(uiRequest(UI_COMMANDS.SEND_CHAT, { agent: "advisor", message: "Hi" })), true);
+});
+
+test("Phase 3: all mock command envelopes retain demo provenance and never claim resource cleanup", () => {
+  const { adapter } = fixture(createDemoState({ independentHost: true }));
+  const requests = [
+    [UI_COMMANDS.OVERVIEW, {}], [UI_COMMANDS.MODELS, {}],
+    [UI_COMMANDS.COMPATIBILITY, { model_id: "demo:onnx", task_id: "vision", host_id: "local" }],
+    [UI_COMMANDS.HOST, {}], [UI_COMMANDS.CHAT, { agent: "advisor" }], [UI_COMMANDS.JAN, {}],
+    [UI_COMMANDS.PREVIEW_STOP, { action: SHUTDOWN.APP_QUIT }],
+  ];
+  for (const [kind, payload] of requests) {
+    const response = read(adapter, kind, payload);
+    assert.equal(response.source, EVIDENCE.DEMO);
+    assert.equal(response.kind, kind);
+    assert.equal(response.schema_version, 1);
+    assert.equal(response.request_id, "ui-demo-01");
+  }
+  const response = read(adapter, UI_COMMANDS.EXECUTE_STOP, { action: SHUTDOWN.APP_QUIT, confirmed: true });
+  assert.equal(response.source, EVIDENCE.DEMO);
+  assert.equal(response.data.outcome, "simulated_only");
+  assert.equal(response.data.backend_verified, false);
+});
