@@ -24,6 +24,15 @@ HEADS = {
             "qa/phase6/installer/test_scope_guard.py",
         }),
     ),
+    "ai09_transaction": (
+        "c11d2bb38f04d0ac4c03529a70284c136e58c254",
+        frozenset({
+            ".github/workflows/phase6-ai09-transaction-lab.yml",
+            "docs/qa/installer/AI09_DISPOSABLE_TRANSACTION_ACCEPTANCE.md",
+            "qa/phase6/installer/ai09_transaction_lab.py",
+            "qa/phase6/installer/test_ai09_transaction_lab.py",
+        }),
+    ),
     "ai10_policy": (
         "b28a4b1b1869289fd77392f8e1985f9b3b00f3b5",
         frozenset({
@@ -153,7 +162,7 @@ def test_union(blobs: dict[str, tuple[str, str, str]]) -> None:
             with dst.open("xb") as output:
                 output.write(data)
             dst.chmod(0o600)
-        for start, expected in (("qa/phase6/installer", 10), ("qa/phase6/runtime", 49)):
+        for start, expected in (("qa/phase6/installer", 28), ("qa/phase6/runtime", 49)):
             suite = lab / start
             if not suite.is_dir():
                 raise Hold("Missing fixture group")
@@ -166,7 +175,7 @@ def test_union(blobs: dict[str, tuple[str, str, str]]) -> None:
             observed = re.search(r"Ran (\d+) tests", run.stderr)
             if run.returncode or not observed or int(observed.group(1)) != expected:
                 raise Hold(f"Unexpected {start} test result; expected {expected} passing")
-        print("SCOPED PASS: 59/59 synthetic source tests; NO live IPC/real inference/install")
+        print("SCOPED PASS: 77/77 synthetic source tests; NO live IPC/real inference/install")
 
 
 def main() -> int:
