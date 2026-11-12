@@ -11,6 +11,18 @@ import platform
 import shutil
 import subprocess
 import sys
+import tomllib
+
+
+INTEGRATED_MEMBERS = (
+    "crates/tihulu-ai-core",
+    "apps/tihulu-ai-cli",
+    "crates/tihulu-ai-registry",
+    "crates/tihulu-ai-market",
+    "crates/tihulu-ai-transport",
+    "crates/tihulu-ai-integrations",
+)
+DESKTOP_DIR = "apps/tihulu-ai-desktop/src-tauri"
 
 
 CRATES = {
@@ -32,6 +44,45 @@ def commands(manifest, allow_network=False):
         ["cargo", "clippy", "--manifest-path", path, "--all-targets", *offline,
          "--", "-D", "warnings"],
     ]
+
+
+def integrated_commands(allow_network=False):
+    """Coordinator sandbox workspace: excludes native Tauri desktop by contract."""
+    offline = [] if allow_network else ["--offline"]
+    return [
+        ["cargo", "fmt", "--all", "--", "--check"],
+        ["cargo", "test", "--workspace", "--all-targets", *offline],
+        ["cargo", "clippy", "--workspace", "--all-targets", *offline,
+         "--", "-D", "warnings"],
+    ]
+
+
+def inspect_integrated_workspace(root):
+    """Validate actual root membership before claiming root tests cover agents."""
+    root = root.resolve(strict=True)
+    manifest = root / "Cargo.toml"
+    if not manifest.is_file() or manifest.is_symlink():
+        raise ValueError("root Cargo.toml missing or symlinked")
+    try:
+        with manifest.open("rb") as stream:
+            workspace = tomllib.load(stream)["workspace"]
+    except (KeyError, tomllib.TOMLDecodeError) as exc:
+        raise ValueError(f"root Cargo.toml lacks valid [workspace]: {exc}") from exc
+    members = set(workspace.get("members", ()))
+    missing_members = set(INTEGRATED_MEMBERS) - members
+    if missing_members:
+        raise ValueError("root workspace excludes required members: " +
+                         ", ".join(sorted(missing_members)))
+    if DESKTOP_DIR in members or DESKTOP_DIR not in workspace.get("exclude", ()):
+        raise ValueError("Tauri desktop must remain explicitly excluded from root CI")
+    missing = []
+    for member in INTEGRATED_MEMBERS:
+        path = root / member / "Cargo.toml"
+        if path.is_symlink() or not path.resolve().is_relative_to(root):
+            raise ValueError(f"unsafe integrated manifest path: {member}")
+        if not path.is_file():
+            missing.append(member)
+    return missing
 
 
 def inspect_manifests(root, selected):
@@ -57,6 +108,8 @@ def main(argv=None):
                         default=Path(__file__).resolve().parents[1])
     parser.add_argument("--only", action="append", choices=sorted(CRATES),
                         help="Select a crate on its own agent branch; repeatable")
+    parser.add_argument("--integrated", action="store_true",
+                        help="Verify and check coordinator root workspace (Tauri separate)")
     parser.add_argument("--execute", action="store_true",
                         help="Execute native Cargo commands; default is read-only plan")
     parser.add_argument("--allow-network", action="store_true",
@@ -66,20 +119,32 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.timeout_seconds < 1:
         parser.error("--timeout-seconds must be positive")
+    if args.integrated and args.only:
+        parser.error("--integrated cannot be combined with --only; desktop is separate")
     root = args.repo_root.resolve()
-    selected = list(dict.fromkeys(args.only or CRATES.keys()))
     try:
-        found, missing = inspect_manifests(root, selected)
+        if args.integrated:
+            missing_workspace = inspect_integrated_workspace(root)
+            found = [("integrated", "Cargo.toml")]
+            missing = [("integrated", item + "/Cargo.toml")
+                       for item in missing_workspace]
+        else:
+            selected = list(dict.fromkeys(args.only or CRATES.keys()))
+            found, missing = inspect_manifests(root, selected)
     except (ValueError, OSError) as exc:
         print(f"INVALID CHECKOUT: {exc}", file=sys.stderr)
         return 2
 
     print(f"Host: {platform.system()} {platform.machine()} | root: {root}", flush=True)
+    if args.integrated:
+        print("INTEGRATED: root core, CLI, registry, market, transport, integrations; "
+              "Tauri 2 desktop explicitly excluded")
     for name, path in missing:
-        print(f"NOT PRESENT [{name}]: {path} (exists only on its agent branch until integration)")
+        print(f"NOT PRESENT [{name}]: {path} (no source checkout or merge performed)")
     for name, path in found:
         print(f"PRESENT [{name}]: {path}")
-        for cmd in commands(path, args.allow_network):
+        plan = integrated_commands(args.allow_network) if args.integrated else commands(path, args.allow_network)
+        for cmd in plan:
             print("  " + subprocess.list2cmdline(cmd), flush=True)
 
     if not args.execute:
@@ -96,7 +161,8 @@ def main(argv=None):
     if not args.allow_network:
         env["CARGO_NET_OFFLINE"] = "true"
     for name, path in found:
-        for cmd in commands(path, args.allow_network):
+        plan = integrated_commands(args.allow_network) if args.integrated else commands(path, args.allow_network)
+        for cmd in plan:
             print(f"EXECUTE [{name}]: {subprocess.list2cmdline(cmd)}", flush=True)
             try:
                 completed = subprocess.run(cmd, cwd=root, env=env,
@@ -108,8 +174,9 @@ def main(argv=None):
             if completed.returncode != 0:
                 print(f"FAILED [{name}]: exit {completed.returncode}", file=sys.stderr)
                 return completed.returncode or 1
-    print(f"PASS: all commands completed for {len(found)} selected crate(s); "
-          "this is NOT physical hardware acceptance.")
+    scope = "integrated Rust workspace" if args.integrated else f"{len(found)} selected manifest(s)"
+    print(f"PASS: all commands completed for {scope}; "
+          "this is NOT Tauri packaging or physical hardware acceptance.")
     return 0
 
 
