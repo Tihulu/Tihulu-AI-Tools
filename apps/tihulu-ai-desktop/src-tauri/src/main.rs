@@ -4,6 +4,8 @@
 /// model runtimes, background workers, filesystem grants or remote listeners.
 /// A future Rust supervisor must own real handles and verify shutdown before
 /// the UI may claim model/context memory or SDR capture was released.
+mod ui_contract;
+
 fn main() {
     tauri::Builder::default()
         .run(tauri::generate_context!())
