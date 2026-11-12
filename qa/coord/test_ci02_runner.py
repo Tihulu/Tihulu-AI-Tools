@@ -106,7 +106,7 @@ class Ci02AdversarialContract(unittest.TestCase):
     def create_unittest(self, filename: str, payload: str) -> Path:
         directory = self.root / filename
         directory.mkdir()
-        (directory / "test_fixture.py").write_text(payload, encoding="utf-8")
+        (directory / f"test_{filename}.py").write_text(payload, encoding="utf-8")
         return directory
 
     def test_13_single_actual_test_with_forged_28_receipt_is_hold(self):
