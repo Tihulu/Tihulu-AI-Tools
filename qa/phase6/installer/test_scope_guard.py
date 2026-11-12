@@ -63,7 +63,7 @@ class Ai09ScopePreflight(unittest.TestCase):
         with self.assertRaises(LabHold):
             self.check()
 
-    def test_07_changed_root_identity_rejected(self) -> None:
+    def test_07_fresh_preflight_does_not_authenticate_prior_root(self) -> None:
         original_inode = self.lab.stat().st_ino
         original = self.parent / "ai09-originalbak"
         self.lab.rename(original)
