@@ -361,6 +361,7 @@ fn phase2_two_pi_apps_share_pc_gpu_ledger_is_only_unload_authority() {
     // At-least-once delivery must be deduplicated by host+sequence at the ledger adapter.
     assert!(host.acknowledge_ledger_event(acquired[0].sequence));
     assert!(!host.acknowledge_ledger_event(acquired[0].sequence));
+    assert!(host.acknowledge_ledger_event(acquired[1].sequence));
     host.close_app(&first, 2).unwrap();
     assert_eq!(host.model_lease_count(&model("llm")), 1);
     assert!(!host.awaiting_ledger_unload(&model("llm")));
@@ -374,6 +375,16 @@ fn phase2_two_pi_apps_share_pc_gpu_ledger_is_only_unload_authority() {
     assert_eq!(host.open_lease(&second, lease("new"), model("llm"), 5),
         Err(Error::LedgerCleanupPending));
     let gen = host.model_generation(&model("llm")).unwrap();
+    let releases: Vec<_> = host.pending_ledger_events().iter()
+        .filter(|e| e.action == LedgerLeaseAction::Released
+            && e.model == model("llm"))
+        .cloned().collect();
+    assert_eq!(releases.len(), 2);
+    assert_eq!(host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
+        gen, true, 5), Err(Error::LedgerAckRejected)); // Ledger has not processed release yet.
+    assert!(!host.acknowledge_ledger_event(releases[1].sequence)); // Out of order.
+    assert!(host.acknowledge_ledger_event(releases[0].sequence));
+    assert!(host.acknowledge_ledger_event(releases[1].sequence));
     assert_eq!(host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(999),
         gen, true, 6), Err(Error::LedgerAckRejected));
     assert_eq!(host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
@@ -388,10 +399,7 @@ fn phase2_two_pi_apps_share_pc_gpu_ledger_is_only_unload_authority() {
     assert_eq!(host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
         gen, true, 8), Err(Error::LedgerAckRejected));
     assert_eq!(host.status(), HostStatus::Accepting);
-    let releases = host.pending_ledger_events().iter().filter(|e| {
-        e.action == LedgerLeaseAction::Released && e.model == model("llm")
-    }).count();
-    assert_eq!(releases, 2);
+    assert_eq!(host.pending_ledger_events().len(), 0);
 }
 
 #[test]
@@ -406,6 +414,10 @@ fn phase2_ledger_ttl_disconnect_and_borrowed_runtime_no_unload() {
     assert!(host.awaiting_ledger_unload(&model("llm")));
     assert_eq!(host.model_lease_count(&model("external")), 1);
     assert_eq!(host.model_load_counts(&model("external")), Some((0, 0)));
+    let event_ids: Vec<_> = host.pending_ledger_events().iter()
+        .map(|event| event.sequence).collect();
+    assert_eq!(event_ids.len(), 3);
+    for event in event_ids { assert!(host.acknowledge_ledger_event(event)); }
     host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
         1, true, 31).unwrap();
     assert_eq!(host.total_owned_vram_mib(), 0);
