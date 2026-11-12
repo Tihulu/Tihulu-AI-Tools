@@ -1,9 +1,11 @@
 import { SHUTDOWN, createDemoState, getResource } from "./state.mjs";
 import { createMockUiAdapter, uiRequest, UI_COMMANDS, SERVICE_MODES, MODEL_FIXTURES } from "./ui-contract.mjs";
 import { translate } from "./i18n.mjs";
+import { probeNativeBridge, NATIVE_BRIDGE_PHASE } from "./native-bridge.mjs";
 
 // No fetch, WebUSB, Tauri invoke, localStorage, process calls or backend adapters.
 let state = createDemoState();
+let nativeBridge = { phase: NATIVE_BRIDGE_PHASE.WEB_PREVIEW, backend_verified: false };
 const uiAdapter = createMockUiAdapter({ readState: () => state, writeState: (next) => { state = next; } });
 const typedRead = (kind, payload = {}) => uiAdapter.request(uiRequest(kind, payload)).data;
 let pendingAction = null;
@@ -229,7 +231,10 @@ function render() {
     '</nav></div><div class="sidebar-foot"><span class="dot"></span>' + esc(t("onDemand")) + " · " +
     esc(t("backgroundOff")) + '<div class="micro">' + esc(t("connectionNotReady")) + "</div></div></aside>" +
     '<main class="content"><header class="topbar"><div class="top-actions">' + chip(t("demo"), "warning") +
-    chip(t("connection") + ": " + t("disconnected")) + '</div><div class="top-actions">' +
+    chip(t("connection") + ": " + t("disconnected")) +
+    chip(t("rustIpc") + ": " + t(nativeBridge.phase === NATIVE_BRIDGE_PHASE.TAURI_DEMO ? "rustIpcDemo" :
+      nativeBridge.phase === NATIVE_BRIDGE_PHASE.WEB_PREVIEW ? "rustIpcUnavailable" : "rustIpcError")) +
+    '</div><div class="top-actions">' +
     '<label class="micro" for="language-top">' + esc(t("language")) + '</label><select id="language-top" aria-label="' + esc(t("language")) +
     '"><option value="en"' + (state.language === "en" ? " selected" : "") + '>EN</option><option value="tr"' +
     (state.language === "tr" ? " selected" : "") + '>TR</option><option value="de"' +
@@ -330,3 +335,10 @@ document.querySelector("#dialog-confirm").addEventListener("click", () => {
 });
 modal.addEventListener("close", () => { pendingAction = null; });
 render();
+
+// Native capability check is read-only and does not change the simulator.
+const nativeInvoke = globalThis.window?.__TAURI__?.core?.invoke;
+void probeNativeBridge(nativeInvoke).then((result) => {
+  nativeBridge = result;
+  render();
+});

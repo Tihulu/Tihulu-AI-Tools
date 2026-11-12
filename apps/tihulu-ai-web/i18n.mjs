@@ -1,5 +1,6 @@
 // UI translation table. English is the default; status and fixture labels remain explicitly marked DEMO.
 const en = {
+  rustIpc: "Rust IPC", rustIpcDemo: "Native IPC (demo only)", rustIpcUnavailable: "Web preview (no IPC)", rustIpcError: "Native IPC unavailable",
   modelIdentity: "Model / ID (demo)",
   modelFormat: "Format (unverified)",
   modelAvailability: "Discovery status",
@@ -70,6 +71,7 @@ const en = {
   future: "Planned, not functional", unsupported: "Unavailable", summary: "Overview",
 };
 const tr = {
+  rustIpc: "Rust IPC", rustIpcDemo: "Yerel IPC (yalnızca demo)", rustIpcUnavailable: "Web önizleme (IPC yok)", rustIpcError: "Yerel IPC kullanılamıyor",
   modelIdentity: "Model / Kimlik (demo)",
   modelFormat: "Biçim (doğrulanmadı)",
   modelAvailability: "Keşif durumu",
@@ -140,6 +142,7 @@ const tr = {
   future:"Planlandı, çalışmıyor",unsupported:"Kullanılamaz",summary:"Genel Bakış"
 };
 const de = {
+  rustIpc: "Rust IPC", rustIpcDemo: "Lokale IPC (nur Demo)", rustIpcUnavailable: "Webvorschau (keine IPC)", rustIpcError: "Lokale IPC nicht verfügbar",
   modelIdentity: "Modell / ID (Demo)",
   modelFormat: "Format (ungeprüft)",
   modelAvailability: "Entdeckungsstatus",
