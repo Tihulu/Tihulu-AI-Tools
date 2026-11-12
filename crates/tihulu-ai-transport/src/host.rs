@@ -143,7 +143,9 @@ impl MockComputeHost {
     }
 
     pub fn model_ownership(&self, model: &ModelId) -> Option<RuntimeOwnership> {
-        self.models.get(model).map(|entry| entry.registration.ownership)
+        self.models
+            .get(model)
+            .map(|entry| entry.registration.ownership)
     }
     /// Switch only before any lease/model load; coordinator mode forbids local unloading.
     pub fn set_lifecycle_authority(&mut self, authority: LifecycleAuthority) -> Result<(), Error> {
