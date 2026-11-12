@@ -4,6 +4,8 @@
 //! The crate never downloads, copies, opens model weights, starts inference,
 //! connects to a server or manipulates an external application.
 
+#[cfg(feature = "core-ledger")]
+pub mod core_adapter;
 pub mod discovery;
 pub mod leases;
 pub mod registry;
@@ -13,7 +15,7 @@ pub use discovery::{
     EndpointRequest, ReadApproval, ScanLimits, ScanReport,
 };
 pub use leases::{
-    attach_task, register_initial_task, stop_app, AppSessionId, ConsumerTask,
+    attach_task, register_initial_task, stop_app, stop_app_with_receipts, AppSessionId, ConsumerTask,
     ContextAuthority, LedgerCleanupRequest, LedgerOwnerRef, LedgerResourceKind,
     LedgerResourceRef, ModelRuntimeBinding, ResourceLedgerPort, RuntimeInstanceId,
     TaskLeaseReceipt, TaskRelease, TaskSessionId,
