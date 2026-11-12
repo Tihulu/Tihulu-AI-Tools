@@ -94,6 +94,19 @@ pub struct ChatQuery {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct SendChat {
+    pub agent: Agent,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JanWizardStep {
+    pub step: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct StopQuery {
     pub action: ShutdownAction,
 }
@@ -122,7 +135,10 @@ pub enum UiCommand {
     ReadCompatibility(CompatibilityQuery),
     ReadGpuHost(EmptyPayload),
     ReadChat(ChatQuery),
+    SendChat(SendChat),
+    CloseChat(ChatQuery),
     ReadJan(EmptyPayload),
+    SetJanStep(JanWizardStep),
     PreviewStop(StopQuery),
     ExecuteStop(ConfirmedStop),
     SetServiceMode(ConfirmedServiceMode),
@@ -253,6 +269,21 @@ pub struct JanSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChatActionResult {
+    pub outcome: String,
+    pub accepted: bool,
+    pub inference_connected: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JanWizardResult {
+    pub outcome: String,
+    pub wizard_step: i32,
+    pub connection: String,
+    pub backend_verified: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ShutdownPreview {
     pub title: String,
     pub description: String,
@@ -303,6 +334,14 @@ pub fn validate_request(request: &UiRequest) -> Result<(), &'static str> {
         {
             Err("A typed model, task and host identity are required")
         }
+        UiCommand::SetJanStep(request) if !(-1..=3).contains(&request.step) => {
+            Err("Wizard stage out of range")
+        }
+        UiCommand::SendChat(request)
+            if request.message.trim().is_empty() || request.message.len() > 500 =>
+        {
+            Err("Invalid chat message length")
+        }
         _ => Ok(()),
     }
 }
@@ -339,6 +378,22 @@ mod tests {
             r#"{"schema_version":1,"request_id":"stop-1","kind":"execute_stop","payload":{"action":"hard-stop","confirmed":false}}"#
         ).unwrap();
         assert!(validate_request(&unapproved).is_err());
+    }
+
+    #[test]
+    fn chat_and_wizard_types_reject_invalid_payloads() {
+        let message: UiRequest = serde_json::from_str(
+            r#"{"schema_version":1,"request_id":"chat-1","kind":"send_chat","payload":{"agent":"advisor","message":"hello"}}"#
+        ).unwrap();
+        assert_eq!(validate_request(&message), Ok(()));
+        let wizard: UiRequest = serde_json::from_str(
+            r#"{"schema_version":1,"request_id":"jan-1","kind":"set_jan_step","payload":{"step":2}}"#
+        ).unwrap();
+        assert_eq!(validate_request(&wizard), Ok(()));
+        let invalid: UiRequest = serde_json::from_str(
+            r#"{"schema_version":1,"request_id":"jan-1","kind":"set_jan_step","payload":{"step":10}}"#
+        ).unwrap();
+        assert!(validate_request(&invalid).is_err());
     }
 
     #[test]
