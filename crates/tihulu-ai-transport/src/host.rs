@@ -284,7 +284,30 @@ impl MockComputeHost {
         if grant.allowed_models.iter().any(|id| !self.models.contains_key(id)) {
             return Err(Error::UnknownModel);
         }
+        // A permission downgrade cannot leave an already running forbidden
+        // workload behind. Scope the drain to this device+app, not the host.
+        let leased: Vec<_> = self.leases.iter().filter(|(_, lease)| {
+            lease.client == client && lease.app == app
+        }).map(|(id, lease)| (id.clone(), lease.model.clone())).collect();
+        let over_count = leased.len() > grant.max_leases;
+        let changed_jobs = self.jobs.values().any(|job| {
+            job.client == client && job.app == app && !job.status.terminal()
+                && (!grant.allowed_tasks.contains(&job.spec.task)
+                    || job.spec.payload_bytes > grant.max_payload_bytes)
+        });
+        let forbidden: Vec<_> = leased.iter().filter(|(_, model)| {
+            !grant.allowed_models.contains(model)
+                || self.models.get(model).is_some_and(|state| {
+                    state.registration.ownership == RuntimeOwnership::HostOwned
+                        && state.registration.estimated_vram_mib > grant.max_model_vram_mib
+                })
+        }).map(|(id, _)| id.clone()).collect();
         self.grants.insert((client.clone(), app.clone()), grant);
+        if over_count || changed_jobs {
+            for (id, _) in leased { self.close_internal(&id, now_ms); }
+        } else {
+            for id in forbidden { self.close_internal(&id, now_ms); }
+        }
         self.log(now_ms, AuditAction::Granted, Some(client), Some(app), None, None, None,
             "host policy grant");
         Ok(())
@@ -355,7 +378,7 @@ impl MockComputeHost {
                     // Retry after lost response is the SAME lease, never a second load.
                     return Ok(());
                 }
-                return Err(Error::LeaseExpired);
+                return Err(Error::IdentifierConflict);
             }
             // Tombstones are never reused, even after a TTL expiry or Quit.
             return Err(Error::LeaseExpired);
@@ -686,10 +709,20 @@ impl MockComputeHost {
                 }
             }
         }
-        if self.status == HostStatus::Draining && self.leases.is_empty() {
-            self.status = HostStatus::Drained;
-            self.log(now_ms, AuditAction::HostDrained, None, None, None, None, None,
-                "all mock leases drained, not a real process exit");
+        self.update_drained(now_ms);
+    }
+
+    fn update_drained(&mut self, now_ms: u64) {
+        if self.status != HostStatus::Draining || !self.leases.is_empty() { return; }
+        if self.lifecycle_authority == LifecycleAuthority::CoordinatorLedger
+            && (!self.ledger_events.is_empty()
+                || self.models.values().any(|m| m.awaiting_ledger_ack))
+        {
+            // Logical lease release is not confirmation of physical GPU unload.
+            return;
         }
+        self.status = HostStatus::Drained;
+        self.log(now_ms, AuditAction::HostDrained, None, None, None, None, None,
+            "all mock lease and ledger cleanup acknowledgments completed");
     }
 }
