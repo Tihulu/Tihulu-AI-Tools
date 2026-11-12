@@ -504,7 +504,7 @@ mod tests {
         // The worker is unloadable; the Jan model FILE remains external.
         let model = binding(108, ModelOwner::JanDesktop, ContextAuthority::ManagedShared);
         let mut task = register_initial_task(&mut ledger, &model, owner, consumer("app", "task")).unwrap();
-        assert!(matches!(task.model_id, ModelId::Artifact { owner: ModelOwner::JanDesktop, .. }));
+        assert!(matches!(&task.model_id, ModelId::Artifact { owner: ModelOwner::JanDesktop, .. }));
         assert!(matches!(task.release(&mut ledger).unwrap(), TaskRelease::Delegated(Some(_))));
         ledger.complete_cleanup(model.resource, true).unwrap();
         assert_eq!(ledger.active_lease_count(model.resource), None);
