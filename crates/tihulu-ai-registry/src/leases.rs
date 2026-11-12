@@ -88,7 +88,8 @@ pub struct LedgerCleanupRequest {
 /// The implementation MUST NOT maintain a second runtime count, invent an
 /// additional last-lease unload event, interpret a missing borrowed resource
 /// as permission to kill a provider, or process cleanup requests twice.
-/// No production implementation is shipped here until PR #12 is integrated.
+/// Feature-gated direct forwarding to core is in core_adapter.rs; it
+/// compiles only on integration branches that contain PR #12's core API.
 pub trait ResourceLedgerPort {
     type Error;
 
@@ -148,8 +149,8 @@ impl TaskLeaseReceipt {
     /// Does not invent a cleanup request. A caller must send the returned
     /// request to its owned backend and acknowledge actual cleanup on ledger.
     ///
-    /// After app-wide stop, remaining receipts should be discarded rather
-    /// than replayed: core stop_owner has already released those references.
+    /// After app-wide stop, the caller must retire all this owner's receipts
+    /// using stop_app_with_receipts: core stop_owner already released them.
     pub fn release<L: ResourceLedgerPort>(
         &mut self,
         ledger: &mut L,
@@ -635,6 +636,45 @@ mod tests {
         );
         assert!(stop_app(&mut ledger, owner).unwrap().is_empty());
         assert_eq!(receipt.release(&mut ledger).unwrap(), TaskRelease::AlreadyReleased);
+        assert_eq!(ledger.active_lease_count(binding.resource), Some(0));
+    }
+
+    #[test]
+    fn external_jan_file_path_remains_an_unmodified_reference() {
+        let mut ledger = MockResourceLedger::default();
+        let owner = LedgerOwnerRef(83);
+        ledger.open_owner(owner);
+        let binding = binding(183, ModelOwner::JanDesktop, ContextAuthority::ManagedShared);
+        let source_path = match &binding.model_id {
+            ModelId::Artifact {
+                owner,
+                source_path,
+                canonical_path,
+                ..
+            } => {
+                assert_eq!(*owner, ModelOwner::JanDesktop);
+                assert_eq!(source_path, canonical_path);
+                source_path.clone()
+            }
+            ModelId::Endpoint { .. } => panic!("expected file reference"),
+        };
+        let mut receipt = register_initial_task(
+            &mut ledger,
+            &binding,
+            owner,
+            consumer("app-83", "job"),
+        )
+        .unwrap();
+        let cleanup = receipt.release(&mut ledger).unwrap();
+        assert!(matches!(cleanup, TaskRelease::Delegated(Some(_))));
+        assert!(matches!(
+            &receipt.model_id,
+            ModelId::Artifact {
+                owner: ModelOwner::JanDesktop,
+                ..
+            }
+        ));
+        assert_eq!(source_path.to_string_lossy(), "/synthetic/external/model.gguf");
         assert_eq!(ledger.active_lease_count(binding.resource), Some(0));
     }
 
