@@ -25,3 +25,9 @@ No npm dependencies or network fetches are required. JavaScript modules, English
 Demo interactions do not invoke OS shutdown, release real memory, launch AI inference, pair GPU hosts, download models, connect Jan, or request permissions from an actual client. See `docs/ux/FOUNDATION.md` for the real backend contract and hardware acceptance gaps.
 
 `npm test` runs deterministic L-01, L-02, L-03, L-05, L-12 and L-13 presentation-level regression fixtures. They are not evidence that OS workers or SDR leases release on physical devices.
+
+## Phase 2 typed adapter (still mock-only)
+
+`ui-contract.mjs` provides versioned, validated mock protocol requests for Overview, candidate models, unverified compatibility, independent GPU-host status, chat, Jan wizard and four distinct shutdown actions. All responses have `source:"demo_fixture"`, not real backend evidence. Independent host mode defaults to **disabled** and requires a confirmation modal even in the mock. GUI Quit is separate from a deliberately enabled independent host; after mock GUI closure no new chat, Jan or host-mode mutations are accepted.
+
+Run `npm run check && npm test` in a **local checkout** with Node 22+. Responsive test coverage is CSS/source and stubbed DOM, not measured mobile browser screenshots. See `docs/ux/PHASE2_TYPED_BOUNDARY.md` for exact UI/Rust DTO mapping and future integration prerequisites.
