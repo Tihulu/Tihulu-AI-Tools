@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use tihulu_ai_market::{
     inspect_registered_model, registry_format_hint, ApplicationId, ApplicationTask,
     HardwareTarget, HostId, InventoryInspection, License, MatchVerdict, ModelArchitecture,
-    ModelFormat, ModelManifest, ModelSource, ModelStatus, Modality, RegistryModelId, Runtime,
+    ModelFormat, ModelManifest, ModelStatus, Modality, RegistryModelId, Runtime,
     RuntimeTarget, TaskKind, TaskRequest, TrustedHardwareProbe,
 };
 use tihulu_ai_registry::registry::{
@@ -558,4 +558,19 @@ fn missing_and_declared_endpoints_are_observations_not_runtime_execution() {
     let declared = inspect(&model, &record, &record.id, &target, &probe(&target), &application(&model));
     assert!(!declared.readiness.discovered);
     assert!(!declared.readiness.runnable_preflight);
+}
+
+#[test]
+fn typed_offline_architecture_fixture_and_untrusted_json_are_bounded() {
+    let model = ModelManifest::from_json(include_str!("fixtures/phase5-offline-decoder.json"))
+        .unwrap();
+    assert_eq!(model.architecture, ModelArchitecture::DecoderOnlyTransformer);
+    assert_eq!(model.tasks, vec![TaskKind::Chat]);
+    let mut invalid = model.to_json_pretty().unwrap();
+    invalid.push_str(" trailing-malformed-content");
+    assert!(ModelManifest::from_json(&invalid).is_err());
+
+    let mut metadata = model;
+    metadata.architecture = ModelArchitecture::ServedEndpoint;
+    assert!(metadata.validate().is_err());
 }
