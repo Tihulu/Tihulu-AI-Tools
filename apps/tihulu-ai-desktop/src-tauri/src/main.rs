@@ -4,9 +4,9 @@ use serde::Serialize;
 
 // The only native command is a read-only IPC health check. It MUST NOT be
 // confused with model execution, Jan, GPU-host connectivity or RAM/VRAM cleanup.
+mod native_inventory;
 #[allow(dead_code)]
 mod ui_contract;
-mod native_inventory;
 
 #[derive(Debug, Serialize)]
 struct UiBackendStatus {
