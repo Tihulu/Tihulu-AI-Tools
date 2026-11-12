@@ -320,9 +320,9 @@ fn valid_opaque_id(id: &str) -> bool {
         && !id.is_empty()
         && !id.contains("..")
         && id.as_bytes()[0].is_ascii_alphanumeric()
-        && id.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-')
-        })
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'))
 }
 
 pub fn validate_request(request: &UiRequest) -> Result<(), &'static str> {
@@ -339,8 +339,12 @@ pub fn validate_request(request: &UiRequest) -> Result<(), &'static str> {
         return Err("Invalid request id");
     }
     match &request.command {
-        UiCommand::ExecuteStop(command) if !command.confirmed => Err("Stop confirmation is required"),
-        UiCommand::SetServiceMode(command) if !command.confirmed => Err("Service-mode confirmation is required"),
+        UiCommand::ExecuteStop(command) if !command.confirmed => {
+            Err("Stop confirmation is required")
+        }
+        UiCommand::SetServiceMode(command) if !command.confirmed => {
+            Err("Service-mode confirmation is required")
+        }
         UiCommand::ReadCompatibility(query)
             if !valid_opaque_id(&query.model_id)
                 || !valid_opaque_id(&query.task_id)
@@ -366,10 +370,14 @@ mod tests {
 
     #[test]
     fn serialized_request_matches_browser_envelope() {
-        let json = r#"{"schema_version":1,"request_id":"test-1","kind":"read_gpu_host","payload":{}}"#;
+        let json =
+            r#"{"schema_version":1,"request_id":"test-1","kind":"read_gpu_host","payload":{}}"#;
         let request: UiRequest = serde_json::from_str(json).expect("valid request JSON");
         assert_eq!(request.command, UiCommand::ReadGpuHost(EmptyPayload {}));
-        assert_eq!(serde_json::to_value(&request).unwrap(), serde_json::from_str::<serde_json::Value>(json).unwrap());
+        assert_eq!(
+            serde_json::to_value(&request).unwrap(),
+            serde_json::from_str::<serde_json::Value>(json).unwrap()
+        );
         assert_eq!(validate_request(&request), Ok(()));
     }
 
@@ -385,7 +393,13 @@ mod tests {
                 r#"{{"schema_version":1,"request_id":"stop-1","kind":"execute_stop","payload":{{"action":"{name}","confirmed":true}}}}"#
             );
             let request: UiRequest = serde_json::from_str(&json).unwrap();
-            assert_eq!(request.command, UiCommand::ExecuteStop(ConfirmedStop { action, confirmed: true }));
+            assert_eq!(
+                request.command,
+                UiCommand::ExecuteStop(ConfirmedStop {
+                    action,
+                    confirmed: true
+                })
+            );
             assert_eq!(validate_request(&request), Ok(()));
         }
         let unapproved: UiRequest = serde_json::from_str(
@@ -438,9 +452,20 @@ mod tests {
 
     #[test]
     fn no_raw_shell_or_filesystem_request_variant() {
-        for kind in ["shell", "read_file", "stop_process_by_name", "run_untrusted_model", "open_usb"] {
-            let json = format!(r#"{{"schema_version":1,"request_id":"bad","kind":"{kind}","payload":{{}}}}"#);
-            assert!(serde_json::from_str::<UiRequest>(&json).is_err(), "{kind} should not parse");
+        for kind in [
+            "shell",
+            "read_file",
+            "stop_process_by_name",
+            "run_untrusted_model",
+            "open_usb",
+        ] {
+            let json = format!(
+                r#"{{"schema_version":1,"request_id":"bad","kind":"{kind}","payload":{{}}}}"#
+            );
+            assert!(
+                serde_json::from_str::<UiRequest>(&json).is_err(),
+                "{kind} should not parse"
+            );
         }
     }
 
@@ -481,6 +506,9 @@ mod tests {
             reasons: vec!["Backend has not checked runtime".to_owned()],
         };
         assert_ne!(result.verdict, CompatibilityVerdict::Verified);
-        assert_eq!(serde_json::to_value(&result).unwrap()["verdict"], "unverified");
+        assert_eq!(
+            serde_json::to_value(&result).unwrap()["verdict"],
+            "unverified"
+        );
     }
 }
