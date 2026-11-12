@@ -2,7 +2,7 @@
 //! Jan, Pi or Hailo adapter runs here.
 use tihulu_ai_market::{
     validate_advisor_proposal, AdvisorPolicy, AdvisorProposal, Citation, HardwareTarget as H,
-    License, MatchVerdict, ModelFormat as F, ModelManifest, ModelStatus, Modality as M,
+    License, MatchVerdict, ModelFormat as F, ModelManifest, ModelStatus,
     ProposalError, Runtime as R, TaskKind as T, TaskRequest,
 };
 use tihulu_ai_market::registry_contract::{
