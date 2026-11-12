@@ -33,24 +33,30 @@ export const MODEL_FIXTURES = Object.freeze([
 
 const requestKinds = new Set(Object.values(UI_COMMANDS));
 const stopActions = new Set(Object.values(SHUTDOWN));
+const opaqueIdentity = (id) => typeof id === "string" && id.length <= 128 &&
+  /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(id) && !id.includes("..");
+const exactKeys = (payload, keys) => Object.keys(payload).length === keys.length &&
+  keys.every((key) => Object.hasOwn(payload, key));
+// JavaScript must match Rust's byte-based 500-byte chat limit.
+const utf8Bytes = (value) => unescape(encodeURIComponent(value)).length;
 
 /** @param {unknown} value @returns {value is UiRequest} */
 export function isUiRequest(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const v = /** @type {Record<string, unknown>} */ (value);
-  if (v.schema_version !== 1 || typeof v.request_id !== "string" ||
+  if (v.schema_version !== 1 || !exactKeys(v, ["schema_version", "request_id", "kind", "payload"]) || typeof v.request_id !== "string" ||
       !/^[A-Za-z0-9:_-]{1,64}$/.test(v.request_id) ||
       !requestKinds.has(v.kind) || !v.payload || typeof v.payload !== "object" || Array.isArray(v.payload)) return false;
   const p = /** @type {Record<string, unknown>} */ (v.payload);
   switch (v.kind) {
-    case UI_COMMANDS.COMPATIBILITY: return typeof p.model_id === "string" && typeof p.task_id === "string" && typeof p.host_id === "string";
+    case UI_COMMANDS.COMPATIBILITY: return exactKeys(p, ["model_id", "task_id", "host_id"]) && [p.model_id, p.task_id, p.host_id].every(opaqueIdentity);
     case UI_COMMANDS.CHAT:
-    case UI_COMMANDS.CLOSE_CHAT: return p.agent === "advisor" || p.agent === "agent";
-    case UI_COMMANDS.SEND_CHAT: return (p.agent === "advisor" || p.agent === "agent") && typeof p.message === "string" && p.message.trim().length > 0 && p.message.length <= 500;
-    case UI_COMMANDS.JAN_STEP: return Number.isInteger(p.step) && p.step >= -1 && p.step <= 3;
-    case UI_COMMANDS.PREVIEW_STOP: return stopActions.has(p.action);
-    case UI_COMMANDS.EXECUTE_STOP: return stopActions.has(p.action) && p.confirmed === true;
-    case UI_COMMANDS.SERVICE_MODE: return (p.mode === SERVICE_MODES.DISABLED || p.mode === SERVICE_MODES.INDEPENDENT) && p.confirmed === true;
+    case UI_COMMANDS.CLOSE_CHAT: return exactKeys(p, ["agent"]) && (p.agent === "advisor" || p.agent === "agent");
+    case UI_COMMANDS.SEND_CHAT: return exactKeys(p, ["agent", "message"]) && (p.agent === "advisor" || p.agent === "agent") && typeof p.message === "string" && p.message.trim().length > 0 && utf8Bytes(p.message) <= 500;
+    case UI_COMMANDS.JAN_STEP: return exactKeys(p, ["step"]) && Number.isInteger(p.step) && p.step >= -1 && p.step <= 3;
+    case UI_COMMANDS.PREVIEW_STOP: return exactKeys(p, ["action"]) && stopActions.has(p.action);
+    case UI_COMMANDS.EXECUTE_STOP: return exactKeys(p, ["action", "confirmed"]) && stopActions.has(p.action) && p.confirmed === true;
+    case UI_COMMANDS.SERVICE_MODE: return exactKeys(p, ["mode", "confirmed"]) && (p.mode === SERVICE_MODES.DISABLED || p.mode === SERVICE_MODES.INDEPENDENT) && p.confirmed === true;
     default: return Object.keys(p).length === 0;
   }
 }
