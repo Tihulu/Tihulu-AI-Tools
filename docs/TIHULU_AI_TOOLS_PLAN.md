@@ -874,10 +874,10 @@ The UI must display a per-task origin label such as **Running on Raspberry Pi CP
 
 ### 35.3 Shared host assignment for TIHULU applications
 
-On the Pi AI Tools UI, the user can select an already paired PC host and assign it to **Media Center, Text Center, Satellite Center, Flight Radar, RF Geolocation, Survival Kit**, or an authorized external client. All assignments must be **per app and per AI task**, with optional local-first / remote-first / explicit remote-only preference and a safe legacy fallback. The manager should generate/preview updates to the relevant approved application mapping (including proposed \`aipath.txt\`) **only after explicit approval and verified adapter support**.
+On the Pi AI Tools UI, the user can select an already paired PC host and assign it to **Media Center, Text Center, Satellite Center, Flight Radar, RF Geolocation, Survival Kit**, or an authorized external client. All assignments must be **per app and per AI task**, with optional local-first / remote-first / explicit remote-only preference and a safe legacy fallback. The manager should generate/preview updates to the relevant approved application mapping (including proposed `aipath.txt`) **only after explicit approval and verified adapter support**.
 
 - No app files are rewritten just by pairing devices or opening AI Tools.
-- Each app resolves non-secret \`remote_host_id\` through a local paired-host registry, and authenticates with locally stored credentials. Never embed host credentials in \`aipath.txt\`.
+- Each app resolves non-secret `remote_host_id` through a local paired-host registry, and authenticates with locally stored credentials. Never embed host credentials in `aipath.txt`.
 - The Pi app contacts the host's secure inference endpoint using the assigned model/task ID. The PC host resolves that ID against its **own** model registry; filesystem paths from Pi are not blindly interpreted on PC.
 - App-local configuration persists if the AI Tools GUI is closed. If the host is unreachable, the app must use an allowed compatible fallback or clearly mark *only that AI task* unavailable without blocking the app.
 - User can inspect per-client host usage, VRAM/queue pressure, access grants and revoke an individual app without unpairing all others.
@@ -888,14 +888,14 @@ On the Pi AI Tools UI, the user can select an already paired PC host and assign 
 
 Suggested **logical** resources (not deployed URLs):
 
-\`\`\`text
+```text
 /.well-known/tihulu-ai-tools     # Host discovery metadata, no secret data
 /v1/hosts/capabilities           # Authenticated verified runtimes and compatible tasks
 /v1/hosts/models                 # Scoped model IDs available on this host
 /v1/inference/{task_type}        # Task request: model_id, app_id, timeout, request ID
 /v1/jobs/{request_id}            # Job state / cancellation for authorized owner
 /v1/clients/permissions          # Grants, quotas and revocation under owner control
-\`\`\`
+```
 
 - A **request** identifies a task and registered model ID, not a remotely supplied executable command, arbitrary URL or remote filesystem path.
 - Prefer task-specific inference protocols for ASR/translation/LLM; an OpenAI-compatible subset is useful for chat but is not a universal interface for every model.
@@ -910,11 +910,11 @@ Suggested **logical** resources (not deployed URLs):
 
 | Rust component | Responsibility |
 | --- | --- |
-| \`tihulu-ai-core\` | Local model registry, hardware discovery and task/runtime compatibility |
-| \`tihulu-ai-router\` | Resolve local vs paired host per feature/app, model IDs, failover |
-| \`tihulu-ai-host\` | Opt-in authenticated API, scheduling, streaming and concurrency limits |
-| \`tihulu-ai-client\` | Paired-host discovery, identity, secure request and cancellation |
-| \`tihulu-ai-policy\` | App capability scopes, per-tool agent approvals, secret references and audit |
+| `tihulu-ai-core` | Local model registry, hardware discovery and task/runtime compatibility |
+| `tihulu-ai-router` | Resolve local vs paired host per feature/app, model IDs, failover |
+| `tihulu-ai-host` | Opt-in authenticated API, scheduling, streaming and concurrency limits |
+| `tihulu-ai-client` | Paired-host discovery, identity, secure request and cancellation |
+| `tihulu-ai-policy` | App capability scopes, per-tool agent approvals, secret references and audit |
 | UI (Tauri / responsive browser) | Conversation timelines, model/host selectors, visible task routing |
 
 These are **planning names**, not existing crates or files.
@@ -948,7 +948,7 @@ Conversation can inspect approved app metadata through supported tools, propose 
 4. User can deny network access and remote transfer independently for each AI chat and client app.
 5. Both AI tabs show a multiline chat timeline and composer, host/model/connection status, demo-labelled responses in UI preview, and task-specific safety/permission prompts.
 6. Direct Ethernet and LAN transport support identical logical service contracts after explicit pairing; no assumed zero-copy GPU sharing.
-7. Route \`local-first\`, \`remote-first\` and \`remote-only\` preferences do not bypass compatibility checks or silently choose cloud providers.
+7. Route `local-first`, `remote-first` and `remote-only` preferences do not bypass compatibility checks or silently choose cloud providers.
 8. All UI demo actions remain local simulation; no remote GPU, app adapter, network access, file modification or model download takes place in the planning phase.
 
 **Ledger v0.5:** Approved requirement: GPU host can accelerate **AI Tools' own** assistants and be assigned to TIHULU apps; approve chat-style Advisor and Agent UI. Still proposed: API schema, backend choices, discovery, scheduling and service packaging. All other v0.4 requirements remain in force, GitHub documentation only.
