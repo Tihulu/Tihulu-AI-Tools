@@ -4,6 +4,7 @@
 /// model runtimes, background workers, filesystem grants or remote listeners.
 /// A future Rust supervisor must own real handles and verify shutdown before
 /// the UI may claim model/context memory or SDR capture was released.
+#[allow(dead_code)] // DTOs are not exposed as native commands until the Rust supervisor is verified.
 mod ui_contract;
 
 fn main() {
