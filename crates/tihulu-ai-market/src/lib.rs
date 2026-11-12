@@ -8,6 +8,7 @@ pub mod lifecycle;
 pub mod manifest;
 pub mod matching;
 pub mod registry_contract;
+pub mod recommendation;
 
 pub use advisor::{
     validate_advisor_proposal, AdvisorPolicy, AdvisorProposal, AdvisorValidation, Citation,
@@ -30,3 +31,5 @@ pub use registry_contract::{
     RegistryModelSnapshot, RegistryOwner, RegistryPresence, RegistryRuntimeEvidence, RuntimeTarget,
     TrustedHardwareProbe,
 };
+
+pub use recommendation::{recommend_registered_models, RegistryCandidate};
