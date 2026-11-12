@@ -2,7 +2,7 @@
 
 > **GitHub migration note (2026-11-12):** The original v0.4 planning text is preserved in this repository. Its legacy downloadable ZIP also contained standalone PNG/SVG/DOT files; those binary assets have not been migrated. References below point to [GitHub-native, editable Mermaid diagrams](ARCHITECTURE.md) or the [interactive HTML mockup](../ui/index.html) instead. These represent design concepts, not tested software.
 
-> **Status:** DRAFT v0.5 — requirements captured; technical choices still subject to review  
+> **Status:** DRAFT v0.6 — requirements captured; technical choices still subject to review  
 > **Date:** 2026-11-12  
 > **Language:** Technical documentation in English; planned product UI in English, Turkish, and German  
 > **Change policy:** Planning only. **No existing applications, branches, repositories, installers, or models are modified.**  
@@ -952,3 +952,69 @@ Conversation can inspect approved app metadata through supported tools, propose 
 8. All UI demo actions remain local simulation; no remote GPU, app adapter, network access, file modification or model download takes place in the planning phase.
 
 **Ledger v0.5:** Approved requirement: GPU host can accelerate **AI Tools' own** assistants and be assigned to TIHULU apps; approve chat-style Advisor and Agent UI. Still proposed: API schema, backend choices, discovery, scheduling and service packaging. All other v0.4 requirements remain in force, GitHub documentation only.
+
+
+---
+
+## 38. v0.6 approved — Universal model discovery by application name or directory
+
+**User-confirmed feature (2026-11-12):** Users can enter an AI application's **name**, select its **installation/data directory**, select one or more **model directories**, or give a documented **local inference endpoint**. With explicit scope-based read-only consent, AI Tools should inventory local LLM and other AI models, including Jan. It should register them under **My Models** in the Model Market as **Already installed / Externally managed** without downloading, cloning, moving, or modifying the owner application.
+
+- Identify model engine, file formats and expected tasks, model metadata and available storage path/endpoint. Prefer reading source-native metadata and supported APIs over guessing based on filenames.
+- Discover common app data directories and user-selected custom paths, including system-specific Jan locations. Don't inspect chat history, documents, credentials, API keys, agent memory or unrelated files. Respect user-defined Jan Data Folder.
+- Model registry differentiates **installed artifact**, **available inference API**, **compatible runtime**, **validated task** and **mapped app usage**. These are separate statuses. A model hosted solely behind an API may not have accessible files.
+- Deduplicate and reference existing copies by verified content identity and model version; never collapse formats/quantizations by display name.
+- If an AI application is unknown, support a user-provided folder and mark unidentified models as **Unknown / Needs verification**, rather than claiming readiness.
+- Supported target hardware continues to include Linux x86-64 RTX/CUDA, Pi 5 ARM64 CPU, Pi 5 + AI HAT+ 2 vendor-supported NPU models, and optional paired GPU hosts.
+
+## 39. v0.6 approved — Reuse, relocate and match existing models to AI tasks
+
+For each TIHULU app and independent AI task, show **compatible, incompatible, unknown, verified** model candidates, source owner (e.g. Jan), estimated resource needs, target runtime/host and reasoned match evidence. A user can choose **Use this model** to update *that approved app's* mapping after adapter validation and a diff preview. No new model download is required when an eligible model already exists.
+
+- **Default**: link/reference in place; the foreign application's path and ownership are unchanged.
+- Optional **copy** into user-configurable `~/TIHULU AI Tools/Models` or other allowed path after checksum+free-space verification.
+- Optional **move/relocate** only through a user-approved staged migration, consumer dependency inventory, owner-native move mechanism where available, checks, backups and rollback. An external application's original files must not be silently moved or deleted.
+- Allow repointing TIHULU apps to a registered external path or registered inference endpoint without changing that source path.
+- Persist non-secret per-task mappings using a stable model/host reference; `aipath.txt` is a proposed compatibility bridge, not the source of provider tokens or arbitrary write permission.
+- Preserve GUI-free app startup and independent non-AI functions even when AI Tools or a foreign model owner is unavailable.
+
+See the standalone [Universal Model Discovery & Matching contract](MODEL_DISCOVERY_AND_MATCHING.md) for workflow, registry fields, adapter matrix, permission boundaries, test criteria, and example match types.
+
+## 40. v0.6 experimental — AI-assisted online compatibility research and binding
+
+An opt-in **AI Matching Advisor** in the Model Market and AI Advisor chat may use a verified local or paired PC GPU LLM (or a user-authorized token-backed provider) to search current public model cards and relevant application/runtime documentation, identify suitability for each task, rank candidates and prepare explicit mapping steps.
+
+- Internet access OFF by default; ask before querying online sources. Do not upload local paths, model binaries, user files or private metadata by default.
+- First filter candidates using deterministic hard requirements: modality, format, runtime, hardware RAM/VRAM/NPU, actual app adapter, and necessary features (e.g. EN/TR/DE translation direction or tool calling).
+- LLM recommendations must include their sources, model versions, uncertainty and **testable** compatibility reasoning. AI-generated suggestions are not verified installation evidence.
+- If user chooses a recommendation, the Rust mapping engine validates authorization, prepares a config diff, asks for explicit approval, commits atomically and tests/falls back on failure. LLM content never directly edits config, executes arbitrary app instructions or downloads/moves models.
+- Ability to recommend Market download if necessary; no automatic download or silent external app modification.
+
+## 41. v0.6 confirmed — Optional Jan integration for chat-controlled TIHULU apps
+
+Design **TIHULU for Jan** as an **optional** integration:
+1. **Jan Desktop:** Use its documented MCP client feature to connect to a future Rust **TIHULU MCP Server**. This server exposes narrow, permission-scoped TIHULU application tools while allowing Jan's chat LLM to request real supported operations; the Rust policy/adapter layer decides what executes. Connect via supported STDIO or secure local/remote transports, never unauthenticated public listeners.
+2. **Jan Agent (separate product):** Consider a repository-installable plugin/package with skills, command definitions and optional MCP integration for the same server. Installing and enabling are separate, explicit acts. Do not assume the Jan Agent plugin format is the same as Jan Desktop's MCP connector.
+3. **Model reuse:** Recognize Jan's existing on-disk GGUF/MLX models with read-only permission, or optionally use Jan's OpenAI-compatible local inference API when the owner runs it.
+4. **Permissions:** Opt-in per app, feature and action; read-only tools by default; user approval for write/execute/network actions. The Jan model itself has no general shell, model mover, radio receiver or unrestricted machine access. No automatic changes to Jan's global MCP permission settings.
+5. **Optional reverse direction:** Where a TIHULU host exposes a verified compatible API, Jan may connect to that host for LLM inference (independent of MCP tools); verify actual tool-call capabilities.
+
+The target experience is **“While chatting in Jan, ask it to use an explicitly authorized TIHULU application capability.”** A chat-to-app integration can only expose operations that the corresponding independently developed TIHULU app actually implements.
+
+See [Jan Integration spec](JAN_INTEGRATION.md), with dated official documentation references and future security requirements.
+
+## 42. v0.6 UI/acceptance updates — planning only
+
+The UX preview should contain **Discover AI App**, **Choose Folder**, **Found Local Models**, **Model → App/Task Compatibility**, **Use this Model**, **AI-assisted Match (experimental)** and an **External Apps → Jan / Enable Chat Tools (OFF)** flow. Discover and match actions in HTML remain illustrative **simulations**, not actual disk/API scans, Internet requests, inference, installation or app changes.
+
+Acceptance tests for future implementation:
+1. Scan a user-selected Jan directory read-only and list distinct verifiable GGUF/MLX artifacts without reading Jan chat history.
+2. Given a Jan-owned model already on disk, map it to a compatible TIHULU consumer task without moving it or installing a duplicate, with source/consumer paths still valid.
+3. Detect incompatible formats and produce an actionable explanation rather than a false recommendation.
+4. Migrate a user-owned compatible model with checksum+rollback; preserve all unchanged owner apps and dependent consumers on failure.
+5. Recommend a compatible model using opt-in online research with citations; display unknown/experimental evidence distinctly from verified local runtime tests.
+6. Let Jan Desktop call only an owner-authorized TIHULU MCP tool supported by a real app adapter; denied write/network actions must not execute.
+7. Demonstrate isolation: one local model can be shared by eligible TIHULU apps while other applications retain original model paths; remote API connections work only while owner-controlled host services are running.
+8. Ensure GUI remains optional, background off by default, with EN/TR/DE UI requirement and Rust core.
+
+**Change ledger v0.6:** User-confirmed product scope: external AI app name/directory scanning, link-in-place registry, safe path management, task-level model matching, opt-in AI-assisted Internet matching and optional Jan chat tools. Still proposals/experiments: exact source adapters, registry schema, Jan MCP tool names, scoring, online research source routing, automated app mapping and migration mechanics. No application source, model files, installer, running services, Jan data or other TIHULU repository changes made.
