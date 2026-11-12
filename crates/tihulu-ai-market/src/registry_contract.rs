@@ -195,7 +195,7 @@ fn owner_agrees(manifest: &ModelManifest, observed: &RegistryOwner) -> bool {
         (ModelSource::Tihulu, RegistryOwner::AiTools) => true,
         (ModelSource::TihuluApp { app_id }, RegistryOwner::TihuluApp(owner_id)) => {
             app_id == owner_id
-        },
+        }
         (ModelSource::External { application }, RegistryOwner::JanDesktop) => {
             application.eq_ignore_ascii_case("Jan Desktop")
         }
