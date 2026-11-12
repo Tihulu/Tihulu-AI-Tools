@@ -14,6 +14,17 @@ cargo clippy --manifest-path crates/tihulu-ai-transport/Cargo.toml --all-targets
 
 The current authoring environment lacks `cargo`/`rustc` and the root workspace intentionally excludes this agent crate. **These tests were authored but cannot be reported as executed locally.** An automated CI check directly invoking this standalone manifest is a coordinator review step; do not confuse existing root-workspace CI green status with Agent 04 crate test success.
 
+### Actual Phase 2 command results (2026-11-12 authoring environment)
+
+| Command attempted | Actual result |
+| --- | --- |
+| `cargo --version` | `bash: cargo: command not found` |
+| `cargo test --manifest-path crates/tihulu-ai-transport/Cargo.toml --all-targets` | `bash: cargo: command not found` — tests **not run** |
+| `cargo fmt --manifest-path crates/tihulu-ai-transport/Cargo.toml --check` | `bash: cargo: command not found` — formatting check **not run** |
+| `cargo clippy --manifest-path crates/tihulu-ai-transport/Cargo.toml --all-targets -- -D warnings` | `bash: cargo: command not found` — lint check **not run** |
+
+The authoring environment also cannot resolve `github.com` from its terminal (DNS failure), so fetching a standalone Rust toolchain into the container was not available. Code was pushed through the authorized GitHub integration. A GitHub root-workspace workflow outcome **must not** be reported as an Agent 04 transport crate test pass.
+
 ## Phase 2 evidence
 
 **26 test functions are currently authored** in `crates/tihulu-ai-transport/tests/mock_lifecycle.rs` (15 baseline plus 11 Phase 2 additions), as counted from the committed source; this is a source inspection only, NOT an executed pass result.
