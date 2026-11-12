@@ -51,12 +51,33 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      # Always execute all checks. A rustfmt failure must not hide a broken
+      # compile, unit test, or Clippy error in another agent's standalone crate.
       - name: Format standalone crate
+        id: formatting
+        continue-on-error: true
         run: cargo fmt --manifest-path ${{ matrix.manifest }} --all --check
       - name: Run standalone crate tests
+        id: testing
+        continue-on-error: true
         run: cargo test --manifest-path ${{ matrix.manifest }} --all-targets
       - name: Run standalone crate Clippy
+        id: linting
+        continue-on-error: true
         run: cargo clippy --manifest-path ${{ matrix.manifest }} --all-targets -- -D warnings
+      - name: Aggregate results (fail job if any check failed)
+        if: always()
+        shell: bash
+        run: |
+          echo "Format: ${{ steps.formatting.outcome }}"
+          echo "Tests: ${{ steps.testing.outcome }}"
+          echo "Clippy: ${{ steps.linting.outcome }}"
+          if [[ "${{ steps.formatting.outcome }}" != "success" ]] ||
+             [[ "${{ steps.testing.outcome }}" != "success" ]] ||
+             [[ "${{ steps.linting.outcome }}" != "success" ]]; then
+            echo "::error::Standalone Rust validations did not all pass."
+            exit 1
+          fi
 
   platform-01:
     name: Agent 01 — Python process lifecycle tests
