@@ -2,12 +2,13 @@ name: Rust Core — Multi-OS
 
 on:
   push:
-    branches: [main, feat/rust-foundation, coord/phase2-integration-sandbox]
+    branches: [main, feat/rust-foundation, coord/phase2-integration-sandbox, coord/phase4-native-inventory]
     paths:
       - "Cargo.toml"
       - "crates/**"
       - "apps/tihulu-ai-cli/**"
       - "apps/tihulu-ai-web/**"
+      - "apps/tihulu-ai-desktop/**"
       - "scripts/**"
       - ".github/workflows/rust-core.yml"
   pull_request:
