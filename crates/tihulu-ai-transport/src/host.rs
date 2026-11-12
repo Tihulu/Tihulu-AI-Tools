@@ -415,9 +415,12 @@ impl MockComputeHost {
         for id in expired { self.close_internal(&id, now_ms); }
 
         let forced: Vec<_> = self.jobs.iter().filter(|(_, job)| {
-            job.status == JobStatus::Cancelling && job.cancellation_at_ms.is_some_and(|t| {
-                now_ms >= t.saturating_add(self.grace_ms)
-            })
+            job.status == JobStatus::Cancelling
+                && (job.cancellation_at_ms.is_some_and(|t| {
+                    now_ms >= t.saturating_add(self.grace_ms)
+                }) || self.leases.get(&job.spec.lease).and_then(|lease| {
+                    lease.close_started_ms
+                }).is_some_and(|t| now_ms >= t.saturating_add(self.grace_ms)))
         }).map(|(id, _)| id.clone()).collect();
         for id in forced {
             if let Some(job) = self.jobs.get_mut(&id) {
