@@ -171,9 +171,8 @@ pub fn match_model(
     if task.task == TaskKind::Translation {
         match &task.translation {
             None => unknown.push("a translation direction must be selected".into()),
-            Some(pair) if model.translation_pairs.is_empty() => {
+            Some(_) if model.translation_pairs.is_empty() => {
                 unknown.push("translation direction not verified".into());
-                let _ = pair;
             }
             Some(pair)
                 if !model.translation_pairs.iter().any(|supported| {
