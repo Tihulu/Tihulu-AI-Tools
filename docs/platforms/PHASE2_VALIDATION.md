@@ -1,5 +1,7 @@
 # Phase 2: standalone Rust validation and owned shutdown evidence
 
+> **Phase 3 update:** The coordinator has since assembled four agent crates in the root sandbox workspace and explicitly excluded Tauri 2 desktop. For this newer checkout, use [Phase 3 integrated workspace validation](PHASE3_INTEGRATION.md) and `--integrated`; the commands below remain valid for original isolated branches.
+
 **Status:** CONFIRMED scope/requirements from [Issue #15](https://github.com/Tihulu/Tihulu-AI-Tools/issues/15) and [Resource Lifecycle v0.9](../RESOURCE_LIFECYCLE.md); tests and platform commands are **proposed opt-in validation tooling**. An executed mock is **not** hardware acceptance. Branch `agent/01-platform`, Draft PR #8, Issue #2. Last review: 2026-11-12.
 
 ## Five standalone manifests (verified from current agent branch manifests)
