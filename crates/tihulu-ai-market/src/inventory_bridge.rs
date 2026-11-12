@@ -8,6 +8,7 @@
 use tihulu_ai_registry::registry::{
     ArtifactValidation as RegistryArtifactValidation, EndpointState, FileFormat, ModelId,
     ModelOwner, ModelRecord, ModelReference, RuntimeVerification as RegistryVerification,
+    SourceAdapter,
 };
 
 use crate::manifest::{ModelArchitecture, ModelFormat, ModelManifest, ModelStatus, TaskKind};
@@ -76,6 +77,7 @@ fn registry_owner(owner: &ModelOwner) -> RegistryOwner {
         ModelOwner::JanDesktop => RegistryOwner::JanDesktop,
         ModelOwner::Ollama => RegistryOwner::Ollama,
         ModelOwner::HuggingFace => RegistryOwner::HuggingFace,
+        ModelOwner::TihuluApp(app_id) => RegistryOwner::TihuluApp(app_id.clone()),
         ModelOwner::UserNamed(name) => RegistryOwner::UserNamed(name.clone()),
     }
 }
@@ -127,9 +129,17 @@ fn source_consistent(record: &ModelRecord) -> bool {
     {
         return false;
     }
-    match &record.reference {
-        ModelReference::File(file) => record.owner == file.owner,
-        ModelReference::Endpoint(endpoint) => record.owner == endpoint.owner,
+    match (&record.owner, &record.reference) {
+        // An independent app's model can only come from its dedicated,
+        // consent-scoped directory adapter, never a generic custom folder.
+        (ModelOwner::TihuluApp(app_id), ModelReference::File(file)) => {
+            record.owner == file.owner
+                && file.adapter == SourceAdapter::TihuluAppDirectory
+                && !app_id.is_empty()
+        }
+        (ModelOwner::TihuluApp(_), ModelReference::Endpoint(_)) => false,
+        (owner, ModelReference::File(file)) => *owner == file.owner,
+        (owner, ModelReference::Endpoint(endpoint)) => *owner == endpoint.owner,
     }
 }
 
