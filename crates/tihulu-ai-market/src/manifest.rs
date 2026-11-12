@@ -22,9 +22,13 @@ pub enum ModelStatus {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ModelSource {
     Tihulu,
-    External { application: String },
+    External {
+        application: String,
+    },
     /// An independently owned TIHULU application model store (not AI Tools).
-    TihuluApp { app_id: String },
+    TihuluApp {
+        app_id: String,
+    },
     Market,
 }
 
