@@ -1,6 +1,8 @@
 # TIHULU AI Tools — Architecture & Product Plan
 
-> **GitHub migration note (2026-11-12):** The original v0.4 planning text is preserved in this repository. Its legacy downloadable ZIP also contained standalone PNG/SVG/DOT files; those binary assets have not been migrated. References below point to [GitHub-native, editable Mermaid diagrams](ARCHITECTURE.md) or the [interactive HTML mockup](../ui/index.html) instead. These represent design concepts, not tested software.\n\n> **Status:** DRAFT v0.4 — requirements captured; technical choices still subject to review  
+> **GitHub migration note (2026-11-12):** The original v0.4 planning text is preserved in this repository. Its legacy downloadable ZIP also contained standalone PNG/SVG/DOT files; those binary assets have not been migrated. References below point to [GitHub-native, editable Mermaid diagrams](ARCHITECTURE.md) or the [interactive HTML mockup](../ui/index.html) instead. These represent design concepts, not tested software.
+
+> **Status:** DRAFT v0.4 — requirements captured; technical choices still subject to review  
 > **Date:** 2026-11-12  
 > **Language:** Technical documentation in English; planned product UI in English, Turkish, and German  
 > **Change policy:** Planning only. **No existing applications, branches, repositories, installers, or models are modified.**  
