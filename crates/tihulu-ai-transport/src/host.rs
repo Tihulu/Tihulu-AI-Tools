@@ -571,6 +571,18 @@ impl MockComputeHost {
         Ok(())
     }
 
+    /// One task session's STOP, preserving other Advisor/Agent tasks and apps.
+    pub fn close_task(&mut self, peer: &PeerEvidence, now_ms: u64) -> Result<(), Error> {
+        self.tick(now_ms);
+        self.authenticate(peer)?;
+        let ids: Vec<_> = self.leases.iter().filter(|(_, lease)| {
+            lease.client == peer.client && lease.app == peer.app
+                && lease.app_session == peer.app_session && lease.task == peer.task
+        }).map(|(id, _)| id.clone()).collect();
+        for id in ids { self.close_internal(&id, now_ms); }
+        Ok(())
+    }
+
     /// Host-local policy revocation, cancels only this app's affected leases.
     pub fn revoke_app(&mut self, client: &ClientId, app: &AppId, now_ms: u64) {
         self.grants.remove(&(client.clone(), app.clone()));
@@ -631,19 +643,26 @@ impl MockComputeHost {
         for id in releasable {
             if let Some(lease) = self.leases.remove(&id) {
                 affected.insert(lease.model.clone());
+                self.emit_ledger_event(LedgerLeaseAction::Released, &id, &lease);
                 self.log(now_ms, AuditAction::LeaseClosed, Some(lease.client),
                     Some(lease.app), Some(lease.model), Some(id), None,
-                    "client-owned resources fully released in mock");
+                    "lease ended; ledger event queued if coordinator-managed");
             }
         }
         for model in affected {
             if self.leases.values().any(|lease| lease.model == model) { continue; }
             if let Some(state) = self.models.get_mut(&model) {
                 if state.loaded_by_us {
-                    state.loaded_by_us = false;
-                    state.unload_count += 1;
-                    self.log(now_ms, AuditAction::ModelUnloaded, None, None,
-                        Some(model), None, None, "last owned lease: mock context unload");
+                    if self.lifecycle_authority == LifecycleAuthority::CoordinatorLedger {
+                        // The core ledger, not this host mock or Registry, decides
+                        // whether the final release produces a CleanupRequest.
+                        state.awaiting_ledger_ack = true;
+                    } else {
+                        state.loaded_by_us = false;
+                        state.unload_count += 1;
+                        self.log(now_ms, AuditAction::ModelUnloaded, None, None,
+                            Some(model), None, None, "standalone mock last-lease unload");
+                    }
                 }
             }
         }
