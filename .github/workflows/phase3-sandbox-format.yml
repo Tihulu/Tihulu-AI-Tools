@@ -1,6 +1,7 @@
 name: Phase 3 Sandbox — Apply rustfmt (isolated branch only)
 
 # One-shot formatter on the coordinator-owned sandbox branch.
+# 2026-11-12: format new independent-app path planner and preserve scoped test coverage.
 # Never checks out, writes to or merges main or another agent branch.
 on:
   push:
