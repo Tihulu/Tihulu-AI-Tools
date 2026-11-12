@@ -66,13 +66,13 @@ macro_rules! opaque_id {
 opaque_id!(HostId);
 opaque_id!(ClientId);
 opaque_id!(AppId);
-/// A particular launch of an installed TIHULU application, not the app name.
+// A particular launch of an installed TIHULU application, not the app name.
 opaque_id!(AppSessionId);
-/// A specific Advisor/Agent/app task session, not the TaskKind modality.
+// A specific Advisor/Agent/app task session, not the TaskKind modality.
 opaque_id!(TaskId);
-/// A Registry ModelRecord.id reference, NOT a filesystem path or content digest.
+// A Registry ModelRecord.id reference, NOT a filesystem path or content digest.
 opaque_id!(ModelId);
-/// A loaded runtime instance on one host; distinct from Registry model identity.
+// A loaded runtime instance on one host; distinct from Registry model identity.
 opaque_id!(RuntimeId);
 opaque_id!(LeaseId);
 opaque_id!(RequestId);

@@ -107,15 +107,11 @@ impl MockComputeHost {
         })
     }
 
-    fn log(
-        &mut self, at_ms: u64, action: AuditAction,
-        client: Option<ClientId>, app: Option<AppId>, model: Option<ModelId>,
-        lease: Option<LeaseId>, request: Option<RequestId>, detail: &'static str,
-    ) {
+    // Structured audit payload keeps ownership explicit and avoids a fragile
+    // eight-field positional API. No audit event semantics are changed.
+    fn log(&mut self, event: AuditEvent) {
         if self.audit.len() == MAX_AUDIT_EVENTS { self.audit.pop_front(); }
-        self.audit.push_back(AuditEvent {
-            at_ms, action, client, app, model, lease, request, detail,
-        });
+        self.audit.push_back(event);
     }
 
     pub fn audit(&self) -> &VecDeque<AuditEvent> { &self.audit }
@@ -266,8 +262,7 @@ impl MockComputeHost {
             if state.loaded_by_us {
                 state.loaded_by_us = false;
                 state.unload_count += 1;
-                self.log(now_ms, AuditAction::ModelUnloaded, None, None, Some(model.clone()),
-                    None, None, "mock received authoritative ledger/backend unload ack");
+                self.log(AuditEvent { at_ms: now_ms, action: AuditAction::ModelUnloaded, client: None, app: None, model: Some(model.clone()), lease: None, request: None, detail: "mock received authoritative ledger/backend unload ack" });
             }
             self.update_drained(now_ms);
         }
@@ -332,8 +327,7 @@ impl MockComputeHost {
         self.paired.insert(client.clone(), PairedClient {
             cert_sha256: approval.client_cert_sha256,
         });
-        self.log(now_ms, AuditAction::Paired, Some(client), None, None, None, None,
-            "user-approved certificate pin");
+        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::Paired, client: Some(client), app: None, model: None, lease: None, request: None, detail: "user-approved certificate pin" });
         Ok(())
     }
 
@@ -370,8 +364,7 @@ impl MockComputeHost {
         } else {
             for id in forbidden { self.close_internal(&id, now_ms); }
         }
-        self.log(now_ms, AuditAction::Granted, Some(client), Some(app), None, None, None,
-            "host policy grant");
+        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::Granted, client: Some(client), app: Some(app), model: None, lease: None, request: None, detail: "host policy grant" });
         Ok(())
     }
 
@@ -502,11 +495,9 @@ impl MockComputeHost {
         ));
         self.emit_ledger_event(LedgerLeaseAction::Acquired, &id, &record);
         if first_load {
-            self.log(now_ms, AuditAction::ModelLoaded, None, None, Some(model.clone()),
-                None, None, "synthetic host-owned runtime load");
+            self.log(AuditEvent { at_ms: now_ms, action: AuditAction::ModelLoaded, client: None, app: None, model: Some(model.clone()), lease: None, request: None, detail: "synthetic host-owned runtime load" });
         }
-        self.log(now_ms, AuditAction::LeaseOpened, Some(peer.client.clone()),
-            Some(peer.app.clone()), Some(model), Some(id), None, "per-client model lease");
+        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::LeaseOpened, client: Some(peer.client.clone()), app: Some(peer.app.clone()), model: Some(model), lease: Some(id), request: None, detail: "per-client model lease" });
         Ok(())
     }
 
@@ -523,8 +514,7 @@ impl MockComputeHost {
         }
         if lease.status != LeaseStatus::Active { return Err(Error::LeaseExpired); }
         lease.expires_at_ms = now_ms.saturating_add(self.lease_ttl_ms);
-        self.log(now_ms, AuditAction::LeaseRenewed, Some(peer.client.clone()),
-            Some(peer.app.clone()), None, Some(id.clone()), None, "heartbeat");
+        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::LeaseRenewed, client: Some(peer.client.clone()), app: Some(peer.app.clone()), model: None, lease: Some(id.clone()), request: None, detail: "heartbeat" });
         Ok(())
     }
 
@@ -568,8 +558,7 @@ impl MockComputeHost {
             app_session: peer.app_session.clone(), task: peer.task.clone(),
             spec: spec.clone(), status: JobStatus::Queued, cancellation_at_ms: None,
         });
-        self.log(now_ms, AuditAction::JobQueued, Some(peer.client.clone()),
-            Some(peer.app.clone()), None, Some(spec.lease), Some(spec.id), "queued");
+        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::JobQueued, client: Some(peer.client.clone()), app: Some(peer.app.clone()), model: None, lease: Some(spec.lease), request: Some(spec.id), detail: "queued" });
         Ok(JobStatus::Queued)
     }
 
@@ -581,8 +570,7 @@ impl MockComputeHost {
             .map(|(id, _)| id.clone()).min()?;
         let job = self.jobs.get_mut(&next)?;
         job.status = JobStatus::Running;
-        self.log(now_ms, AuditAction::JobStarted, None, None, None, None,
-            Some(next.clone()), "synthetic worker started");
+        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::JobStarted, client: None, app: None, model: None, lease: None, request: Some(next.clone()), detail: "synthetic worker started" });
         Some(next)
     }
 
@@ -597,8 +585,7 @@ impl MockComputeHost {
             JobStatus::Cancelled
         } else if success { JobStatus::Succeeded } else { JobStatus::Failed };
         let result = job.status;
-        self.log(now_ms, AuditAction::JobFinished, None, None, None, None,
-            Some(id.clone()), "synthetic backend completion");
+        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::JobFinished, client: None, app: None, model: None, lease: None, request: Some(id.clone()), detail: "synthetic backend completion" });
         self.finalize_closed(now_ms);
         Ok(result)
     }
@@ -609,10 +596,8 @@ impl MockComputeHost {
         let queued = job.status == JobStatus::Queued;
         job.status = if queued { JobStatus::Cancelled } else { JobStatus::Cancelling };
         job.cancellation_at_ms = Some(now_ms);
-        self.log(now_ms,
-            if queued { AuditAction::JobCancelled }
-                else { AuditAction::JobCancellationRequested },
-            None, None, None, None, Some(id.clone()), "scoped request cancellation");
+        self.log(AuditEvent { at_ms: now_ms, action: if queued { AuditAction::JobCancelled }
+                else { AuditAction::JobCancellationRequested }, client: None, app: None, model: None, lease: None, request: Some(id.clone()), detail: "scoped request cancellation" });
     }
 
     pub fn cancel_request(
@@ -639,8 +624,7 @@ impl MockComputeHost {
         let client = lease.client.clone();
         let app = lease.app.clone();
         let model = lease.model.clone();
-        self.log(now_ms, AuditAction::LeaseClosing, Some(client), Some(app),
-            Some(model), Some(id.clone()), None, "reject new work; cancel and drain");
+        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::LeaseClosing, client: Some(client), app: Some(app), model: Some(model), lease: Some(id.clone()), request: None, detail: "reject new work; cancel and drain" });
         let ids: Vec<_> = self.jobs.iter().filter(|(_, job)| job.spec.lease == *id
             && !job.status.terminal()).map(|(id, _)| id.clone()).collect();
         for request in ids { self.cancel_internal(&request, now_ms); }
@@ -721,8 +705,7 @@ impl MockComputeHost {
             &scope.0 == client && &scope.1 == app
         }).map(|scope| (scope.0.clone(), scope.1.clone(), scope.2.clone())).collect();
         self.stopped_app_sessions.extend(old_scopes);
-        self.log(now_ms, AuditAction::Revoked, Some(client.clone()),
-            Some(app.clone()), None, None, None, "host revoked one application grant");
+        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::Revoked, client: Some(client.clone()), app: Some(app.clone()), model: None, lease: None, request: None, detail: "host revoked one application grant" });
     }
 
     /// Explicit host-owner command (Quit All TIHULU-Owned Services); not UI Quit.
@@ -730,8 +713,7 @@ impl MockComputeHost {
     pub fn begin_host_drain(&mut self, now_ms: u64) {
         if self.status != HostStatus::Accepting { return; }
         self.status = HostStatus::Draining;
-        self.log(now_ms, AuditAction::HostDraining, None, None, None, None, None,
-            "host-owner requested drain");
+        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::HostDraining, client: None, app: None, model: None, lease: None, request: None, detail: "host-owner requested drain" });
         let ids: Vec<_> = self.leases.keys().cloned().collect();
         for id in ids { self.close_internal(&id, now_ms); }
         self.finalize_closed(now_ms);
@@ -757,8 +739,7 @@ impl MockComputeHost {
             if let Some(job) = self.jobs.get_mut(&id) {
                 job.status = JobStatus::Cancelled;
             }
-            self.log(now_ms, AuditAction::ForceCancelled, None, None, None, None,
-                Some(id), "mock bounded drain: backend termination NOT proven");
+            self.log(AuditEvent { at_ms: now_ms, action: AuditAction::ForceCancelled, client: None, app: None, model: None, lease: None, request: Some(id), detail: "mock bounded drain: backend termination NOT proven" });
         }
         self.finalize_closed(now_ms);
     }
@@ -775,9 +756,7 @@ impl MockComputeHost {
             if let Some(lease) = self.leases.remove(&id) {
                 affected.insert(lease.model.clone());
                 self.emit_ledger_event(LedgerLeaseAction::Released, &id, &lease);
-                self.log(now_ms, AuditAction::LeaseClosed, Some(lease.client),
-                    Some(lease.app), Some(lease.model), Some(id), None,
-                    "lease ended; ledger event queued if coordinator-managed");
+                self.log(AuditEvent { at_ms: now_ms, action: AuditAction::LeaseClosed, client: Some(lease.client), app: Some(lease.app), model: Some(lease.model), lease: Some(id), request: None, detail: "lease ended; ledger event queued if coordinator-managed" });
             }
         }
         for model in affected {
@@ -794,8 +773,7 @@ impl MockComputeHost {
                     } else {
                         state.loaded_by_us = false;
                         state.unload_count += 1;
-                        self.log(now_ms, AuditAction::ModelUnloaded, None, None,
-                            Some(model), None, None, "standalone mock last-lease unload");
+                        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::ModelUnloaded, client: None, app: None, model: Some(model), lease: None, request: None, detail: "standalone mock last-lease unload" });
                     }
                 }
             }
@@ -813,7 +791,6 @@ impl MockComputeHost {
             return;
         }
         self.status = HostStatus::Drained;
-        self.log(now_ms, AuditAction::HostDrained, None, None, None, None, None,
-            "all mock lease and ledger cleanup acknowledgments completed");
+        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::HostDrained, client: None, app: None, model: None, lease: None, request: None, detail: "all mock lease and ledger cleanup acknowledgments completed" });
     }
 }
