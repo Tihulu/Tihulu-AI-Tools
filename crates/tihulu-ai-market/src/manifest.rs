@@ -180,6 +180,11 @@ impl ModelManifest {
             | (_, ModelStatus::Candidate | ModelStatus::Unknown | ModelStatus::Unverified) => {}
             _ => return Err("source and availability contradict each other".into()),
         }
+        if let License::Known { spdx } = &self.license {
+            if spdx.trim().is_empty() {
+                return Err("known license must have a nonempty SPDX identifier".into());
+            }
+        }
         for pair in &self.translation_pairs {
             if pair.from.trim().is_empty() || pair.to.trim().is_empty() {
                 return Err("translation pairs must have both language tags".into());
