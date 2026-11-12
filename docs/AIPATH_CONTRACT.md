@@ -28,21 +28,21 @@ These are **proposed keys**, not a final parser grammar. Model/task mappings sho
 
 On Raspberry Pi, the **same paired PC GPU host** can be selected for AI Tools' own Advisor/Agent and assigned to each independent TIHULU application's individual AI task.
 
-- \`remote_host_id\` in a local \`aipath.txt\` is a **non-secret reference**. Host address, device identity and secret credentials are resolved from an owner-approved local pairing registry; secrets stay in OS-managed secret storage.
+- `remote_host_id` in a local `aipath.txt` is a **non-secret reference**. Host address, device identity and secret credentials are resolved from an owner-approved local pairing registry; secrets stay in OS-managed secret storage.
 - The PC resolves a stable **host-owned model ID**, not a Raspberry Pi filesystem path.
-- Proposed per-task routing is \`auto\`, \`local-first\`, \`remote-first\` or \`remote-only\`; actual v2 key syntax remains under design.
+- Proposed per-task routing is `auto`, `local-first`, `remote-first` or `remote-only`; actual v2 key syntax remains under design.
 - GUI closure does **not** block apps from starting, and does not terminate an explicitly running dedicated host service. Without a host, unaffected non-AI features continue.
 - Remote model outputs do not authorize local agent actions. An independent Rust permission gate must enforce all app tools on the side where the action runs.
 
 Possible future manifest (illustrative only, **not** valid v1 parser syntax):
 
-\`\`\`ini
+```ini
 # v2 proposal — do not insert these keys in a production client yet
 task.llm.compute=remote-first
 task.llm.remote_host_id=paired-pc-01
 task.llm.model_id=host-owned-verified-llm
 task.speech.compute=local-first
-\`\`\`
+```
 
 ## Startup resolution contract
 
