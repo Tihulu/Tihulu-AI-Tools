@@ -883,6 +883,42 @@ fn cancelled_token_prevents_dispatch_and_prepares_no_foreign_work() {
 }
 
 #[test]
+fn renewing_user_consent_invalidates_old_one_shot_ticket() {
+    let (mut controller, server, mut lifecycle) = setup();
+    let owner = caller("client", "media", "session");
+    authorize(
+        &mut controller,
+        &mut lifecycle,
+        &owner,
+        ProviderKind::JanDesktop,
+        "ref-v1-jan",
+    );
+    let request = action(ProviderKind::JanDesktop, "ref-v1-jan", "jan:local", "job");
+    let old_ticket = approve(&mut controller, &lifecycle, &owner, &request);
+    controller
+        .approve_connection(
+            owner.clone(),
+            ProviderKind::JanDesktop,
+            true,
+            grant("ref-v1-jan"),
+            &lifecycle,
+        )
+        .unwrap();
+    assert_eq!(
+        controller.submit_mock(
+            &owner,
+            &request,
+            Some(old_ticket),
+            &mut lifecycle,
+            CancellationToken::default(),
+        ),
+        Err(ProviderError::InvalidApproval)
+    );
+    assert_eq!(server.active_count(), 0);
+    assert_eq!(server.state.lock().unwrap().dispatch_calls, 0);
+}
+
+#[test]
 fn no_discovery_permission_means_no_model_list_call_after_connection_grant() {
     let (mut controller, server, mut lifecycle) = setup();
     let owner = caller("client", "media", "session");
