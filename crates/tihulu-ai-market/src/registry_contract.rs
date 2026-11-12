@@ -76,6 +76,8 @@ pub enum RegistryOwner {
     JanDesktop,
     Ollama,
     HuggingFace,
+    /// Exact independent TIHULU application owner ID; never AI Tools or UserNamed.
+    TihuluApp(String),
     UserNamed(String),
     ExternalService(String),
 }
@@ -191,6 +193,9 @@ pub struct RegistryMatchDecision {
 fn owner_agrees(manifest: &ModelManifest, observed: &RegistryOwner) -> bool {
     match (&manifest.source, observed) {
         (ModelSource::Tihulu, RegistryOwner::AiTools) => true,
+        (ModelSource::TihuluApp { app_id }, RegistryOwner::TihuluApp(owner_id)) => {
+            app_id == owner_id
+        },
         (ModelSource::External { application }, RegistryOwner::JanDesktop) => {
             application.eq_ignore_ascii_case("Jan Desktop")
         }
@@ -309,6 +314,21 @@ pub fn match_registry_model(
             ModelStatus::Incompatible,
             "catalog source ownership contradicts the registry owner",
         );
+    }
+    // A discovered per-app model directory does not authorize another app
+    // to bind or load those independently owned files. Cross-app use needs
+    // a separate consent-scoped grant contract; none exists in this version.
+    if let RegistryOwner::TihuluApp(owner_app_id) = &registry.owner {
+        if request.application_task.application_id.as_str() != owner_app_id {
+            return reject(
+                request,
+                registry,
+                manifest,
+                MatchVerdict::Unknown,
+                ModelStatus::Unknown,
+                "independent app model requires explicit cross-app owner authorization",
+            );
+        }
     }
     if manifest.availability == ModelStatus::Downloadable {
         return reject(
