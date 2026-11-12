@@ -8,6 +8,7 @@
 
 pub mod bridge;
 pub mod lifecycle;
+pub mod providers;
 pub mod references;
 pub mod typed;
 pub mod wizard;
