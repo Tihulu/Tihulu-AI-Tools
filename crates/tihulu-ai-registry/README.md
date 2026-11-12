@@ -1,31 +1,34 @@
-# tihulu-ai-registry — experimental standalone Rust crate
+# tihulu-ai-registry — standalone experimental Rust crate
 
-This is an isolated **implementation prototype**, not a running model service.
-Use Rust 1.82+ and run:
+Phase 2: the coordinator's core ResourceLedger (Draft PR #12) is the
+**only runtime/model lease authority**. The old production LeaseRegistry
+and its competing unload decisions were removed.
 
+Rust 1.82+, no external dependencies. Verification commands:
+
+    cargo fmt --manifest-path crates/tihulu-ai-registry/Cargo.toml -- --check
     cargo test --manifest-path crates/tihulu-ai-registry/Cargo.toml
+    cargo clippy --manifest-path crates/tihulu-ai-registry/Cargo.toml --all-targets -- -D warnings
 
-The crate is deliberately not in the root workspace until the coordinator adds
-it to the root Cargo.toml. Remove the crate-local empty workspace section in
-that integration commit.
+This crate remains outside the root workspace. Only the coordinator may
+remove its local workspace marker and add it to the root.
 
 Modules:
-- discovery: explicitly approved, bounded, metadata-only Jan Desktop,
-  Hugging Face cache and custom-folder scans; caller-supplied authorized local
-  Jan/Ollama/OpenAI-compatible API model listings.
-- registry: reference-in-place model records; file hints, separate validation,
-  endpoint availability and verified-runtime states. Reference IDs are
-  noncryptographic and never represent verified content digests.
-- leases: task/app lease counts and exact-owner unload signals. It has no
-  runtime or process handles and never kills Jan, Ollama or other services.
+- discovery: consent-gated, bounded, metadata-only Jan/HF/custom-folder
+  discovery and caller-provided authorized local API model listings.
+- registry: reference-in-place records; typed ModelId retains source owner,
+  exact paths or endpoint identity. No filename hash is claimed as a digest.
+- leases: typed ModelRuntimeBinding and TaskLeaseReceipt. Operations delegate
+  to ResourceLedgerPort, with NO second production runtime count.
 
-No filesystem permissions are requested automatically, and scanning never
-opens weight payloads. Source directories, endpoint URLs and user-chosen owners
-must be provided by the consent UI. Tests create only disposable synthetic
-fixtures under the OS temporary directory.
+The initial ledger registration already holds ONE initial owner reference.
+Subsequent tasks each attach exactly once. Task completion calls the ledger's
+release_one, and app stop delegates to its stop_owner. All cleanup events
+are produced by the ledger and must be handled/acknowledged by authorized
+backend adapters.
 
-No local Rust toolchain was present in the initial authoring environment;
-tests should be executed with Rust 1.82+ by a reviewer or dedicated CI.
-Hardware/RAM/VRAM release, genuine API reachability, running Jan/Ollama,
-Hugging Face trust semantics and target runtime compatibility are **not**
-validated by synthetic tests. See docs/discovery/README.md.
+Synthetic MockResourceLedger exists ONLY in test code, not in production.
+The concrete ResourceLedgerPort implementation must be integrated against
+the real core ResourceLedger after Draft PR #12 is reconciled. Rust mock tests
+cannot demonstrate real GPU/NPU/SDR memory release or Jan/Ollama behavior.
+Read docs/discovery/LEDGER_HANDOFF.md for the detailed contract and blockers.
