@@ -1,4 +1,5 @@
 //! Side-effect-free model path conventions for independently installable TIHULU apps.
+//! Tracked in APP-PATH-01 (GitHub Issue #18).
 //!
 //! This module deliberately does not scan, move, delete, create, write or
 //! canonicalize files. In particular, a path-change plan is NOT permission
