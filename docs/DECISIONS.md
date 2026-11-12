@@ -1,6 +1,6 @@
 # Decision register and project gates
 
-**Baseline:** v0.7, 2026-11-12. This is a planning repository, not an implementation repository yet.
+**Baseline:** v0.9, 2026-11-12. This repo is in independent Rust foundation implementation on feature branches; production app integrations remain gated.
 
 ## Confirmed product requirements
 
@@ -72,3 +72,25 @@
 | G6 | Experimental assistants with scoped capabilities and approval audit |
 
 All work on this repository remains **planning-only** until explicitly promoted beyond G0. Any new choice should be added to this document and the [full plan](TIHULU_AI_TOOLS_PLAN.md), tagged **confirmed / proposed / experimental**.
+
+
+## v0.8 implementation authorization (2026-11-12)
+
+- **Confirmed:** The user authorizes independent Rust code implementation in `Tihulu/Tihulu-AI-Tools` now; other TIHULU app repositories stay unchanged until their separation/preservation audits and separate integration approval.
+- **Confirmed:** Native targets include macOS M-series ARM64; Debian/Ubuntu/Pop!_OS Linux x86-64 and ARM64; Windows x64/ARM64; Pi 5 ARM64 with/without AI HAT+ 2.
+- **Proposed:** Rust stdlib-only initial core and CLI; future Tauri 2 desktop and optional Rust Axum browser/host service subject to validation.
+- **Experimental/untested:** Hailo-10H runtime, local or paired GPU server, Jan MCP integration, all agent capabilities; no real model or device execution yet.
+- **Governance:** Six parallel branches and Draft PRs, path ownership, coordinator review; CI is code portability evidence, not physical GPU/NPU hardware acceptance.
+- **License:** No source license has been selected or granted by implication; repository owner must choose before distribution.
+
+
+## v0.9 Resource cleanup policy (confirmed requirement)
+
+- **Confirmed:** App Quit/Exit or Global Hard Stop must cancel all **app-owned** AI tasks and agents, unload model instances and RAM/VRAM contexts, terminate only tracked owned child workers after bounded grace, close app-owned network/SDR handles and avoid leftover app-owned background jobs.
+- **Confirmed:** Default **On-Demand**, **Background OFF**, **No model keep-warm**. Any explicitly independent GPU host is visibly opt-in and has separate service lifecycle; per-client leases are always released on client exit. Last model lease → unload model by default.
+- **Confirmed:** **Borrowed external services** (Jan, Ollama, prior readsb/tar1090, another app's model server) are never killed/unloaded by our Quit; external retention is not an AI Tools memory leak. Shared contexts survive while another authorized owner still uses them.
+- **Confirmed:** A global **Quit All TIHULU-Owned Services** may request orderly shutdown of TIHULU-owned host services and warn connected clients; it never kills other programs or pre-existing services.
+- **Proposed implementation:** Rust typed ownership IDs and leases, cancellation tokens, scoped process supervision, per-backend unload, heartbeat/TTL for remote orphan leases, logged idempotent cleanup, and app/host resource accounting.
+- **Must validate:** Linux x64/ARM64, macOS Apple Silicon, Windows x64/ARM64 CI mocks; physical Pi 5, Hailo AI HAT+ 2, RTX CUDA and SDR hardware release separately.
+
+See [RESOURCE_LIFECYCLE.md](RESOURCE_LIFECYCLE.md) and 16 regression cases. All workstream Issues #2–#7 are required to align with this policy.

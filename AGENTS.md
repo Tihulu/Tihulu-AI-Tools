@@ -1,10 +1,11 @@
 # Planning rules for AI assistants and contributors
 
 **Repository:** `Tihulu/Tihulu-AI-Tools`  
-**Current phase:** Planning only (Draft v0.4). This file is a workflow policy for contributions, not permission to implement software.
+**Current phase:** Independent AI Tools Rust foundation approved on 2026-11-12. **Only this repository** may gain implementation code in isolated feature branches; existing TIHULU application preservation work remains unchanged.
 
-## Allowed during this phase
+## Allowed on AI Tools implementation branches
 
+- Add reviewed Rust-first AI Tools source, unit tests and cross-platform CI on an authorized feature branch.
 - Update Markdown product requirements, decisions, diagrams, design tradeoffs and acceptance tests.
 - Improve the **non-functional** UI concept under `ui/` and document that all interaction is simulated.
 - Research possible architectures and compare compatibility, clearly separating verified facts from untested assumptions.
@@ -12,10 +13,10 @@
 
 ## Not allowed without a separate explicit user instruction
 
-- Implement/deploy Rust executables, servers, agents, auto-installers or background daemons.
+- Deploy or start Rust servers/agents/installers/background daemons on real devices, or claim hardware acceptance without tests.
 - Change any TIHULU application repository, Git branch, release, running service, model files or app settings.
 - Download or move models, edit Jan/Ollama stores, reconfigure hardware, open public service ports, or handle credentials.
-- Merge, migrate or run production integration work while the independent application audit/split is ongoing.
+- Merge to main, release or run production integration with other TIHULU apps while their audit/split is ongoing, unless separately authorized.
 - Describe a simulated UI control as a working real download, AI inference, GPU host or third-party application integration.
 
 ## Documentation expectations
@@ -30,4 +31,4 @@
 
 ## Next phase gate
 
-Implementation and integration proposals can be considered **after** the existing Media Center, Flight Radar, Satellite Center, RF Geolocation, Text Center and QA/history repo preservation/split work is complete and the user explicitly authorizes the next phase.
+**AI Tools-only development was explicitly authorized on 2026-11-12**, and may proceed on isolated branches with code, tests and Draft PRs. Integration into the existing Media Center, Flight Radar, Satellite Center, RF Geolocation, Text Center and Survival Kit repositories remains gated on preservation/split completion and explicit permission. See [docs/AGENT_WORKSTREAMS.md](docs/AGENT_WORKSTREAMS.md).

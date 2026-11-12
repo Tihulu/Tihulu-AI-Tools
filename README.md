@@ -1,10 +1,27 @@
 # TIHULU AI Tools
 
-**Status: Planning only — Draft v0.7 (12 November 2026)**
+**Status: Independent Rust foundation development — v0.9 work-in-progress (12 November 2026)**
 
-TIHULU AI Tools is a planned **Rust-first**, cross-platform AI model management and optional inference-hosting application. The current repository contains **product plans, contracts and interface mockups**, not a functioning installer, AI runtime, marketplace, server, or agent.
+TIHULU AI Tools is a planned **Rust-first**, cross-platform AI model management and optional inference-hosting application. The `main` branch retains product plans and non-functional UI mockups. On `feat/rust-foundation`, an early **Rust core and read-only CLI** are under development. No installer, AI runtime, marketplace backend, GPU server or agent has been implemented.
 
-> **Development gate:** Do not implement integrations or change existing TIHULU applications before the independent repository separation and preservation audits are complete. No automatic model moves, background inference, external API exposure, or installer changes are authorized by these planning documents.
+> **Development gate:** AI Tools-only Rust code and independent tests are now approved **on feature branches**. Existing TIHULU application repositories remain strictly out of scope until their independent preservation audits/repo split are completed. No automatic model moves, remote GPU host deployments, Jan configuration changes or installer modifications are authorized.
+
+## Rust development quick start (initial foundation branch)
+
+```bash
+cargo run -p tihulu-ai-cli -- profile
+cargo run -p tihulu-ai-cli -- scan "/path/to/user-approved/model/folder" --allow-read
+cargo test --workspace --all-targets
+```
+
+The scan intentionally requires an exact folder and `--allow-read`. It only inventories **candidate filenames and metadata**; models are **unverified** and no files, credentials, services or apps are modified. GPU/NPU are not detected by this first revision.
+
+This early workspace is being validated by multi-OS GitHub Actions on Linux x86-64/aarch64, macOS Apple Silicon, and Windows x64/ARM64. Those runners do **not** establish Raspberry Pi 5, AI HAT+ 2 or RTX CUDA hardware acceptance. The authoring environment has no installed Rust toolchain, so local tests are not yet claimed.
+
+- [Implementation phase, platform/test matrix](docs/IMPLEMENTATION_START.md)
+- [Six parallel agent responsibilities](docs/AGENT_WORKSTREAMS.md)
+- [Rust core source](crates/tihulu-ai-core/src/lib.rs)
+- [Read-only CLI](apps/tihulu-ai-cli/src/main.rs)
 
 ## Start here
 
@@ -63,12 +80,21 @@ The **Model Market** and **TIHULU Apps** screens will explain which pre-installe
 - [Jan Setup Wizard product/design guide](docs/JAN_SETUP_WIZARD.md)
 - [Existing optional Jan MCP and plugin architecture](docs/JAN_INTEGRATION.md)
 
-## Planning workflow
+## v0.9: Clean exit, RAM/VRAM and SDR ownership
+
+**Confirmed requirement:** Quit/Hard Stop must cancel **app-owned** AI jobs, unload its model RAM/VRAM allocations, stop its own inference workers, and release its SDR/USB/network handles. Borrowed Jan/Ollama/readsb/tar1090 or another app's shared inference process must stay alive. A separate intentionally enabled GPU host may continue serving other clients after a GUI closes; last-client model lease is unloaded by default. No hidden default background workers.
+
+- [Resource ownership and complete shutdown contract](docs/RESOURCE_LIFECYCLE.md)
+- [Six-agent cleanup tasks](docs/AGENT_WORKSTREAMS.md)
+
+This is a **required implementation behavior**, not yet hardware-verified.
+
+## Planning and engineering workflow
 
 1. Record every approved decision in the Markdown plan / decision log.
 2. Keep architecture diagrams, UI examples and acceptance tests aligned with the plan.
 3. Distinguish **confirmed requirements**, **proposals** and **experimental concepts**.
-4. Make **documentation-only** changes while the six-application preservation/split work is ongoing.
-5. After that work is completed, design scoped integration requests per app; only then consider implementation.
+4. Develop **only the independent TIHULU AI Tools repo** in isolated branches; other TIHULU app integrations remain blocked.
+5. When existing app preservation work completes, design and review app-specific integration requests; do not bypass independent app approval.
 
 This repository is the intended source of truth for TIHULU AI Tools planning going forward.

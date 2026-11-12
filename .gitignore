@@ -1,0 +1,19 @@
+# Rust build outputs
+/target/
+**/target/
+# Local model files must never be committed
+/models/
+/Models/
+**/*.gguf
+**/*.safetensors
+**/*.hef
+**/*.onnx
+**/ggml-*.bin
+# Local credentials and workstation files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+Thumbs.db
