@@ -2,7 +2,7 @@
 
 ## Evidence boundary
 
-The branch contains dependency-free Rust typed protocol contracts, an offline in-memory host and an in-memory request/response transport, plus synthetic regression tests. **No GPU host daemon, HTTPS listener, TLS cryptography, staging service, CUDA/NPU inference, model deletion or filesystem access is started.**
+The branch contains dependency-free Rust typed protocol contracts, an offline in-memory host and an in-memory request/response transport, plus synthetic regression tests (including Phase 2 single-authority handoff fixtures). **No GPU host daemon, HTTPS listener, TLS cryptography, staging service, CUDA/NPU inference, model deletion or filesystem access is started.**
 
 Run from repository root with Rust >= 1.82:
 
@@ -13,6 +13,14 @@ cargo clippy --manifest-path crates/tihulu-ai-transport/Cargo.toml --all-targets
 ```
 
 The current authoring environment lacks `cargo`/`rustc` and the root workspace intentionally excludes this agent crate. **These tests were authored but cannot be reported as executed locally.** An automated CI check directly invoking this standalone manifest is a coordinator review step; do not confuse existing root-workspace CI green status with Agent 04 crate test success.
+
+## Phase 2 evidence
+
+**26 test functions are currently authored** in `crates/tihulu-ai-transport/tests/mock_lifecycle.rs` (15 baseline plus 11 Phase 2 additions), as counted from the committed source; this is a source inspection only, NOT an executed pass result.
+
+Phase 2 scenarios include: two distinct Pi/app devices sharing an owned PC model, coordinator ledger-owned last-lease cleanup acknowledgement and failure/retry, ordered replay-safe release events, wrong resource/generation ACK denial, app-launch/task scoped cancellation, one Pi link outage without disrupting another, request retry and lease ID tombstones, TTL expiry and borrowed Jan runtime preservation, authority mapping conflicts, grant downgrade, drained host confirmation only after ledger ACK, and new numeric ResourceId/runtime generation after final release.
+
+The `LedgerFixture` is intentionally **test-only**, not the code from coordinator Draft PR #12. `tihulu-ai-core` remains coordinator-owned and unmerged on the Phase 2 target; no dependency or actual cross-crate integration test exists yet. A future CI job must compile/run this standalone crate, link the reviewed core/Registry contracts, and record results.
 
 ## Regression coverage (synthetic)
 
