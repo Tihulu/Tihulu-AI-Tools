@@ -24,6 +24,9 @@ pub enum Error {
     ShuttingDown,
     StagingNotVerified,
     RecordCapacityReached,
+    LedgerBindingRequired,
+    LedgerCleanupPending,
+    LedgerAckRejected,
 }
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -63,7 +66,14 @@ macro_rules! opaque_id {
 opaque_id!(HostId);
 opaque_id!(ClientId);
 opaque_id!(AppId);
+/// A particular launch of an installed TIHULU application, not the app name.
+opaque_id!(AppSessionId);
+/// A specific Advisor/Agent/app task session, not the TaskKind modality.
+opaque_id!(TaskId);
+/// A Registry ModelRecord.id reference, NOT a filesystem path or content digest.
 opaque_id!(ModelId);
+/// A loaded runtime instance on one host; distinct from Registry model identity.
+opaque_id!(RuntimeId);
 opaque_id!(LeaseId);
 opaque_id!(RequestId);
 
@@ -98,6 +108,10 @@ pub struct PeerEvidence {
     pub host: HostId,
     pub client: ClientId,
     pub app: AppId,
+    /// Server-attested application launch; never inferred from app display name.
+    pub app_session: AppSessionId,
+    /// Server-attested task session. Multiple tasks of one app are isolated.
+    pub task: TaskId,
     pub app_authentication: AppAuthentication,
     pub client_cert_sha256: String,
     pub server_cert_sha256: String,
@@ -190,6 +204,7 @@ impl AppGrant {
 pub struct RequestSpec {
     pub id: RequestId,
     pub lease: LeaseId,
+    /// Workload modality; task session identity is bound to the lease/peer.
     pub task: TaskKind,
     pub payload_bytes: u64,
 }
@@ -254,4 +269,53 @@ pub struct AuditEvent {
     pub request: Option<RequestId>,
     /// Never contains model paths, TLS credentials, task payloads or outputs.
     pub detail: &'static str,
+}
+
+
+/// Numeric IDs are allocated by the coordinator, not parsed from remote text.
+/// These are the local bridge equivalents of core OwnerId(u64)/ResourceId(u64).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct LedgerOwnerId(pub u64);
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct LedgerResourceId(pub u64);
+
+/// Explicit runtime-instance → Registry model → coordinator ResourceLedger map.
+/// The registry is reference-only; it never makes an independent unload decision.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LedgerRuntimeBinding {
+    pub model: ModelId,
+    pub runtime: RuntimeId,
+    pub resource: LedgerResourceId,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LifecycleAuthority {
+    /// Local stand-alone mock only; synthetic unload happens in host bookkeeping.
+    MockLocal,
+    /// Real integration: send reference events and accept a verified ledger cleanup ack.
+    /// This crate NEVER decides to unload an owned model independently in this mode.
+    CoordinatorLedger,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LedgerLeaseAction {
+    Acquired,
+    Released,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LedgerLeaseEvent {
+    /// Stable, monotonic per-host event number; adapter must persist dedup on retries.
+    pub sequence: u64,
+    pub action: LedgerLeaseAction,
+    pub host: HostId,
+    pub client: ClientId,
+    pub app: AppId,
+    pub app_session: AppSessionId,
+    pub task: TaskId,
+    pub model: ModelId,
+    pub runtime: RuntimeId,
+    pub owner: LedgerOwnerId,
+    pub resource: LedgerResourceId,
+    pub lease: LeaseId,
 }
