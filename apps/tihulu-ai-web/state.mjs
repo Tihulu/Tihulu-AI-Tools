@@ -37,6 +37,8 @@ export function createDemoState() {
     background: false,
     keepWarm: false,
     model: { advisor: "sample-local", agent: "sample-local" },
+    appModel: {},
+    appHost: {},
     compute: { advisor: "local", agent: "local" },
     chat: { advisor: [], agent: [] },
     janStep: -1,
