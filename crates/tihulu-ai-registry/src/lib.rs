@@ -14,8 +14,8 @@ pub mod registry;
 
 pub use consent_discovery::{
     discover_approved_models, ApprovedModelScope, ConsentDecision, DiscoveredModel,
-    DiscoveryBounds, DiscoveryError, DiscoveryInventory, DiscoveryReadOnlyPort,
-    DiscoveryWarning, DiscoveryWarningKind, FileEvidence, ModelSource,
+    DiscoveryBounds, DiscoveryError, DiscoveryInventory, DiscoveryReadOnlyPort, DiscoveryWarning,
+    DiscoveryWarningKind, FileEvidence, ModelSource,
 };
 pub use discovery::{
     observe_local_endpoint, scan_approved_source, DirectorySource, EndpointAdapter,
