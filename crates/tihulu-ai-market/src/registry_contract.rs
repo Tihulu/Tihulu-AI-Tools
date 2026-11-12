@@ -82,7 +82,9 @@ pub enum RegistryOwner {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegistryPresence {
     /// File metadata was discovered in user-approved scope. Just a format HINT.
-    FileObserved { format_hint: ModelFormat },
+    FileObserved {
+        format_hint: ModelFormat,
+    },
     /// A permitted client listed this model; this is not an inference test.
     EndpointListed,
     /// An endpoint was configured but has not been observed responding.
@@ -105,7 +107,9 @@ pub enum RegistryRuntimeEvidence {
         host_id: HostId,
         evidence_id: String,
     },
-    Incompatible { reason: String },
+    Incompatible {
+        reason: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -209,7 +213,10 @@ fn decision(
     compatibility: MatchResult,
 ) -> RegistryMatchDecision {
     let can_propose_assignment = compatibility.verdict == MatchVerdict::Recommended
-        && matches!(manifest.availability, ModelStatus::Installed | ModelStatus::External);
+        && matches!(
+            manifest.availability,
+            ModelStatus::Installed | ModelStatus::External
+        );
     RegistryMatchDecision {
         catalog_model_id: request.catalog_model_id.clone(),
         registry_model_id: request.registry_model_id.clone(),
@@ -450,7 +457,9 @@ pub fn match_registry_model(
     if result.verdict == MatchVerdict::Candidate
         && (!artifact_verified || matches!(&registry.runtime, RegistryRuntimeEvidence::Unchecked))
     {
-        result.reasons.push("Registry validation or target runtime evidence is incomplete".into());
+        result
+            .reasons
+            .push("Registry validation or target runtime evidence is incomplete".into());
     }
     decision(request, registry, manifest, result)
 }
