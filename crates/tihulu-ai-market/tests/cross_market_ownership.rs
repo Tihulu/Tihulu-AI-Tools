@@ -6,7 +6,8 @@ use std::path::PathBuf;
 use tihulu_ai_market::{
     inspect_registered_model, ApplicationId, ApplicationTask, HardwareTarget, HostId,
     InventoryCompatibilityReport, InventoryInspection, MatchVerdict, ModelArchitecture,
-    ModelManifest, ModelSource, ModelStatus, Modality, RegistryModelId, Runtime, RuntimeTarget,
+    ModelManifest, ModelSource, ModelStatus, Modality, RegistryModelId, RegistryOwner, Runtime,
+    RuntimeTarget,
     TaskKind, TaskRequest, TrustedHardwareProbe,
 };
 use tihulu_ai_registry::registry::{
@@ -111,6 +112,7 @@ fn tihulu_application_model_stays_external_and_discovered_is_not_runnable() {
     let observed = record(owner.clone(), SourceAdapter::TihuluAppDirectory, false);
     let result = report(&model, &observed, OWNER_APP);
     assert_eq!(result.readiness.catalog_status, ModelStatus::External);
+    assert_eq!(result.source_owner, RegistryOwner::TihuluApp(OWNER_APP.into()));
     assert!(result.readiness.discovered);
     assert!(!result.readiness.artifact_verified);
     assert!(!result.readiness.target_runtime_verified);
