@@ -20,14 +20,19 @@ Build the native Tauri demo. Under private Xvfb, Openbox, D-Bus and HOME/XDG,
 the probe calls the **real** global Tauri bridge's two unchanged read-only
 commands, then strictly validates every field in both returned DTOs. Any
 unexpected value, missing command, fake hardware or cleanup claim yields FAIL.
-When both calls succeed, the JS probe updates `document.title` with a
-test-only PASS marker. An external X11 observer requires that marker on the
-visible native process window and a clean native close; otherwise HOLD.
+When both calls succeed, the ephemeral JS probe renders an opaque green
+full-window overlay; a missing/invalid response renders red. A private Xvfb
+observer uses ImageMagick to sample ONE center pixel of this native process
+window: green is a *limited visual receipt* of validated read-only native IPC,
+red FAIL, anything else HOLD. No screenshot is persisted and no owner display
+is accessed. Normal native Quit must also succeed.
 
-Native window title propagation may vary by WebKitGTK/Tauri version. A failure
-is a genuine HOLD on this *observation method*, not proof that IPC is broken.
-Do not bypass a failed probe, mock a real result or change native capabilities
-to force a green CI.
+The initial title-only experiment did not observe a PASS because Tauri's native
+window title is not guaranteed to follow WebView `document.title`. The
+visual approach does NOT add native permissions or substitute mocked Rust
+responses. It is still an instrumented frontend smoke test, not unforgeable
+attestation or independent model/hardware acceptance. Do not bypass failed
+checks or change native capabilities to force green CI.
 
 ## Decision matrix
 
