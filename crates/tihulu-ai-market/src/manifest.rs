@@ -22,7 +22,13 @@ pub enum ModelStatus {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ModelSource {
     Tihulu,
-    External { application: String },
+    External {
+        application: String,
+    },
+    /// An independently owned TIHULU application model store (not AI Tools).
+    TihuluApp {
+        app_id: String,
+    },
     Market,
 }
 
@@ -37,7 +43,24 @@ pub enum ModelFormat {
     HailoHef,
     Endpoint,
     Safetensors,
+    Tflite,
     Unknown,
+}
+
+/// Catalog-declared neural architecture family, never inferred from a suffix.
+/// Unknown is the safe default for existing v1 manifests and endpoints.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModelArchitecture {
+    #[default]
+    Unknown,
+    DecoderOnlyTransformer,
+    EncoderDecoderTransformer,
+    EmbeddingEncoder,
+    Whisper,
+    VisionEncoder,
+    HailoCompiled,
+    ServedEndpoint,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -133,6 +156,9 @@ pub struct ModelManifest {
     /// Inventory/market state; final compatibility state is computed separately.
     pub availability: ModelStatus,
     pub format: ModelFormat,
+    /// A versioned catalog claim; only trusted artifact validation may verify it.
+    #[serde(default)]
+    pub architecture: ModelArchitecture,
     pub runtimes: Vec<Runtime>,
     pub hardware_targets: Vec<HardwareTarget>,
     pub tasks: Vec<TaskKind>,
@@ -189,12 +215,36 @@ impl ModelManifest {
         {
             return Err("manifest contains too many capabilities or evidence entries".into());
         }
+        if (self.architecture == ModelArchitecture::HailoCompiled
+            && self.format != ModelFormat::HailoHef)
+            || (self.architecture == ModelArchitecture::ServedEndpoint
+                && self.format != ModelFormat::Endpoint)
+        {
+            return Err("model architecture contradicts the declared artifact format".into());
+        }
         if matches!(self.availability, ModelStatus::Incompatible) {
             return Err("incompatible is a computed matching result, not inventory".into());
+        }
+        // Registry's independently-owned app IDs are lowercase slug identities,
+        // not display names, user labels or arbitrary paths. Validate even
+        // candidate/unknown statuses so malformed identity cannot be laundered.
+        if let ModelSource::TihuluApp { app_id } = &self.source {
+            if app_id.len() > 64
+                || !app_id
+                    .bytes()
+                    .next()
+                    .is_some_and(|first| first.is_ascii_lowercase())
+                || !app_id
+                    .bytes()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
+            {
+                return Err("invalid independent TIHULU application owner ID".into());
+            }
         }
         match (&self.source, self.availability) {
             (ModelSource::External { application }, ModelStatus::External)
                 if !application.trim().is_empty() => {}
+            (ModelSource::TihuluApp { .. }, ModelStatus::External) => {}
             (ModelSource::Tihulu, ModelStatus::Installed)
             | (ModelSource::Market, ModelStatus::Downloadable)
             | (_, ModelStatus::Candidate | ModelStatus::Unknown | ModelStatus::Unverified) => {}
@@ -252,6 +302,7 @@ mod tests {
             },
             availability: ModelStatus::Installed,
             format: ModelFormat::Gguf,
+            architecture: ModelArchitecture::Unknown,
             runtimes: vec![Runtime::LlamaCpp],
             hardware_targets: vec![HardwareTarget::Cpu],
             tasks: vec![TaskKind::Chat],

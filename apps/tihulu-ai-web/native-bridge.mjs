@@ -81,7 +81,10 @@ const isNativeModuleStatus = (value) => {
     value.linked_modules.length === NATIVE_MODULES.length &&
     NATIVE_MODULES.every((name, index) => value.linked_modules[index] === name) &&
     value.modules_compiled === true &&
-    Number.isSafeInteger(value.registry_records) && value.registry_records >= 0 &&
+    // Phase 4 initializes an EMPTY in-memory Registry and has no approved
+    // source scans or registration path. Even one "record" contradicts this
+    // exact contract; a future consent-scoped schema needs a separate validator.
+    Number.isSafeInteger(value.registry_records) && value.registry_records === 0 &&
     value.gui_owner_registered === false &&
     value.approved_source_scans === 0 &&
     value.backend_verified === false &&

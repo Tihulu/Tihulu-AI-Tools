@@ -1,0 +1,17 @@
+[package]
+name = "tihulu-ai-phase5-independent-qa"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+publish = false
+description = "Independent read-only mock safety acceptance tests"
+
+# Isolated QA workspace: no edits to coordinator Cargo.toml.
+[workspace]
+resolver = "2"
+
+[dependencies]
+tihulu-ai-core = { path = "../../crates/tihulu-ai-core" }
+tihulu-ai-registry = { path = "../../crates/tihulu-ai-registry" }
+tihulu-ai-transport = { path = "../../crates/tihulu-ai-transport" }
+tihulu-ai-integrations = { path = "../../crates/tihulu-ai-integrations" }
