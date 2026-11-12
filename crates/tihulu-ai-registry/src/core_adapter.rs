@@ -207,4 +207,50 @@ mod tests {
             Some(LifecycleError::OwnerNotRunning)
         );
     }
+    #[test]
+    fn concurrent_attach_and_stop_have_single_core_cleanup_authority() {
+        use std::sync::{Arc, Barrier, Mutex};
+        use std::thread;
+
+        let mut core = ResourceLedger::new();
+        core.open_owner(OwnerId(71)).unwrap();
+        core.open_owner(OwnerId(72)).unwrap();
+        let binding = model(940, ModelOwner::JanDesktop, ContextAuthority::ManagedShared);
+        register_initial_task(&mut core, &binding, LedgerOwnerRef(71), task("first", "main"))
+            .unwrap();
+
+        let shared = Arc::new(Mutex::new(core));
+        let gate = Arc::new(Barrier::new(3));
+        let attaching_ledger = Arc::clone(&shared);
+        let attaching_gate = Arc::clone(&gate);
+        let attaching_model = binding.clone();
+        let attach_thread = thread::spawn(move || {
+            attaching_gate.wait();
+            let mut ledger = attaching_ledger.lock().unwrap();
+            attach_task(
+                &mut *ledger,
+                &attaching_model,
+                LedgerOwnerRef(72),
+                task("second", "racing"),
+            )
+        });
+        let stopping_ledger = Arc::clone(&shared);
+        let stopping_gate = Arc::clone(&gate);
+        let stop_thread = thread::spawn(move || {
+            stopping_gate.wait();
+            let mut ledger = stopping_ledger.lock().unwrap();
+            stop_app(&mut *ledger, LedgerOwnerRef(72))
+        });
+        gate.wait();
+        let attached = attach_thread.join().unwrap();
+        assert!(attached.is_ok() || attached.err() == Some(LifecycleError::OwnerNotRunning));
+        assert!(stop_thread.join().unwrap().unwrap().is_empty());
+
+        let mut ledger = shared.lock().unwrap();
+        assert_eq!(ledger.active_lease_count(ResourceId(940)), Some(1));
+        assert_eq!(stop_app(&mut *ledger, LedgerOwnerRef(71)).unwrap().len(), 1);
+        assert!(stop_app(&mut *ledger, LedgerOwnerRef(71)).unwrap().is_empty());
+        assert_eq!(ledger.pending_cleanup_count(), 1);
+    }
+
 }
