@@ -2,7 +2,7 @@
 
 > **GitHub migration note (2026-11-12):** The original v0.4 planning text is preserved in this repository. Its legacy downloadable ZIP also contained standalone PNG/SVG/DOT files; those binary assets have not been migrated. References below point to [GitHub-native, editable Mermaid diagrams](ARCHITECTURE.md) or the [interactive HTML mockup](../ui/index.html) instead. These represent design concepts, not tested software.
 
-> **Status:** DRAFT v0.4 — requirements captured; technical choices still subject to review  
+> **Status:** DRAFT v0.5 — requirements captured; technical choices still subject to review  
 > **Date:** 2026-11-12  
 > **Language:** Technical documentation in English; planned product UI in English, Turkish, and German  
 > **Change policy:** Planning only. **No existing applications, branches, repositories, installers, or models are modified.**  
@@ -841,3 +841,114 @@ The GUI/web mock now has **eleven** areas: Overview, Model Market, My Models, TI
 | **v0.4 / 2026-11-12** | Home-visible `TIHULU AI Tools/Models` default, OS-native config, Jan/LM Studio/Ollama/HF discovery, no-duplicate linking, safe model move wizard and paths, experimental in-app LLM Advisor, token-backed provider option, experimental app-control Agent with policy-gated tools and optional Internet, Rust-first modules, 11-section UI mock and new architecture diagram | **New scope captured from user.** Security policies, implementation details, provider-specific migration and test evidence remain proposals; no implementation or existing app changes. |
 
 **Planning-only guard:** v0.4 contains **specifications and a simulated HTML concept**, not functional Rust binaries, AI services, inference, model imports, credential storage or controlled applications. Existing six-repo migration/audit must complete before integration requests and source changes.
+
+---
+
+## 35. v0.5 approved requirement — AI Tools itself consumes a paired GPU host
+
+**Confirmed by user (2026-11-12):** TIHULU AI Tools will run on both desktop Linux x86-64 and Raspberry Pi 5 ARM64 (including optional AI HAT+ 2). The Pi installation may pair with the PC installation and use its GPU for **AI Tools' own AI features**, not merely for unrelated TIHULU applications. The same paired host can be advertised and assigned to independently installed TIHULU applications. Rust remains the required control-plane language. **Design only; none of this is currently deployed.**
+
+### 35.1 Symmetric installation, asymmetric device roles
+
+- Each device may install one independent TIHULU AI Tools instance, its own model registry and optional **Rust host/agent service**.
+- A device can be a **client**, a **model host**, or both, depending on installed and verified runtimes. A Raspberry Pi is fully able to send inference requests to a PC even if it cannot locally run the requested model.
+- **Pi → PC:** A Pi web/desktop session chooses a paired PC GPU. The Pi's AI Advisor, App Control Agent, model recommendations and compatible model-powered AI operations request inference on the PC; results appear in the Pi UI.
+- **PC → Pi (optional):** A PC may select a compatible Pi CPU or Hailo model host when the runtime really supports that artifact. This is not a promise of symmetric performance or CUDA/Hailo interchangeability.
+- **Phone browser:** acts as an authenticated client/controller. Native phone GPU hosting is separate, experimental work; a web page alone is not a compute host.
+- An AI Tools GUI is never required to remain open for **other applications** to run. A dedicated remote compute host service *must* be reachable while it provides remote inference, whether manually started or explicitly configured as a service. On-demand and background OFF remain the default.
+- A single paired host may serve multiple independent clients subject to permissions, runtime availability, memory/VRAM budgeting, queueing and per-client limits.
+
+### 35.2 Feature-level routing of AI Tools' own AI
+
+The PI-installed AI Tools application must offer one compute-selector per feature, backed by a Rust routing policy rather than duplicating provider logic in the UI:
+
+| Feature | Allowed target examples | Fallback/behaviour |
+| --- | --- | --- |
+| **AI Advisor chat** | Local verified CPU/NPU model, existing local Jan/Ollama server, paired PC GPU inference, user-approved token-backed provider | Explicit availability/error; no unannounced remote transfer |
+| **App Control Agent chat** | Same model targets, but tool-execution permission and selected application remain **local, explicit and separate** from the remote LLM | Remote LLM only proposes instructions/structured tool requests; Rust policy engine enforces permissions on the client host |
+| **Model Market recommendations** | Local hardware evaluator; optional LLM explanation via paired GPU host | Catalog browsing/hardware checks must still work if paired GPU offline |
+| **Model validation/benchmarks (when implemented)** | Target host's actual runtime, if user chooses; report execution location and real results | No fabricated compatibility or performance |
+| **External/TIHULU app AI tasks** | App-owned local runtime or selected authorized host | App functions remain independently available when AI Tools is absent |
+
+The UI must display a per-task origin label such as **Running on Raspberry Pi CPU**, **Running on PC RTX 5080**, **Awaiting remote host**, or **No compatible runtime**. A local agent conversation must not misrepresent a remote LLM call as local execution.
+
+### 35.3 Shared host assignment for TIHULU applications
+
+On the Pi AI Tools UI, the user can select an already paired PC host and assign it to **Media Center, Text Center, Satellite Center, Flight Radar, RF Geolocation, Survival Kit**, or an authorized external client. All assignments must be **per app and per AI task**, with optional local-first / remote-first / explicit remote-only preference and a safe legacy fallback. The manager should generate/preview updates to the relevant approved application mapping (including proposed \`aipath.txt\`) **only after explicit approval and verified adapter support**.
+
+- No app files are rewritten just by pairing devices or opening AI Tools.
+- Each app resolves non-secret \`remote_host_id\` through a local paired-host registry, and authenticates with locally stored credentials. Never embed host credentials in \`aipath.txt\`.
+- The Pi app contacts the host's secure inference endpoint using the assigned model/task ID. The PC host resolves that ID against its **own** model registry; filesystem paths from Pi are not blindly interpreted on PC.
+- App-local configuration persists if the AI Tools GUI is closed. If the host is unreachable, the app must use an allowed compatible fallback or clearly mark *only that AI task* unavailable without blocking the app.
+- User can inspect per-client host usage, VRAM/queue pressure, access grants and revoke an individual app without unpairing all others.
+
+### 35.4 Proposed protocol: TIHULU Remote Compute (TRC), version 1
+
+**Proposed, not finalized:** a narrow Rust-owned control plane over authenticated HTTPS (local Ethernet/LAN or trusted VPN), with optional OpenAI-compatible inference adapters and streamed results. The choice of certificate/bootstrap method, pairing details and API schema remains for G2 architecture review. No raw unauthenticated GPU RPC exposed publicly.
+
+Suggested **logical** resources (not deployed URLs):
+
+\`\`\`text
+/.well-known/tihulu-ai-tools     # Host discovery metadata, no secret data
+/v1/hosts/capabilities           # Authenticated verified runtimes and compatible tasks
+/v1/hosts/models                 # Scoped model IDs available on this host
+/v1/inference/{task_type}        # Task request: model_id, app_id, timeout, request ID
+/v1/jobs/{request_id}            # Job state / cancellation for authorized owner
+/v1/clients/permissions          # Grants, quotas and revocation under owner control
+\`\`\`
+
+- A **request** identifies a task and registered model ID, not a remotely supplied executable command, arbitrary URL or remote filesystem path.
+- Prefer task-specific inference protocols for ASR/translation/LLM; an OpenAI-compatible subset is useful for chat but is not a universal interface for every model.
+- Host-side Rust schedules authorized requests among verified runtime adapters; heavy inference can be done by validated external runtimes, not reimplemented in Rust.
+- Pairing uses owner approval, device identity, encrypted transport, revocable per-app grants, rate limits, job cancellation and audit logs. Enforce on server, not only in the web page.
+- Sensitive radio audio, television captions, documents and prompts can leave the Pi when remote compute is selected; show a clear privacy warning and require permission for data transfer.
+- **Model location A:** weights already on PC, the Pi sends input only. **Location B:** weights on Pi, compatible model transfer/staging must be separately requested, validated and approved before PC can run it.
+- PC hosts running Windows or Linux, and Pi hosts running ARM64, should use the same **logical protocol**, even if available runtimes differ.
+- Network outage, host crash, protocol mismatch and partial output must be handled predictably; no automatic cloud fallback or hidden model installation.
+
+### 35.5 Rust component responsibilities (proposed)
+
+| Rust component | Responsibility |
+| --- | --- |
+| \`tihulu-ai-core\` | Local model registry, hardware discovery and task/runtime compatibility |
+| \`tihulu-ai-router\` | Resolve local vs paired host per feature/app, model IDs, failover |
+| \`tihulu-ai-host\` | Opt-in authenticated API, scheduling, streaming and concurrency limits |
+| \`tihulu-ai-client\` | Paired-host discovery, identity, secure request and cancellation |
+| \`tihulu-ai-policy\` | App capability scopes, per-tool agent approvals, secret references and audit |
+| UI (Tauri / responsive browser) | Conversation timelines, model/host selectors, visible task routing |
+
+These are **planning names**, not existing crates or files.
+
+## 36. v0.5 approved UX — conversational AI Advisor and App Control Agent
+
+Both experimental AI features should look and behave like **chat screens** rather than one-shot form wizards. They remain separate tabs, with clear role-specific safeguards.
+
+### 36.1 Common chat features
+
+- Prominent message timeline with user/assistant bubbles, timestamps when real runtime exists, task progress, and explicit **Demo response / No model called** labeling in previews.
+- Input composer at bottom, optional suggested prompts, conversation reset/history (privacy scoped), distinct model/provider chooser, and **Compute on: Auto / This Device / Paired PC GPU**.
+- Show active model, actual inference host, connectivity and queued/running/completed/cancelled state; do not claim success before tool results.
+- Responsive layout suitable for Raspberry Pi local web interface, desktop and phone browser. Full EN/TR/DE UI remains a product requirement.
+- Both chats may use local model/Jan/Ollama, paired PC GPU, or approved token-backed provider, but remote provider secrets stay in OS vault and default Internet access is OFF.
+- The model market may recommend and install (with approval) a suitable local or PC-hosted model. No download is automatic.
+
+### 36.2 AI Advisor (explain and guide)
+
+Conversation clarifies target app, AI task, installed model, runtime, preferred host, and required permissions, then drafts an integration plan and path/API mapping for user review. **No app or file modifications** from chat suggestions alone.
+
+### 36.3 App Control Agent (plan and request authorized actions)
+
+Conversation can inspect approved app metadata through supported tools, propose concrete operations, and request **separate approvals** for write/network/execute actions. A remote LLM **never** directly receives credentials, device-level GPU controls or unrestricted file access on the Pi/PC. The Rust client/server permission boundaries survive model/provider changes. STOP cancels permitted jobs; audit log and previews show what was proposed vs done. Code changes require branch selection, diff/test and user review.
+
+## 37. v0.5 acceptance criteria and change ledger (planning, untested)
+
+1. On Pi with no compatible local LLM, Advisor/Agent can select a paired PC GPU model **without needing duplicate model weights on Pi**; remote status is visible.
+2. When Pi's manager assigns that host to Survival Kit's LLM task, an adapter-ready Survival Kit reads the approved non-secret mapping and calls the paired endpoint without opening AI Tools GUI.
+3. Closing the AI Tools UI does **not** interrupt an explicitly enabled independent host service; when the service is deliberately stopped, remote-dependent AI requests fail clearly while local non-AI app features continue.
+4. User can deny network access and remote transfer independently for each AI chat and client app.
+5. Both AI tabs show a multiline chat timeline and composer, host/model/connection status, demo-labelled responses in UI preview, and task-specific safety/permission prompts.
+6. Direct Ethernet and LAN transport support identical logical service contracts after explicit pairing; no assumed zero-copy GPU sharing.
+7. Route \`local-first\`, \`remote-first\` and \`remote-only\` preferences do not bypass compatibility checks or silently choose cloud providers.
+8. All UI demo actions remain local simulation; no remote GPU, app adapter, network access, file modification or model download takes place in the planning phase.
+
+**Ledger v0.5:** Approved requirement: GPU host can accelerate **AI Tools' own** assistants and be assigned to TIHULU apps; approve chat-style Advisor and Agent UI. Still proposed: API schema, backend choices, discovery, scheduling and service packaging. All other v0.4 requirements remain in force, GitHub documentation only.
