@@ -532,3 +532,93 @@ fn phase2_host_drain_not_reported_complete_before_ledger_ack() {
     assert_eq!(host.total_owned_vram_mib(), 0);
     assert_eq!(host.status(), HostStatus::Drained);
 }
+
+
+#[test]
+fn phase2_one_pi_disconnect_does_not_block_another_pi_transport() {
+    let mut transport = MockTransport::new(setup());
+    let pi = evidence("pi", "advisor");
+    let second = evidence("pi-2", "text");
+    transport.exchange(&pi, WireCommand::OpenLease {
+        lease: lease("pi-a"), model: model("llm"),
+    }, 0).unwrap();
+    transport.exchange(&second, WireCommand::OpenLease {
+        lease: lease("pi-b"), model: model("llm"),
+    }, 0).unwrap();
+    transport.set_client_connected(client("pi"), false);
+    assert_eq!(transport.exchange(&pi, WireCommand::Heartbeat {
+        lease: lease("pi-a"),
+    }, 10), Err(Error::TransportUnavailable));
+    assert_eq!(transport.exchange(&second, WireCommand::Heartbeat {
+        lease: lease("pi-b"),
+    }, 20), Ok(WireResponse::Accepted));
+    transport.host.tick(30);
+    assert_eq!(transport.host.model_lease_count(&model("llm")), 1);
+    assert_eq!(transport.host.status(), HostStatus::Accepting);
+    assert_eq!(transport.exchange(&second, WireCommand::Submit {
+        request: request("pi-b-job", "pi-b"),
+    }, 31), Ok(WireResponse::Job(JobStatus::Queued)));
+    assert_eq!(transport.host.total_owned_vram_mib(), 3000);
+}
+
+// Test-only fixture models ResourceLedger's reference semantics. This is NOT
+// imported core PR #12, not a second production ledger, and not GPU evidence.
+#[derive(Default)]
+struct LedgerFixture {
+    references: std::collections::HashMap<LedgerResourceId,
+        std::collections::HashSet<(LedgerOwnerId, LeaseId)>>,
+    seen: std::collections::HashSet<(HostId, u64)>,
+    cleanup_requests: std::collections::HashMap<LedgerResourceId, usize>,
+}
+impl LedgerFixture {
+    fn apply(&mut self, event: &LedgerLeaseEvent) {
+        if !self.seen.insert((event.host.clone(), event.sequence)) { return; }
+        let holders = self.references.entry(event.resource).or_default();
+        let holder = (event.owner, event.lease.clone());
+        match event.action {
+            LedgerLeaseAction::Acquired => {
+                assert!(holders.insert(holder), "duplicate lease acquired");
+            }
+            LedgerLeaseAction::Released => {
+                assert!(holders.remove(&holder), "release must follow acquire");
+                if holders.is_empty() {
+                    *self.cleanup_requests.entry(event.resource).or_default() += 1;
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn phase2_ledger_fixture_replayed_events_result_in_one_last_client_cleanup_request() {
+    let mut host = ledger_host();
+    let pi_a = evidence("pi", "advisor");
+    let pi_b = evidence("pi-2", "text");
+    host.open_lease(&pi_a, lease("a"), model("llm"), 0).unwrap();
+    host.open_lease(&pi_b, lease("b"), model("llm"), 0).unwrap();
+    let mut ledger = LedgerFixture::default();
+    let original: Vec<_> = host.pending_ledger_events().iter().cloned().collect();
+    // At-least-once transport may deliver the same event again before ACK.
+    for event in &original { ledger.apply(event); ledger.apply(event); }
+    for event in original {
+        assert!(host.acknowledge_ledger_event(event.sequence, 1));
+    }
+    assert_eq!(ledger.references[&LedgerResourceId(500)].len(), 2);
+    assert_eq!(ledger.cleanup_requests.get(&LedgerResourceId(500)), None);
+    host.close_app(&pi_a, 2).unwrap();
+    let first_release = host.pending_ledger_events().front().unwrap().clone();
+    ledger.apply(&first_release);
+    assert!(host.acknowledge_ledger_event(first_release.sequence, 2));
+    assert_eq!(ledger.references[&LedgerResourceId(500)].len(), 1);
+    assert_eq!(ledger.cleanup_requests.get(&LedgerResourceId(500)), None);
+    host.close_app(&pi_b, 3).unwrap();
+    let last_release = host.pending_ledger_events().front().unwrap().clone();
+    ledger.apply(&last_release);
+    ledger.apply(&last_release);
+    assert!(host.acknowledge_ledger_event(last_release.sequence, 3));
+    assert_eq!(ledger.cleanup_requests.get(&LedgerResourceId(500)), Some(&1));
+    assert_eq!(host.model_load_counts(&model("llm")), Some((1, 0)));
+    host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
+        1, true, 4).unwrap();
+    assert_eq!(host.model_load_counts(&model("llm")), Some((1, 1)));
+}
