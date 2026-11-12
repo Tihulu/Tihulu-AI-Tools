@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TIHULU AI Tools — UX Concept v0.5</title>
+<title>TIHULU AI Tools — UX Concept v0.6</title>
 <style>
 :root{color-scheme:dark;--bg:#0c1019;--panel:#151b28;--panel2:#1a2231;--border:#2d3648;--muted:#9caac0;--text:#eef3fa;--accent:#6bc6ac;--accent2:#9fc2ff;--yellow:#e7c482;--red:#eaa5a5;--radius:16px}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}a{color:var(--accent2)}.layout{display:grid;grid-template-columns:246px 1fr;min-height:100vh}.sidebar{border-right:1px solid var(--border);padding:22px 15px;background:#111724;display:flex;flex-direction:column;gap:18px}.brand{display:flex;gap:11px;align-items:center;padding:6px 10px 18px}.brand-icon{width:43px;height:43px;background:linear-gradient(140deg,#29514d,#236b60);display:grid;place-items:center;border-radius:14px;color:#c6fdec;font-size:22px}.brand-title{font-weight:800;letter-spacing:.045em;font-size:14px}.micro{font-size:11px;color:var(--muted)}.nav-title{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8795ad;margin:10px 13px 6px}.nav{display:grid;gap:5px}.navbtn{display:flex;gap:11px;align-items:center;width:100%;padding:11px 13px;background:transparent;border:1px solid transparent;color:#b5c0d1;text-align:left;border-radius:11px}.navbtn:hover{background:#212b3b}.navbtn.active{color:#dffcf4;background:#1c3436;border-color:#33665a}.navbtn .ico{font-size:17px;width:22px;text-align:center}.sidebar-foot{margin-top:auto;border:1px solid var(--border);background:#1b2433;padding:14px;border-radius:13px}.sidebar-foot strong{display:block;margin:4px 0}.shell{max-width:1610px;width:100%;padding:28px 38px 60px;margin:auto}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.eyebrow{font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--accent)}h1{font-size:32px;line-height:1.16;letter-spacing:-.04em;margin:5px 0 8px;font-weight:750}h2{font-size:17px;letter-spacing:-.01em;margin:0}h3{font-size:14px;margin:0;font-weight:700}.lead{margin:0;color:var(--muted);max-width:780px}.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.selector,.search{background:#192233;color:#e9f0fa;border:1px solid var(--border);border-radius:10px;padding:10px 13px;min-height:40px}.selector{max-width:225px}.demo-pill{border:1px solid #4c624e;background:#253a2e;color:#b3e6bc;border-radius:20px;padding:7px 12px;font-size:11px;font-weight:700;letter-spacing:.055em}.intro{margin-top:24px;background:linear-gradient(110deg,#1c3840,#182d37 48%,#1c2836);border:1px solid #35635f;border-radius:16px;padding:19px 21px;display:flex;justify-content:space-between;gap:15px;align-items:center}.intro strong{font-size:15px}.intro p{color:#c3d7dc;margin:4px 0 0}.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:6px}.button{border:1px solid var(--border);padding:9px 14px;background:#202d3f;color:var(--text);border-radius:10px;white-space:nowrap}.button:hover{background:#2b3b50}.primary{background:#65c6a9;border-color:#65c6a9;color:#0b221a;font-weight:760}.primary:hover{background:#85dac2}.ghost{background:transparent}.button.small{font-size:12px;padding:7px 11px}.button:disabled{opacity:.55;cursor:default}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;margin-top:24px}.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:20px;min-width:0}.stat-title{color:var(--muted);font-size:12px}.stat-val{font-size:28px;letter-spacing:-.04em;font-weight:760;margin-top:8px}.stat-detail{font-size:12px;color:#95b7ac;margin-top:2px}.section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:28px 0 13px}.section-sub{color:var(--muted);font-size:12px;margin-top:3px}.columns{display:grid;grid-template-columns:1.45fr 1fr;gap:16px}.rowitem{display:flex;align-items:center;gap:12px;border:1px solid #30394a;background:#1b2432;border-radius:12px;padding:13px;margin-top:10px}.logo{width:41px;height:41px;display:grid;place-items:center;background:#263a43;border:1px solid #365563;border-radius:12px;font-size:19px;flex:none}.grow{flex:1;min-width:0}.sub{color:var(--muted);font-size:12px}.right{margin-left:auto}.tag{font-size:11px;padding:4px 8px;background:#29394b;border:1px solid #3a4d62;color:#bfd0df;border-radius:8px;display:inline-block}.tag.good{color:#a9e7cf;background:#1d3a33;border-color:#345e52}.tag.warn{color:#e9d09a;background:#3a3424;border-color:#62543b}.tag.bad{color:#e8b0b0;background:#432b30;border-color:#6d3a42}.progress{height:8px;background:#303a48;border-radius:7px;overflow:hidden;margin:13px 0 6px}.progress span{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,#4c9a8e,#7bd5b3)}.field{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.search{width:min(365px,100%)}.grid-models{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.model{display:flex;flex-direction:column;gap:9px}.model .desc{color:var(--muted);font-size:12px;min-height:38px}.model-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.model-foot{margin-top:auto;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;justify-content:space-between}.appgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}.appname{font-weight:700;margin:8px 0 4px}.app-icon{width:42px;height:42px;border-radius:12px;background:#273644;display:grid;place-items:center;font-size:19px}.inline-title{display:flex;justify-content:space-between;gap:10px;align-items:center}.two{display:grid;grid-template-columns:1fr 1fr;gap:15px}.muted{color:var(--muted)}.kpi{font-size:12px;color:#bdd1df}.sep{height:1px;background:var(--border);margin:15px 0}.path{word-break:break-all;font-family:ui-monospace,monospace;color:#c3d8ec;background:#121a26;padding:9px;border-radius:8px;font-size:12px}.help{padding:13px 15px;background:#1b2938;border-left:3px solid #608fbb;color:#b9c6d5;border-radius:7px;margin-top:15px}.fakebar{display:flex;gap:6px;align-items:flex-end;height:66px;margin-top:15px}.fakebar i{display:block;width:100%;background:linear-gradient(#6da5bb,#416478);border-radius:3px 3px 0 0}.hide{display:none!important}.empty{color:var(--muted);border:1px dashed var(--border);padding:23px;border-radius:12px;text-align:center}.toast{position:fixed;bottom:24px;right:24px;border:1px solid #4f8074;background:#1e3d37;color:#e2fef4;box-shadow:0 18px 65px #0007;padding:13px 20px;border-radius:12px;max-width:380px;z-index:5;display:none}.toast.show{display:block}dialog{border:1px solid #486473;background:#1a2533;color:var(--text);border-radius:18px;max-width:510px;width:calc(100% - 25px);box-shadow:0 25px 100px #0009;padding:24px}dialog::backdrop{background:#010408aa}dialog input{width:100%;margin-top:6px}dialog label{display:block;margin-top:17px;color:#cad5e2;font-size:12px}dialog .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:21px}.tiny{font-size:11px;color:var(--muted)}.switch{appearance:none;width:38px;height:22px;background:#3b4351;border-radius:13px;position:relative;cursor:pointer}.switch:checked{background:#418d7a}.switch:before{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:white;transition:transform .2s}.switch:checked:before{transform:translateX(16px)}.setting{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:13px 0;border-bottom:1px solid var(--border)}.section-view{display:none}.section-view.active{display:block}.ft{margin-top:35px;color:#7789a1;text-align:center;font-size:11px}
@@ -14,13 +14,13 @@
 .full{width:100%;max-width:none}.stacked{display:block;margin:16px 0 6px}.spaced{margin-top:17px}.filepreview{background:#101a27;border:1px solid #365066;padding:14px;border-radius:11px;color:#b2e8df;font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:325px;overflow:auto}.gpu-banner{border:1px solid #3c716b;background:linear-gradient(120deg,#1e4145,#182936);padding:22px;border-radius:16px;display:flex;justify-content:space-between;align-items:center;gap:15px}.gpu-banner p{max-width:640px;margin:0}.host-flow{display:flex;align-items:center;gap:10px;margin:20px 0 11px}.host-node{flex:1;min-width:0;border:1px solid #3e6070;border-radius:13px;background:#223747;text-align:center;padding:16px 8px;display:flex;align-items:center;flex-direction:column;gap:3px}.host-wire{color:#7bd4bf;min-width:60px;text-align:center;font-size:25px;font-weight:700}.host-wire span{display:block;color:#91a5b6;font-weight:400;font-size:10px}.host-phone{padding:11px;border-radius:9px;color:#b3c9d8;text-align:center;background:#1b3441;border:1px dashed #41697a;font-size:12px}
 @media(max-width:650px){.gpu-banner{flex-direction:column;align-items:stretch}.host-flow{gap:5px}.host-wire{min-width:44px}.host-node{padding:8px 5px}.host-node strong{font-size:11px}.host-node .tiny{font-size:9px}}
 
-/* v0.5 additions */
+/* v0.6 additions */
 textarea.search{resize:vertical;min-height:90px;line-height:1.55;padding:11px}
 .scan-result{border:1px dashed #42546c;border-radius:11px;padding:10px;margin-top:12px;min-height:48px}
 .scan-result .rowitem{border:0;padding:5px}
 .filepreview{white-space:pre-wrap;word-break:break-word}
 
-/* v0.5 chat UX and compute routing — demo only */
+/* v0.6 chat UX and compute routing — demo only */
 .conversation-layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(250px,0.85fr);gap:15px}
 .chat-pane{padding:0;display:flex;flex-direction:column;min-height:590px;overflow:hidden}
 .chat-heading{padding:17px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -40,6 +40,11 @@ textarea.search{resize:vertical;min-height:90px;line-height:1.55;padding:11px}
 .chat-settings .setting{gap:12px}
 @media(max-width:1030px){.conversation-layout{grid-template-columns:1fr}.chat-pane{min-height:510px}.chat-messages{min-height:280px;max-height:450px}}
 @media(max-width:530px){.chat-heading{padding:13px}.chat-messages{padding:14px}.chat-composer{padding:12px}.chat-actions>.field{width:100%;justify-content:flex-end}.chat-bubble{max-width:calc(100% - 40px)}}
+
+/* v0.6 discovery, matching and Jan connector planning UX */
+#v06-discovery .two,#view-apps .card .two{margin-top:7px}
+#discover-result,#match-result,#jan-mcp-result{white-space:pre-wrap;overflow-wrap:anywhere}
+#match-result .tag{margin-left:8px}
 </style>
 </head>
 <body>
@@ -88,12 +93,51 @@ textarea.search{resize:vertical;min-height:90px;line-height:1.55;padding:11px}
   <div id="scan-results" class="scan-result sub">No real files examined. Click the simulated scan to see possible integration actions.</div>
   <div class="field spaced"><select id="move-action" class="selector"><option value="link">Link in place (preferred)</option><option value="copy">Copy to shared library</option><option value="move">Move via rollback-safe wizard</option></select><button class="button" id="preview-move">Preview operation</button></div><div class="help" id="move-preview">Default library: ~/TIHULU AI Tools/Models/ · No filesystem changes.</div>
   </div>
+
+  <div class="card" style="margin-top:16px" id="v06-discovery">
+    <div class="inline-title"><div><h2>Discover an AI app or model folder</h2><div class="sub">Future Rust discovery with explicit read-only permission · everything below is simulated</div></div><span class="tag warn">v0.6 concept</span></div>
+    <div class="two" style="margin-top:13px">
+      <div><label class="sub stacked" for="discover-app-name">Application name</label><input class="search full" id="discover-app-name" placeholder="Jan, Ollama, LM Studio or another app" value="Jan Desktop"></div>
+      <div><label class="sub stacked" for="discover-app-path">Application / model directory (optional)</label><input class="search full" id="discover-app-path" placeholder="e.g. ~/.local/share/Jan/data/llamacpp/models"></div>
+    </div>
+    <label class="setting"><span><strong>Approve read-only model metadata discovery</strong><div class="sub">The real Rust app must ask for exact directories; no chats, passwords or unrelated documents</div></span><input type="checkbox" class="switch" id="discover-consent"></label>
+    <div class="field spaced"><button class="button primary" id="discover-preview">Preview discovery</button><button class="button" id="register-discovered">Add sample model to My Models (demo)</button></div>
+    <div class="help" id="discover-result">Enter an application or folder and approve the demonstration of a read-only discovery plan. No files will be accessed.</div>
+  </div>
   <div id="installed-list" style="margin-top:17px"></div></section>
   <section class="section-view" id="view-apps"><div class="section-head"><div><h2>My TIHULU Applications</h2><div class="section-sub">Six optional adapters · one AI Tools installation · no required GUI at app launch</div></div><span class="tag">6 future connectors</span></div><div class="appgrid" id="appgrid"></div>
   <div class="section-head"><div><h2>Per-application AI paths</h2><div class="section-sub">Configure models, install locations and future <code>aipath.txt</code> without changing other app files</div></div><span class="tag warn">Planning only</span></div>
   <div class="two"><div class="card"><label class="sub" for="app-select">Application</label><select id="app-select" class="selector full"></select><label class="sub stacked" for="app-location">Application configuration directory (example)</label><input class="search full" id="app-location" value="~/.config/tihulu/media-center/" /><label class="sub stacked" for="app-model">Assigned model</label><select class="selector full" id="app-model"></select><label class="sub stacked" for="app-policy">Compute preference</label><select class="selector full" id="app-policy"><option value="local-first">Local first (legacy fallback)</option><option value="remote-first">Remote first (legacy fallback)</option><option value="manual">Manual host selection</option></select><div class="field spaced"><button class="button primary" id="save-aipath">Save mapping (demo)</button><button class="button" id="copy-aipath">Copy text</button></div><p class="tiny">Real version: only owner-approved writable destinations, atomic save, backup and rollback.</p></div><div class="card"><div class="inline-title"><h2>Generated aipath.txt</h2><span class="tag good">No background GUI required</span></div><pre class="filepreview" id="aipath-preview"></pre><p class="sub">A local app reads this at launch or uses its original settings if missing. Remote inference needs a running paired host service, not the GUI.</p></div></div>
+
+  <div class="section-head"><div><h2>Installed model → app task matching</h2><div class="section-sub">Match to a real app capability, prefer already installed models, and show reasons</div></div><span class="tag warn">Matching simulation</span></div>
+  <div class="card">
+    <div class="two">
+      <div><label class="sub stacked" for="match-app">Target application</label><select class="selector full" id="match-app"><option value="tihulu-survival-kit">Survival Kit</option><option value="tihulu-media-center">Media Center</option><option value="tihulu-text-center">Text Center</option><option value="tihulu-satellite-center">Satellite Center</option><option value="tihulu-flight-radar">Flight Radar</option><option value="tihulu-rf-geolocation">RF Geolocation</option></select></div>
+      <div><label class="sub stacked" for="match-task">AI task</label><select class="selector full" id="match-task"><option value="llm">LLM / conversational assistant</option><option value="speech">Transcription / speech-to-text</option><option value="translation">Translation</option><option value="vision">Vision / image analysis</option></select></div>
+      <div><label class="sub stacked" for="match-model">Already installed model / existing runtime</label><select class="selector full" id="match-model"></select></div>
+      <div><label class="sub stacked" for="match-host">Where to run</label><select class="selector full" id="match-host"><option value="auto">Auto · requires verified runtime</option><option value="local">On this device</option><option value="paired">Paired PC GPU (example)</option><option value="jan">Existing Jan local server (example)</option></select></div>
+    </div>
+    <label class="setting"><span><strong>AI-assisted online compatibility research (experimental)</strong><div class="sub">Internet OFF by default; real version will show sources and ask consent</div></span><input type="checkbox" class="switch" id="match-internet"></label>
+    <div class="field spaced"><button class="button primary" id="match-check">Suggest matching</button><button class="button" id="match-bind">Use this model for this app (demo)</button></div>
+    <div class="help" id="match-result">Choose a task and model for an illustrative compatibility assessment. No Internet lookup, app editing or inference occurs.</div>
+  </div>
  </section>
-  <section class="section-view" id="view-connections"><div class="section-head"><div><h2>External Application Connections</h2><div class="section-sub">Allow third-party apps to reuse your existing models</div></div><button class="button primary" id="new-connection">＋ Create client access</button></div><div class="two"><div class="card"><h2>Local API gateway</h2><p class="sub">Compatibility endpoints where supported, and task-specific Rust APIs for transcription, translation and model inventory.</p><div class="path">http://127.0.0.1:&lt;configured-port&gt;/v1</div><div class="help">An API endpoint is only available after you start the local service and approve client access. This mockup does not start one.</div></div><div class="card"><h2>Connection permissions</h2><div class="setting"><div><strong>List approved models</strong><div class="sub">Model metadata, no file permissions</div></div><input class="switch" type="checkbox" checked disabled aria-label="Preview only"></div><div class="setting"><div><strong>Run inference</strong><div class="sub">Task-specific grants and quotas</div></div><input class="switch" type="checkbox" disabled aria-label="Preview only"></div><div class="setting"><div><strong>Access raw model files</strong><div class="sub">Off by default; avoid leaking private paths</div></div><input class="switch" type="checkbox" disabled aria-label="Preview only"></div></div></div><div class="section-head"><h2>Example connection methods</h2></div><div class="appgrid"><div class="card"><h3>OpenAI-compatible client</h3><p class="sub">Supported chat, embedding or speech subset via localhost HTTP.</p><span class="tag">Proposed adapter</span></div><div class="card"><h3>Ollama discovery</h3><p class="sub">Read local Ollama registry; refer to an existing Ollama runtime where appropriate.</p><span class="tag">Proposed bridge</span></div><div class="card"><h3>Native / LAN clients</h3><p class="sub">Local socket or explicit paired host with authenticated, encrypted access.</p><span class="tag">Opt-in only</span></div></div></section>
+  <section class="section-view" id="view-connections"><div class="section-head"><div><h2>External Application Connections</h2><div class="section-sub">Allow third-party apps to reuse your existing models</div></div><button class="button primary" id="new-connection">＋ Create client access</button></div><div class="two"><div class="card"><h2>Local API gateway</h2><p class="sub">Compatibility endpoints where supported, and task-specific Rust APIs for transcription, translation and model inventory.</p><div class="path">http://127.0.0.1:&lt;configured-port&gt;/v1</div><div class="help">An API endpoint is only available after you start the local service and approve client access. This mockup does not start one.</div></div><div class="card"><h2>Connection permissions</h2><div class="setting"><div><strong>List approved models</strong><div class="sub">Model metadata, no file permissions</div></div><input class="switch" type="checkbox" checked disabled aria-label="Preview only"></div><div class="setting"><div><strong>Run inference</strong><div class="sub">Task-specific grants and quotas</div></div><input class="switch" type="checkbox" disabled aria-label="Preview only"></div><div class="setting"><div><strong>Access raw model files</strong><div class="sub">Off by default; avoid leaking private paths</div></div><input class="switch" type="checkbox" disabled aria-label="Preview only"></div></div></div><div class="section-head"><h2>Example connection methods</h2></div><div class="appgrid"><div class="card"><h3>OpenAI-compatible client</h3><p class="sub">Supported chat, embedding or speech subset via localhost HTTP.</p><span class="tag">Proposed adapter</span></div><div class="card"><h3>Ollama discovery</h3><p class="sub">Read local Ollama registry; refer to an existing Ollama runtime where appropriate.</p><span class="tag">Proposed bridge</span></div><div class="card"><h3>Native / LAN clients</h3><p class="sub">Local socket or explicit paired host with authenticated, encrypted access.</p><span class="tag">Opt-in only</span></div></div>
+    <div class="section-head"><div><h2>Jan Desktop: optional chat tools</h2><div class="section-sub">Jan Desktop supports MCP; Jan Agent has a separate plugin system</div></div><span class="tag warn">Not installed</span></div>
+    <div class="two">
+      <div class="card">
+        <h3>TIHULU for Jan</h3><p class="sub">Connect Jan Desktop chat to a future permission-scoped TIHULU Rust MCP Server. Jan can request a supported TIHULU app tool in chat; it never receives unrestricted shell access.</p>
+        <label class="setting"><span><strong>Offer TIHULU tools to Jan chat</strong><div class="sub">OFF by default · preview only, no Jan config changed</div></span><input type="checkbox" class="switch" id="jan-mcp-enable"></label>
+        <label class="setting"><span><strong>Read-only model and app status</strong><div class="sub">Tools appear only when selected apps implement them</div></span><input type="checkbox" class="switch" id="jan-mcp-read" checked></label>
+        <label class="setting"><span><strong>Request changes / app jobs</strong><div class="sub">Every actual write or execution would need separate approval</div></span><input type="checkbox" class="switch" id="jan-mcp-write"></label>
+        <button class="button primary" id="jan-mcp-preview">Preview connection & tools</button>
+      </div>
+      <div class="card"><h3>Jan connection steps (proposal)</h3>
+        <p class="sub">Jan Desktop → Settings → MCP Servers → Add server → local STDIO or authenticated HTTP. Do not enable Jan's global automatic tool approval.</p>
+        <p class="sub">A separate optional Jan Agent plugin could package skills and a connector configuration after compatibility testing.</p>
+        <pre class="filepreview" id="jan-mcp-result">No TIHULU MCP service is running; no Jan connection has been configured. Toggle and preview for example instructions.</pre>
+      </div>
+    </div></section>
   <section class="section-view" id="view-devices"><div class="section-head"><div><h2>Devices & AI Hosts</h2><div class="section-sub">CPU / CUDA / Hailo-10H have separate compatibility checks</div></div><button class="button" id="pair">＋ Pair host (demo)</button></div><div class="two"><div class="card"><div class="inline-title"><h2>Linux workstation</h2><span class="tag">x86-64</span></div><p class="sub">Pop!_OS • NVIDIA RTX 5080 • 16 GB VRAM</p><div class="rowitem"><span>◉</span><div class="grow"><strong>NVIDIA CUDA</strong><div class="sub">Runtime + model smoke test still required</div></div><span class="tag warn">Check</span></div><div class="rowitem"><span>◉</span><div class="grow"><strong>CPU backend</strong><div class="sub">Architecture and available memory are checked separately</div></div><span class="tag">Candidate</span></div></div><div class="card"><div class="inline-title"><h2>Raspberry Pi 5</h2><span class="tag">ARM64</span></div><p class="sub">64-bit Raspberry Pi OS • optional AI HAT+ 2</p><div class="rowitem"><span>◉</span><div class="grow"><strong>Hailo-10H</strong><div class="sub">40 TOPS (INT4), dedicated 8 GB; only supported Hailo artifacts</div></div><span class="tag warn">Check</span></div><div class="rowitem"><span>◉</span><div class="grow"><strong>ARM64 CPU</strong><div class="sub">Must work even without the HAT</div></div><span class="tag">Candidate</span></div></div></div><div class="help">Device presence ≠ runtime readiness ≠ model compatibility ≠ successful test. All four stages are reported separately.</div></section>
   <section class="section-view" id="view-gpu">
   <div class="section-head"><div><h2>GPU Server / Remote Compute</h2><div class="section-sub">One Rust host · paired PC, Pi, phone or apps · no service starts in this preview</div></div><span class="tag warn" id="gpu-status">Host stopped (demo)</span></div>
@@ -170,7 +214,7 @@ textarea.search{resize:vertical;min-height:90px;line-height:1.55;padding:11px}
   <section class="section-view" id="view-settings"><div class="section-head"><div><h2>Storage, App Paths & Privacy</h2><div class="section-sub">Proposed controls for the Rust core and user interface</div></div></div><div class="two"><div class="card"><h2>Shared model storage</h2><p class="path">~/TIHULU AI Tools/Models/</p><div class="setting"><div><strong>External SSD / custom folder</strong><div class="sub">Migrating requires explicit consent</div></div><button class="button small" id="change-path">Choose…</button></div><div class="setting"><div><strong>Scan external model folders</strong><div class="sub">Only selected folders and known local runtimes</div></div><input class="switch" type="checkbox" id="scan-caches"></div></div><div class="card"><h2>Updates & service</h2><div class="setting"><div><strong>Model catalog update checks</strong><div class="sub">Only while panel is open by default</div></div><input class="switch" type="checkbox" id="update-check"></div><div class="setting"><div><strong>Automatically install model updates</strong><div class="sub">Off; explicit approval by default</div></div><input class="switch" type="checkbox" disabled></div><div class="setting"><div><strong>Start background AI services</strong><div class="sub">Off by default</div></div><input class="switch" type="checkbox" id="service"></div></div></div>
   <div class="section-head"><h2>Shared AI Tools installation and path ownership</h2></div><div class="two"><div class="card"><h3>Install once per device</h3><p class="sub">Every future TIHULU installer checks for a compatible Rust AI Tools installation first. Models and service are shared; the GUI is not required at app startup.</p><span class="tag good">One installation, multiple apps</span></div><div class="card"><h3>Move models or installations safely</h3><p class="sub">Choose a verified writable location; preview per-app aipath.txt updates and backups. Never silently move/delete an existing model owned by another program.</p><button class="button small" id="paths-from-settings">Configure application paths</button></div></div>
   </section>
-  <div class="ft">TIHULU AI Tools — interaction concept v0.5 • all hardware, model data and operations on this page are simulated • not a released application</div>
+  <div class="ft">TIHULU AI Tools — interaction concept v0.6 • all hardware, model data and operations on this page are simulated • not a released application</div>
  </main>
 </div>
 <dialog id="modal"><h2 id="modal-title">Link an existing model</h2><p class="sub" id="modal-description">In the real app, choose a local file or model directory and verify compatibility without moving it.</p><label>Model display name<input class="search" id="custom-name" placeholder="My offline model" /></label><label>Source / folder (demo only)<input class="search" id="custom-path" placeholder="/home/user/models/my-model.gguf" /></label><div class="modal-actions"><button class="button" id="close-modal">Cancel</button><button class="button primary" id="save-modal">Add to demo library</button></div><p class="tiny">This preview never opens files or modifies your device.</p></dialog>
@@ -222,12 +266,12 @@ d('save-aipath').onclick=()=>notice('Mapping preview saved in memory only. No ai
 d('host-toggle').onclick=()=>{hostStarted=!hostStarted;renderGpu();d('host-log').textContent=hostStarted?'Simulated host active: no server, listener or GPU process was actually started.':'Simulated host stopped: no process or network was changed.';notice('Host state changed in preview only.');};['gpu-mode','gpu-link','gpu-model'].forEach(x=>d(x).addEventListener('change',renderGpu));d('pair-gpu').onclick=()=>{paired=true;d('host-log').textContent='Simulated device pairing recorded only in this page. No real access token or LAN discovery created.';notice('Paired device (simulation only).')};d('revoke-gpu').onclick=()=>{paired=false;d('host-log').textContent='Preview pairing revoked. No real credentials existed.';notice('Preview pairing revoked.')};d('test-link').onclick=()=>notice('Network test simulation only — no Ethernet/Wi-Fi/VPN request was sent.');d('request-stage').onclick=()=>{let mode=d('gpu-mode').value,model=d('gpu-model').value;if(mode==='remote'&&model==='hailo-genai'){notice('Hailo-only model cannot be assumed CUDA-compatible. Choose a PC-compatible export.');return}notice(mode==='remote'?'Planned: verify model license/hash, request consent, stage to PC cache, use GPU. No copy happened.':'No transfer needed for this mode. No files accessed.')};
 d('new-connection').onclick=()=>notice('Preview only — no client credentials or endpoint created.');d('pair').onclick=()=>goto('gpu');d('change-path').onclick=()=>notice('Preview only — no model files or app directories moved.');d('paths-from-settings').onclick=()=>goto('apps');['background','scan-caches','update-check','service'].forEach(id=>d(id).addEventListener('change',()=>notice('Preview setting changed locally on this page; no system configuration written.')));
 
-// v0.5: sample-only model discovery and safely staged relocation preview.
+// v0.6: sample-only model discovery and safely staged relocation preview.
 const sourcePaths={jan:'Jan: ~/.local/share/Jan/data/llamacpp/models (or Flatpak/custom path)',ollama:'Ollama: query installed service; do not modify its blob store',lmstudio:'LM Studio: ~/.lmstudio/models (or configured library)',hf:'Hugging Face: HF_HOME / HF_HUB_CACHE if configured'};
 d('scan-existing').onclick=()=>{const key=d('sample-source').value;d('scan-results').innerHTML='<div class="rowitem"><div class="logo">◈</div><div class="grow"><strong>'+esc(sourcePaths[key])+'</strong><div class="sub">Example provider path only • model inventory not actually scanned • read-only link recommended</div></div><span class="tag good">Demo external</span></div>';notice('Sample source preview only. No local files were read.')};
 d('sample-source').onchange=()=>{d('scan-results').textContent='Choose Scan for an illustrative '+d('sample-source').value+' discovery result. No real scan.'};
 d('preview-move').onclick=()=>{const a=d('move-action').value,what=d('sample-source').value;const msg=a==='link'?'Keep externally owned '+what+' model where it is, register a read-only reference; no copy needed.':a==='copy'?'Preflight ownership/disk space → stage copy → checksum → compatibility test → update only approved path mappings → retain original.':'Warn active clients → stage copy → checksum → preview all provider/app mappings → explicit approval → atomic switch → smoke test → rollback option → separately approve original cleanup.';d('move-preview').textContent=msg+' NO FILE OPERATION IS PERFORMED IN THIS PREVIEW.';notice('Migration plan preview generated; nothing moved.')};
-// v0.5: safe demo-only AI Advisor and App Control Agent flows.
+// v0.6: safe demo-only AI Advisor and App Control Agent flows.
 d('advisor-provider').onchange=()=>{const p=d('advisor-provider').value;d('advisor-source-note').textContent={local:'Will require installed model + working inference engine; no scan in preview.',jan:'Reuse Jan local server if enabled and authorized; model data can remain in Jan.',ollama:'Use installed Ollama daemon API if configured; no blob file rewrite.',remote:'Real app would use an approved endpoint and OS-protected API token. Do not enter tokens in this preview.'}[p]};
 d('advisor-connect').onclick=()=>notice('No inference engine, Jan server or cloud provider was contacted. Provider test is a planned Rust feature.');
 
@@ -283,6 +327,95 @@ d('gpu-assign-app').onclick=()=>{
  d('app-select').value=app;loadAppEditor();
  notice('Created simulated assignment to paired PC, no configuration file written.');
 };
+
+// v0.6: all discovery, matching and Jan MCP interactions are explicitly simulated.
+let demoDiscoveredId=null;
+const sampleByOwner={
+ jan:{name:'Illustrative Jan GGUF model',engine:'llama.cpp / Jan',category:'llm',detail:'SIMULATED: external Jan file reference, not scanned',targets:['desktop','pi'],quality:'Unverified',emoji:'◈'},
+ ollama:{name:'Illustrative Ollama chat model',engine:'Ollama service',category:'llm',detail:'SIMULATED: remote registry reference, not scanned',targets:['desktop','pi'],quality:'Unverified',emoji:'◈'},
+ generic:{name:'Illustrative custom AI model',engine:'Unverified local engine',category:'llm',detail:'SIMULATED: manually supplied folder, not scanned',targets:['desktop','pi'],quality:'Unverified',emoji:'◈'}
+};
+function ownerFromName(raw){
+ const n=raw.trim().toLowerCase();return n.includes('jan')?'jan':n.includes('ollama')?'ollama':'generic';
+}
+function syncMatchModels(){
+ const currentModel=d('match-model').value;
+ const available=[...models,...custom].filter(m=>installed.has(m.id));
+ d('match-model').innerHTML=available.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.name)+' ('+esc(m.category)+')</option>').join('');
+ if(available.some(m=>m.id===currentModel))d('match-model').value=currentModel;
+}
+d('discover-preview').onclick=()=>{
+ const consent=d('discover-consent').checked,app=d('discover-app-name').value.trim(),path=d('discover-app-path').value.trim();
+ if(!consent){d('discover-result').textContent='Preview requires checking the read-only consent box. No scan performed.';notice('Grant explicit read-only demo permission first.');return;}
+ if(!app&&!path){d('discover-result').textContent='Enter an AI app name or model directory to preview.';return}
+ const owner=ownerFromName(app);
+ const hints={jan:'Known candidate: Jan Desktop data directory → llamacpp/models or mlx/models; custom Jan data folder may differ.',ollama:'Known candidate: Ollama local service model listing (not direct blob rewrites).',generic:'Inspect only the explicitly selected folder and permitted model metadata.'};
+ d('discover-result').textContent='SIMULATED discovery plan · NO FILES READ\nApp: '+(app||'(custom folder)')+'\nApproved scope preview: '+(path||'(would ask to inspect user-approved application model directory)')+'\n'+hints[owner]+'\nPossible next action: register external reference without copying or moving model weights. Unknown model capability remains unverified.';
+ notice('Created read-only discovery plan preview. Nothing was scanned.');
+};
+d('register-discovered').onclick=()=>{
+ if(!d('discover-consent').checked){notice('Select read-only demo consent before registering a sample.');return;}
+ const name=d('discover-app-name').value.trim(),path=d('discover-app-path').value.trim();
+ if(!name&&!path){notice('Enter an app or folder name first.');return;}
+ const owner=ownerFromName(name),id='sample-external-'+owner;
+ if(!custom.some(m=>m.id===id)){
+   const example=sampleByOwner[owner];
+   custom.push({...example,id,category:example.category,size:'Unknown / unverified',source:'External demo · '+(name||'custom source')});
+ }
+ installed.add(id);demoDiscoveredId=id;render();syncMatchModels();d('match-model').value=id;
+ d('discover-result').textContent='SIMULATED registered external model entry: '+sampleByOwner[owner].name+'.\nNo model was actually found or installed. Original app files and paths remain untouched.';
+ notice('Sample-only external model shown in My Models; no disk scan or actual installation.');
+};
+const knownTasks={
+ 'tihulu-survival-kit':['llm','translation','speech','vision'],
+ 'tihulu-media-center':['speech','translation','vision'],
+ 'tihulu-text-center':['speech','translation'],
+ 'tihulu-satellite-center':['vision'],
+ 'tihulu-flight-radar':[],
+ 'tihulu-rf-geolocation':[]
+};
+function matchSummary(){
+ const app=d('match-app').value,task=d('match-task').value,modelId=d('match-model').value;
+ const m=[...models,...custom].find(x=>x.id===modelId);
+ const supported=(knownTasks[app]||[]).includes(task);
+ const rightType=!!m&&m.category===task;
+ const candidate=supported&&rightType;
+ const host=d('match-host').value;
+ const src=m?.source||'TIHULU sample library';
+ const text='SIMULATED candidate evaluation · NOT A VERIFIED MODEL MATCH\n'
+  +'Task: '+task+' / '+app+'\nModel: '+(m?m.name:'None')+'\nSource: '+src+'\n'
+  +'Task supported in product plan: '+(supported?'Yes (adapter not yet proven)':'No defined tested adapter; feature would need development')+'\n'
+  +'Model modality: '+(rightType?'Potential candidate':'Mismatch / unknown')+'\nTarget: '+host+' (runtime NOT verified)\n'
+  +'Recommendation: '+(candidate?'Candidate only — require actual runtime, source, language/license and app-adapter test.':'No suitable verified pairing for this selection.')+'\n'
+  +'Online AI research: '+(d('match-internet').checked?'requested, but NO network call is made':'disabled')+'.';
+ d('match-result').textContent=text;
+ return {candidate,m,app,task,host};
+}
+d('match-check').onclick=()=>{matchSummary();notice('Matching example created from static task categories; no AI used.')};
+d('match-bind').onclick=()=>{
+ const r=matchSummary();
+ if(!r.candidate){notice('Selection is not even a demo candidate; choose a task-compatible model.');return;}
+ appSettings[r.app].model=r.m.id;
+ appSettings[r.app].policy=r.host==='paired'?'remote-first':'local-first';
+ d('app-select').value=r.app;loadAppEditor();
+ const note='\n\nDEMO BINDING PREVIEW ONLY: selected '+r.m.name+' for '+r.app+'. No file path, application config or provider registry was changed.';
+ d('match-result').textContent+=note;
+ notice('Preview app model assignment changed only in this HTML page. No app files written.');
+};
+d('jan-mcp-preview').onclick=()=>{
+ const enabled=d('jan-mcp-enable').checked,read=d('jan-mcp-read').checked,write=d('jan-mcp-write').checked;
+ const text='JAN DESKTOP MCP — SIMULATION ONLY\n'
+   +(!enabled?'Connector OFF. No tools are exposed. Enable the checkbox to preview.':
+     'Proposed setup: Jan Desktop > Settings > MCP Servers > + Add MCP Server\n'
+     +'Choose STDIO Rust TIHULU bridge or secure HTTP URL after explicit installation and pairing.\n'
+     +'Read-only tool candidates: '+(read?'tihulu.list_models, tihulu.list_apps, tihulu.find_model_for_task':'none')+'\n'
+     +'Request-write tool candidates: '+(write?'approval-gated requests (no universal commands)':'disabled')+'\n'
+     +'Keep Jan global MCP auto-approval OFF.\nThe Jan Agent plugin is a separate future optional package.')
+   +'\nNo Jan settings, model files, MCP service or application processes were changed.';
+ d('jan-mcp-result').textContent=text;
+ notice('Jan integration instructions previewed; no installation or network connection.');
+};
+syncMatchModels();
 renderChatCompute();
 goto('gpu');
 </script>
