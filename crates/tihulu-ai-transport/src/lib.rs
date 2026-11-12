@@ -20,7 +20,5 @@ pub use ledger_bridge::{
     MockCleanupObservation, MockCleanupReport,
 };
 pub use mock_transport::{ComputeTransport, MockTransport, WireCommand, WireResponse};
-pub use pairing::{
-    MockOutOfBandApproval, PairingBroker, PairingError, PairingOffer,
-};
+pub use pairing::{MockOutOfBandApproval, PairingBroker, PairingError, PairingOffer};
 pub use protocol::*;
