@@ -121,11 +121,7 @@ fn grant(app: SupportedApp, purpose: ScopePurpose, root: &str) -> ReadGrant {
 
 fn grants(app: SupportedApp) -> Vec<ReadGrant> {
     vec![
-        grant(
-            app,
-            ScopePurpose::ConfigMetadata,
-            "/home/u/.config/tihulu",
-        ),
+        grant(app, ScopePurpose::ConfigMetadata, "/home/u/.config/tihulu"),
         grant(app, ScopePurpose::ModelMetadata, "/home/u/models"),
     ]
 }
@@ -228,7 +224,9 @@ fn override_active_convention_and_legacy_precedence_is_deduped() {
     let mut fake = adapter(app);
     let record = fake.record.as_mut().unwrap();
     record.user_model_override = Some("/home/u/models/target".into());
-    record.legacy_model_roots.push("/home/u/models/active".into());
+    record
+        .legacy_model_roots
+        .push("/home/u/models/active".into());
     let inventory = inventory_from_adapter(&fake, &base_probe(), &grants(app)).unwrap();
     assert_eq!(inventory.model_directories.len(), 4);
     assert_eq!(
@@ -251,7 +249,10 @@ fn override_active_convention_and_legacy_precedence_is_deduped() {
         inventory.model_directories[3].owner,
         ModelOwner::BorrowedExternal
     );
-    assert!(inventory.model_directories.iter().all(|item| item.metadata_only));
+    assert!(inventory
+        .model_directories
+        .iter()
+        .all(|item| item.metadata_only));
     assert_eq!(
         inventory.effective_model_root().unwrap().role,
         CandidateRole::UserOverride
@@ -316,8 +317,9 @@ fn relative_traversal_and_unbounded_legacy_inputs_fail_closed() {
         Err(InventoryError::InvalidInstallRecord)
     );
     let mut many = adapter(app);
-    many.record.as_mut().unwrap().legacy_model_roots =
-        (0..17).map(|index| format!("/old/{index}").into()).collect();
+    many.record.as_mut().unwrap().legacy_model_roots = (0..17)
+        .map(|index| format!("/old/{index}").into())
+        .collect();
     let probe = base_probe();
     assert_eq!(
         inventory_from_adapter(&many, &probe, &grants(app)),
@@ -337,14 +339,13 @@ fn custom_external_ssd_model_root_requires_its_own_scope() {
     let without = inventory_from_adapter(&fake, &probe, &grants(app)).unwrap();
     assert!(without.unresolved_declared_override);
     let mut approved = grants(app);
-    approved.push(grant(
-        app,
-        ScopePurpose::ModelMetadata,
-        "/mnt/ssd/tihulu",
-    ));
+    approved.push(grant(app, ScopePurpose::ModelMetadata, "/mnt/ssd/tihulu"));
     let with = inventory_from_adapter(&fake, &probe, &approved).unwrap();
     assert_eq!(
-        with.effective_model_root().unwrap().directory.canonical_path,
+        with.effective_model_root()
+            .unwrap()
+            .directory
+            .canonical_path,
         PathBuf::from("/mnt/ssd/tihulu/weights")
     );
 }
@@ -457,18 +458,16 @@ fn borrowed_model_and_shared_clients_block_generic_transfer() {
             Err(PreviewError::BorrowedSourceCannotTransfer)
         );
     }
-    assert!(
-        preview_model_root_change(
-            &inventory,
-            &probe,
-            &approved,
-            target,
-            PathChangeKind::RepointOnly,
-            true,
-            1
-        )
-        .is_ok()
-    );
+    assert!(preview_model_root_change(
+        &inventory,
+        &probe,
+        &approved,
+        target,
+        PathChangeKind::RepointOnly,
+        true,
+        1
+    )
+    .is_ok());
     inventory.model_directories[0].owner = ModelOwner::AppManaged;
     for consumers in [0, 2, 100] {
         assert_eq!(
@@ -501,11 +500,7 @@ fn native_windows_drive_and_external_volume_paths() {
     let mut probe = FakeProbe::default();
     probe.directory(r"D:\TIHULU");
     probe.directory(r"D:\TIHULU\models");
-    let approved = vec![grant(
-        app,
-        ScopePurpose::ModelMetadata,
-        r"D:\TIHULU",
-    )];
+    let approved = vec![grant(app, ScopePurpose::ModelMetadata, r"D:\TIHULU")];
     let inventory = inventory_from_adapter(&fake, &probe, &approved).unwrap();
     assert_eq!(inventory.model_directories.len(), 1);
 }
