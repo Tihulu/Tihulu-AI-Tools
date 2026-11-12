@@ -1,8 +1,8 @@
-//! Permission-gated registry and pure runtime-lease bookkeeping.
+//! Permission-gated model inventory, provenance IDs and a core-ledger adapter
+//! contract. No independent runtime lease authority or model process control.
 //!
 //! The crate never downloads, copies, opens model weights, starts inference,
-//! connects to a server or manipulates an external application. Endpoint
-//! observations must be supplied by a separately authorized client.
+//! connects to a server or manipulates an external application.
 
 pub mod discovery;
 pub mod leases;
@@ -13,10 +13,13 @@ pub use discovery::{
     EndpointRequest, ReadApproval, ScanLimits, ScanReport,
 };
 pub use leases::{
-    Consumer, LeaseError, LeaseRegistry, LeaseToken, ReleaseAction, RuntimeOwner,
+    attach_task, register_initial_task, stop_app, AppSessionId, ConsumerTask,
+    ContextAuthority, LedgerCleanupRequest, LedgerOwnerRef, LedgerResourceKind,
+    LedgerResourceRef, ModelRuntimeBinding, ResourceLedgerPort, RuntimeInstanceId,
+    TaskLeaseReceipt, TaskRelease, TaskSessionId,
 };
 pub use registry::{
     default_model_library, ArtifactObservation, ArtifactValidation, EndpointObservation,
-    EndpointState, FileFormat, ModelOwner, ModelRecord, ModelReference, ModelRegistry,
-    RuntimeVerification, SourceAdapter,
+    EndpointState, FileFormat, ModelId, ModelOwner, ModelRecord, ModelReference,
+    ModelRegistry, RuntimeVerification, SourceAdapter,
 };
