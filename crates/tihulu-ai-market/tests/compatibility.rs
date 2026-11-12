@@ -426,3 +426,45 @@ fn no_download_is_ever_presented_as_an_installed_model() {
     assert_eq!(outcome.verdict, MatchVerdict::Candidate);
     assert_eq!(outcome.status, S::Downloadable);
 }
+
+#[test]
+fn malformed_or_overlarge_catalog_data_cannot_be_recommended() {
+    assert!(ModelManifest::from_json(&" ".repeat(65_537)).is_err());
+    let mut model = chat();
+    model.id = "x".repeat(513);
+    assert!(model.validate().is_err());
+    model.id = "fixture:bounded".into();
+    model.languages = vec!["en".into(); 129];
+    assert!(model.validate().is_err());
+    model.languages = vec!["en".into()];
+    model.source = ModelSource::External {
+        application: "Jan Desktop".into(),
+    };
+    model.availability = S::Installed;
+    assert!(model.validate().is_err());
+}
+
+#[test]
+fn conflicting_or_unsubstantiated_license_claims_fail_closed() {
+    let mut model = chat();
+    let environment = ctx(&model, R::LlamaCpp, H::Cpu);
+    let mut request = task(T::Chat, M::Text, M::Text);
+    request.license_allowlist = vec!["MIT".into()];
+    assert_eq!(
+        match_model(&model, &request, &environment).verdict,
+        MatchVerdict::Incompatible
+    );
+    model.license = License::Known {
+        spdx: "NOASSERTION".into(),
+    };
+    assert!(model.validate().is_err());
+    assert_ne!(
+        match_model(&model, &request, &environment).verdict,
+        MatchVerdict::Recommended
+    );
+    model.license = License::Unknown;
+    assert_eq!(
+        match_model(&model, &request, &environment).verdict,
+        MatchVerdict::Unknown
+    );
+}
