@@ -38,7 +38,10 @@ const opaqueIdentity = (id) => typeof id === "string" && id.length <= 128 &&
 const exactKeys = (payload, keys) => Object.keys(payload).length === keys.length &&
   keys.every((key) => Object.hasOwn(payload, key));
 // JavaScript must match Rust's byte-based 500-byte chat limit.
-const utf8Bytes = (value) => unescape(encodeURIComponent(value)).length;
+const utf8Bytes = (value) => {
+  try { return unescape(encodeURIComponent(value)).length; }
+  catch { return Infinity; } // malformed Unicode is not an accepted chat request
+};
 
 /** @param {unknown} value @returns {value is UiRequest} */
 export function isUiRequest(value) {

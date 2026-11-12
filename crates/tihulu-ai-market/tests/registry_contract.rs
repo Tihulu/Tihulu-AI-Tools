@@ -18,6 +18,7 @@ fn fixture(name: &str) -> ModelManifest {
         "translation" => include_str!("fixtures/translation-tr-de.json"),
         "cuda" => include_str!("fixtures/cuda-chat.json"),
         "pi" => include_str!("fixtures/pi-cpu-chat.json"),
+        "apple" => include_str!("fixtures/apple-silicon-mlx.json"),
         "hailo" => include_str!("fixtures/hailo-vision.json"),
         "paired" => include_str!("fixtures/paired-gpu-endpoint.json"),
         "license" => include_str!("fixtures/unknown-license.json"),
@@ -365,6 +366,41 @@ fn cuda_and_pi_cpu_differ_in_memory_and_runtime_probe_identity() {
 }
 
 #[test]
+fn apple_silicon_uses_unified_ram_not_cuda_vram_and_requires_mlx() {
+    let model = fixture("apple");
+    let (registry, request, mut probe) = setup(
+        &model,
+        RegistryOwner::AiTools,
+        target(R::Mlx, H::AppleSilicon, "mac-m"),
+    );
+    probe.available_vram_mib = None;
+    assert_eq!(
+        match_registry_model(&model, &registry, &request, &probe)
+            .compatibility
+            .verdict,
+        MatchVerdict::Recommended
+    );
+    probe.available_ram_mib = Some(1024);
+    assert_eq!(
+        match_registry_model(&model, &registry, &request, &probe)
+            .compatibility
+            .verdict,
+        MatchVerdict::Incompatible
+    );
+    probe.available_ram_mib = Some(8192);
+    let mut cuda_target = request.clone();
+    cuda_target.target.hardware = H::Cuda;
+    let mut cuda_probe = probe.clone();
+    cuda_probe.target = cuda_target.target.clone();
+    assert_eq!(
+        match_registry_model(&model, &registry, &cuda_target, &cuda_probe)
+            .compatibility
+            .verdict,
+        MatchVerdict::Incompatible
+    );
+}
+
+#[test]
 fn hailo_hef_never_equals_cuda_and_npu_budget_is_independent() {
     let model = fixture("hailo");
     let (record, request, mut probe) = setup(
@@ -486,7 +522,7 @@ fn untrusted_online_recommendations_cannot_create_registry_probes_or_download() 
         validate_advisor_proposal(
             &suggestion,
             &AdvisorPolicy::default(),
-            &[model.clone()],
+            std::slice::from_ref(&model),
             &req,
             &ctx
         ),
