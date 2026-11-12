@@ -14,6 +14,7 @@ const controls = [
   "hardware", "autodetect", "regular", "performance", "pi", "hailo", "custom",
   "setupJan", "howJan", "serviceMode", "enableService", "disableService",
   "serviceModeDemo", "serviceClientWarning", "serviceOptInWarning",
+  "stopAiDesc", "appQuitDesc", "hardStopDesc", "quitAllDesc", "hostSurvives",
 ];
 
 test("English default, Turkish and German supply all critical controls without fallback", () => {
@@ -28,6 +29,8 @@ test("English default, Turkish and German supply all critical controls without f
     assert.notEqual(translations[lang].enableService, translations[lang].disableService);
   }
   assert.equal(translate("en", "appQuit"), "App Quit");
+  const englishKeys = Object.keys(translations.en).sort();
+  for (const lang of ["tr", "de"]) assert.deepEqual(Object.keys(translations[lang]).sort(), englishKeys);
 });
 
 test("Responsive source includes desktop, tablet and narrow-screen patterns", () => {
@@ -52,6 +55,7 @@ test("Rendered mock navigation contains all workspaces and localized shutdown & 
   const listeners = new Map();
   const root = { innerHTML: "", addEventListener: (event, fn) => { listeners.set(event, fn); } };
   const noop = { textContent: "", hidden: false, addEventListener() {} };
+  const modalBody = { innerHTML: "" };
   const dialog = { showModal() {}, close() {}, addEventListener() {} };
   const original = globalThis.document;
   globalThis.document = {
@@ -59,6 +63,7 @@ test("Rendered mock navigation contains all workspaces and localized shutdown & 
     querySelector(selector) {
       if (selector === "#app") return root;
       if (selector === "#confirmation") return dialog;
+      if (selector === "#dialog-body") return modalBody;
       return noop;
     },
   };
@@ -74,6 +79,8 @@ test("Rendered mock navigation contains all workspaces and localized shutdown & 
     listeners.get("change")({ target: { id: "language-top", value: "de" } });
     assert.equal(document.documentElement.lang, "de");
     assert.ok(root.innerHTML.includes(translations.de.quitAll));
+    listeners.get("click")({ target: { closest: () => ({ dataset: { shutdown: "app-quit" } }) } });
+    assert.ok(modalBody.innerHTML.includes(translations.de.appQuitDesc));
     listeners.get("click")({ target: { closest: () => ({ dataset: { go: "host" } }) } });
     assert.ok(root.innerHTML.includes(translations.de.serviceDisabled));
     assert.ok(root.innerHTML.includes('data-service-mode="independent"'));
