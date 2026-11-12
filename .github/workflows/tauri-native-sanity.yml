@@ -1,0 +1,41 @@
+name: Tauri 2 Desktop — Native IPC Smoke (Ubuntu only)
+
+# Optional isolated Tauri shell smoke. Does NOT build installers or run
+# physical GPU/SDR devices, model inference, network pairing, or Jan MCP.
+on:
+  push:
+    branches: [coord/phase2-integration-sandbox]
+    paths:
+      - "apps/tihulu-ai-desktop/**"
+      - "apps/tihulu-ai-web/**"
+      - ".github/workflows/tauri-native-sanity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop-linux:
+    name: Linux x64 — Tauri Rust/Serde/IPC command compile and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Install Tauri 2 Linux development libraries
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libssl-dev libxdo-dev patchelf
+      - name: Rust desktop source format
+        run: cargo fmt --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml --all --check
+      - name: Compile and test native Tauri shell (without launching window)
+        run: cargo test --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml --all-targets
+      - name: Native desktop Clippy
+        run: cargo clippy --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
