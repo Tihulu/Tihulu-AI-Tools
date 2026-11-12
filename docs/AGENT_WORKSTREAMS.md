@@ -32,6 +32,20 @@
 
 Each branch was updated to the tested foundation head as of 2026-11-12. Agents have **not** started work merely because these issues and branches exist. The user can provide each issue link to an independent chat agent.
 
+## Mandatory v0.9 cleanup acceptance (all six workstreams)
+
+Read [Resource Lifecycle & Hard Stop](RESOURCE_LIFECYCLE.md) before making any change to a model runtime, process, GPU/CPU/NPU host, agent, app adapter or SDR-facing module. The user requires: **Quit/Hard Stop releases every resource owned by the closing app while protecting unrelated or independently shared services**. No hidden model or child worker remains after app close; shared model unloads when its **last** authorized lease is released (unless explicit independent policy says otherwise). Jan/Ollama and pre-existing readsb/tar1090 are borrowed and must never be killed.
+
+Workstream-specific acceptance:
+- **01 Platform:** Linux/macOS Quit and Windows Job Object/process-group cleanup design; signal/force-exit handling, no auto-start daemon; test fake workers.
+- **02 Registry:** model-file owner vs loaded-runtime owner, per-session lease references, no model-file deletion; registry-only scans allocate no runtime model.
+- **03 Market:** tests/benchmarks/import preview release their owned models, downloads and job buffers on cancel/exit; no default keep-warm.
+- **04 Remote Compute:** per-client cancellable lease, last-client model unload, dead-client TTL and safe shared-host preservation; mocked multi-client memory accounting.
+- **05 Integrations:** Jan MCP tool cancellation, borrowed external Jan/Ollama/readsb/tar1090 preservation; per-app SDR ownership and release contract, no name-based kill.
+- **06 UI:** distinct Quit / Stop AI / Global Hard Stop / Quit All TIHULU Services; show process/model RAM/VRAM & service ownership status, warnings and shutdown progress, EN/TR/DE.
+
+Each agent must add applicable **L-01–L-16** synthetic regression scenarios in its owned test area and identify missing physical validation. No cross-repo source changes. Agent issues #2–#7 are updated for this requirement.
+
 ## Agent acceptance contract
 
 1. Read `AGENTS.md`, `docs/IMPLEMENTATION_START.md`, the relevant GitHub Issue and the v0.7 full plan.
