@@ -8,6 +8,8 @@ pub enum ModelOwner {
     JanDesktop,
     Ollama,
     HuggingFace,
+    /// An independently installed TIHULU application's model files.
+    TihuluApp(String),
     UserNamed(String),
     AiTools,
 }
@@ -16,8 +18,12 @@ pub enum ModelOwner {
 pub enum SourceAdapter {
     JanDesktop,
     OllamaApi,
+    /// Explicitly approved on-disk Ollama manifests and model blobs.
+    OllamaStore,
     HuggingFaceCache,
     CustomFolder,
+    /// A dedicated per-app model directory, never an implicit shared store.
+    TihuluAppDirectory,
     LocalInferenceApi,
 }
 
