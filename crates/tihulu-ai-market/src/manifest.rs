@@ -164,7 +164,10 @@ impl ModelManifest {
 
     pub fn validate(&self) -> Result<(), String> {
         if self.schema_version != MANIFEST_SCHEMA_VERSION {
-            return Err(format!("unsupported schema version {}", self.schema_version));
+            return Err(format!(
+                "unsupported schema version {}",
+                self.schema_version
+            ));
         }
         if self.id.trim().is_empty() || self.display_name.trim().is_empty() {
             return Err("model id and display name must be nonempty".into());
@@ -219,7 +222,9 @@ mod tests {
             schema_version: 1,
             id: "example".into(),
             display_name: "Example".into(),
-            source: ModelSource::External { application: "Jan".into() },
+            source: ModelSource::External {
+                application: "Jan".into(),
+            },
             availability: ModelStatus::Installed,
             format: ModelFormat::Gguf,
             runtimes: vec![Runtime::LlamaCpp],
