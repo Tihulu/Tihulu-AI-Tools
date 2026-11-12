@@ -20,6 +20,8 @@ struct ModelState {
     unload_count: u64,
     generation: u64,
     awaiting_ledger_ack: bool,
+    /// PR #12 ResourceId values cannot be recycled after a final release.
+    ledger_resource_spent: bool,
 }
 #[derive(Clone, Debug)]
 struct LeaseRecord {
@@ -63,6 +65,8 @@ pub struct MockComputeHost {
     next_event_sequence: u64,
     /// Immutable tombstones prevent lease-ID reuse and cross-client replay after close.
     used_lease_ids: HashMap<LeaseId, (ClientId, AppId, AppSessionId, TaskId)>,
+    stopped_app_sessions: HashSet<(ClientId, AppId, AppSessionId)>,
+    stopped_tasks: HashSet<(ClientId, AppId, AppSessionId, TaskId)>,
     paired: HashMap<ClientId, PairedClient>,
     grants: HashMap<(ClientId, AppId), AppGrant>,
     models: HashMap<ModelId, ModelState>,
@@ -91,6 +95,7 @@ impl MockComputeHost {
             ledger_models: HashMap::new(), ledger_owners: HashMap::new(),
             ledger_events: VecDeque::new(), next_event_sequence: 0,
             used_lease_ids: HashMap::new(),
+            stopped_app_sessions: HashSet::new(), stopped_tasks: HashSet::new(),
             paired: HashMap::new(), grants: HashMap::new(), models: HashMap::new(),
             leases: HashMap::new(), jobs: HashMap::new(), audit: VecDeque::new(),
         })
@@ -139,6 +144,42 @@ impl MockComputeHost {
             return Err(Error::IdentifierConflict);
         }
         self.ledger_models.insert(binding.model.clone(), binding);
+        Ok(())
+    }
+
+    /// Trusted coordinator only. PR #12 disallows reuse of ResourceId even after
+    /// a successful unload or the final BorrowedExternal reference is removed.
+    /// Assign a NEW resource (and a new owned runtime instance on reload)
+    /// before another lease; never recycle an old resource or accept stale ACKs.
+    pub fn rotate_ledger_runtime(
+        &mut self, new_binding: LedgerRuntimeBinding,
+    ) -> Result<(), Error> {
+        if self.lifecycle_authority != LifecycleAuthority::CoordinatorLedger {
+            return Err(Error::InvalidConfiguration);
+        }
+        let model = &new_binding.model;
+        let state = self.models.get(model).ok_or(Error::UnknownModel)?;
+        if !state.ledger_resource_spent || state.loaded_by_us
+            || state.awaiting_ledger_ack || self.model_lease_count(model) != 0
+            || self.ledger_events.iter().any(|event| &event.model == model)
+        {
+            return Err(Error::LedgerCleanupPending);
+        }
+        let old = self.ledger_models.get(model).ok_or(Error::LedgerBindingRequired)?;
+        if new_binding.resource == old.resource
+            || (state.registration.ownership == RuntimeOwnership::HostOwned
+                && new_binding.runtime == old.runtime)
+            || self.ledger_models.iter().any(|(other_model, binding)| {
+                other_model != model && (binding.resource == new_binding.resource
+                    || binding.runtime == new_binding.runtime)
+            })
+        {
+            return Err(Error::IdentifierConflict);
+        }
+        self.ledger_models.insert(model.clone(), new_binding);
+        if let Some(state) = self.models.get_mut(model) {
+            state.ledger_resource_spent = false;
+        }
         Ok(())
     }
 
@@ -324,7 +365,7 @@ impl MockComputeHost {
         }
         self.models.insert(registration.id.clone(), ModelState {
             registration, loaded_by_us: false, load_count: 0, unload_count: 0,
-            generation: 0, awaiting_ledger_ack: false,
+            generation: 0, awaiting_ledger_ack: false, ledger_resource_spent: false,
         });
         Ok(())
     }
@@ -363,6 +404,12 @@ impl MockComputeHost {
         self.tick(now_ms);
         if self.status != HostStatus::Accepting { return Err(Error::ShuttingDown); }
         let grant = self.grant(peer)?;
+        let session = (peer.client.clone(), peer.app.clone(), peer.app_session.clone());
+        if self.stopped_app_sessions.contains(&session)
+            || self.stopped_tasks.contains(&(session.0, session.1, session.2, peer.task.clone()))
+        {
+            return Err(Error::LeaseExpired);
+        }
         if !grant.allowed_models.contains(&model) { return Err(Error::PermissionDenied); }
         let reg = self.models.get(&model).ok_or(Error::UnknownModel)?.registration.clone();
         if !reg.location.executable() { return Err(Error::StagingNotVerified); }
@@ -404,6 +451,11 @@ impl MockComputeHost {
         } else { None };
         if self.models.get(&model).is_some_and(|m| m.awaiting_ledger_ack) {
             return Err(Error::LedgerCleanupPending);
+        }
+        if self.lifecycle_authority == LifecycleAuthority::CoordinatorLedger
+            && self.models.get(&model).is_some_and(|m| m.ledger_resource_spent)
+        {
+            return Err(Error::LedgerBindingRequired);
         }
         let count = self.leases.values().filter(|lease| {
             lease.client == peer.client && lease.app == peer.app
@@ -602,12 +654,19 @@ impl MockComputeHost {
         let ids: Vec<_> = self.leases.iter().filter(|(_, lease)| &lease.client == client)
             .map(|(id, _)| id.clone()).collect();
         for id in ids { self.close_internal(&id, now_ms); }
+        let scopes: Vec<_> = self.used_lease_ids.values().filter(|scope| &scope.0 == client)
+            .map(|scope| (scope.0.clone(), scope.1.clone(), scope.2.clone()))
+            .collect();
+        self.stopped_app_sessions.extend(scopes);
     }
 
     /// Client-app Quit or Hard Stop; does NOT close another app on the same Pi.
     pub fn close_app(&mut self, peer: &PeerEvidence, now_ms: u64) -> Result<(), Error> {
         self.tick(now_ms);
         self.authenticate(peer)?;
+        self.stopped_app_sessions.insert((
+            peer.client.clone(), peer.app.clone(), peer.app_session.clone()
+        ));
         let ids: Vec<_> = self.leases.iter().filter(|(_, lease)| {
             lease.client == peer.client && lease.app == peer.app
                 && lease.app_session == peer.app_session
@@ -620,6 +679,10 @@ impl MockComputeHost {
     pub fn close_task(&mut self, peer: &PeerEvidence, now_ms: u64) -> Result<(), Error> {
         self.tick(now_ms);
         self.authenticate(peer)?;
+        self.stopped_tasks.insert((
+            peer.client.clone(), peer.app.clone(),
+            peer.app_session.clone(), peer.task.clone()
+        ));
         let ids: Vec<_> = self.leases.iter().filter(|(_, lease)| {
             lease.client == peer.client && lease.app == peer.app
                 && lease.app_session == peer.app_session && lease.task == peer.task
@@ -697,6 +760,9 @@ impl MockComputeHost {
         for model in affected {
             if self.leases.values().any(|lease| lease.model == model) { continue; }
             if let Some(state) = self.models.get_mut(&model) {
+                if self.lifecycle_authority == LifecycleAuthority::CoordinatorLedger {
+                    state.ledger_resource_spent = true;
+                }
                 if state.loaded_by_us {
                     if self.lifecycle_authority == LifecycleAuthority::CoordinatorLedger {
                         // The core ledger, not this host mock or Registry, decides
