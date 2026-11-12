@@ -1,0 +1,96 @@
+name: Phase 6 — Live Native WebView IPC (Disposable Ubuntu Only)
+
+on:
+  push:
+    branches: [qa/phase6-live-ipc-20261112]
+    paths: ["qa/phase6/**", "scripts/phase6_live_ipc_observer.py", "docs/qa/PHASE6_LIVE_IPC_ACCEPTANCE.md", ".github/workflows/phase6-live-ipc-acceptance.yml"]
+  pull_request:
+    paths: ["qa/phase6/**", "scripts/phase6_live_ipc_observer.py", "docs/qa/PHASE6_LIVE_IPC_ACCEPTANCE.md", ".github/workflows/phase6-live-ipc-acceptance.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  strict-native-ipc:
+    name: Frozen native commands + strict browser negatives + live Ubuntu WebView IPC
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify pinned source and isolate test-only changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=3684716f95a5cc411cb7999b94e5600f6cb94bef
+          git cat-file -e "${BASE}^{commit}"
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | while IFS= read -r path; do
+            case "$path" in
+              qa/phase6/live-ipc-probe.mjs|\
+              qa/phase6/live-ipc-probe.test.mjs|\
+              qa/phase6/prepare_live_ipc_fixture.py|\
+              scripts/phase6_live_ipc_observer.py|\
+              docs/qa/PHASE6_LIVE_IPC_ACCEPTANCE.md|\
+              .github/workflows/phase6-live-ipc-acceptance.yml) ;;
+              *) echo "::error::Unexpected change to frozen source: $path"; exit 1 ;;
+            esac
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Reject forged native IPC claims and missing bridge
+        run: node --test qa/phase6/live-ipc-probe.test.mjs
+      - name: Preserve existing safety/GUI code checks
+        run: |
+          python3 -m unittest discover -s scripts/tests -p 'test_phase6_native_launch_smoke.py' -v
+          npm --prefix apps/tihulu-ai-web test
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux native build and X11 observation dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libssl-dev libxdo-dev patchelf \
+            xvfb xauth xdotool openbox dbus-x11 imagemagick
+      - name: Verify unchanged native command contract
+        run: cargo test --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml --all-targets
+      - name: Inject read-only test JS into THIS disposable checkout only
+        run: python3 qa/phase6/prepare_live_ipc_fixture.py
+      - name: Build native Tauri app with disposable test-only frontend probe
+        run: cargo build --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml
+      - name: Copy native binary into runner-only temp installation root
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -Dm700 apps/tihulu-ai-desktop/src-tauri/target/debug/tihulu-ai-desktop \
+            "$RUNNER_TEMP/phase6-ipc-program/bin/tihulu-ai-tools-phase6-ipc"
+      - name: Observe real IPC result and graceful native Quit
+        shell: bash
+        run: |
+          set -euo pipefail
+          dbus-run-session -- xvfb-run -a --server-args="-screen 0 1440x900x24" bash -euo pipefail -c '
+            openbox --sm-disable >"$RUNNER_TEMP/phase6-ipc-wm.log" 2>&1 &
+            wm=$!
+            trap '\''kill "$wm" 2>/dev/null || true; wait "$wm" 2>/dev/null || true'\'' EXIT
+            python3 scripts/phase6_live_ipc_observer.py \
+              --binary "$RUNNER_TEMP/phase6-ipc-program/bin/tihulu-ai-tools-phase6-ipc" \
+              --report "$RUNNER_TEMP/phase6-ipc-observation.json"
+          '
+      - name: Print bounded result, or explicit HOLD
+        if: always()
+        shell: bash
+        run: |
+          if test -f "$RUNNER_TEMP/phase6-ipc-observation.json"; then
+            cat "$RUNNER_TEMP/phase6-ipc-observation.json"
+          else
+            echo "::warning::NO REAL IPC ATTESTATION; HOLD"
+          fi
+
+# Real model/inference/GPU/NPU/provider/host/service/installer tests do not occur.
+# Neither main nor an owner's installed app is edited.
