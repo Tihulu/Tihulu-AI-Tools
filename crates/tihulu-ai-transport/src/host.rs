@@ -7,6 +7,7 @@ const MAX_JOB_RECORDS: usize = 10_000;
 const MAX_AUDIT_EVENTS: usize = 1_024;
 const MAX_LEDGER_EVENTS: usize = 10_000;
 const MAX_LEASE_IDENTITIES: usize = 10_000;
+const MAX_LEDGER_RESOURCE_IDENTITIES: usize = 10_000;
 
 #[derive(Clone, Debug)]
 struct PairedClient {
@@ -143,6 +144,7 @@ impl MockComputeHost {
         if self.models.get(&binding.model).is_some_and(|m| m.loaded_by_us)
             || self.ledger_models.contains_key(&binding.model)
             || self.used_ledger_resources.contains(&binding.resource)
+            || self.used_ledger_resources.len() >= MAX_LEDGER_RESOURCE_IDENTITIES
             || (self.models.get(&binding.model).is_some_and(|m| {
                 m.registration.ownership == RuntimeOwnership::HostOwned
             }) && self.used_owned_runtime_ids.contains(&binding.runtime))
@@ -180,6 +182,7 @@ impl MockComputeHost {
         }
         self.ledger_models.get(model).ok_or(Error::LedgerBindingRequired)?;
         if self.used_ledger_resources.contains(&new_binding.resource)
+            || self.used_ledger_resources.len() >= MAX_LEDGER_RESOURCE_IDENTITIES
             || (state.registration.ownership == RuntimeOwnership::HostOwned
                 && self.used_owned_runtime_ids.contains(&new_binding.runtime))
             || self.ledger_models.iter().any(|(other_model, binding)| {
@@ -714,6 +717,10 @@ impl MockComputeHost {
             &lease.client == client && &lease.app == app
         }).map(|(id, _)| id.clone()).collect();
         for id in ids { self.close_internal(&id, now_ms); }
+        let old_scopes: Vec<_> = self.used_lease_ids.values().filter(|scope| {
+            &scope.0 == client && &scope.1 == app
+        }).map(|scope| (scope.0.clone(), scope.1.clone(), scope.2.clone())).collect();
+        self.stopped_app_sessions.extend(old_scopes);
         self.log(now_ms, AuditAction::Revoked, Some(client.clone()),
             Some(app.clone()), None, None, None, "host revoked one application grant");
     }
