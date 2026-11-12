@@ -522,7 +522,7 @@ fn untrusted_online_recommendations_cannot_create_registry_probes_or_download() 
         validate_advisor_proposal(
             &suggestion,
             &AdvisorPolicy::default(),
-            &[model.clone()],
+            std::slice::from_ref(&model),
             &req,
             &ctx
         ),
