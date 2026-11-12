@@ -1,0 +1,49 @@
+name: AI-10 - Offline Provider Consent and Fallback Policy Oracle
+
+on:
+  pull_request:
+    paths:
+      - 'qa/phase6/runtime/**'
+      - 'docs/qa/model-runtime/**'
+      - '.github/workflows/phase6-ai10-runtime-policy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mock-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard pinned ancestor and isolated paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          ancestor=283edc8a1101f63e08f12c172d6b2d6688b9a5ca
+          git cat-file -e "$ancestor^{commit}"
+          git merge-base --is-ancestor "$ancestor" HEAD
+          n=0
+          while IFS= read -r path; do
+            [ -n "$path" ] || continue
+            n=$((n+1))
+            case "$path" in
+              .github/workflows/phase6-ai10-runtime-policy.yml|qa/phase6/runtime/*|docs/qa/model-runtime/*) ;;
+              *) echo "FROZEN SOURCE CHANGE: $path"; exit 1 ;;
+            esac
+          done < <(git diff --name-only "$ancestor" HEAD)
+          test "$n" -eq 4
+      - name: Offline-only synthetic provider and ownership tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q qa/phase6/runtime
+          python3 -m unittest discover -s qa/phase6/runtime -p 'test_*.py' -v
+      - name: Evidence boundary
+        run: |
+          echo 'AI-10: synthetic decision oracle only. NO model inference, Jan/OpenCode networking, CPU load, real fallback or GPU tests.'
+          echo 'REAL INFERENCE GO: HOLD | RELEASE GO: HOLD'
