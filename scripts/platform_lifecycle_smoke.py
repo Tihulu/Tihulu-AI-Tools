@@ -95,7 +95,8 @@ class OwnedDummySupervisor:
                 "escalated": escalated,
                 "borrowed_labels_untouched": tuple(self._borrowed_names),
             }
-            self._state = "stopped"
+            # Retain a failed handle for a safe retry; never report a leak as stopped.
+            self._state = "stopped" if reaped else "cleanup_failed"
             return dict(self._result)
 
 
