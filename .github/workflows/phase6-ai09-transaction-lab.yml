@@ -1,0 +1,69 @@
+name: AI-09 - Ubuntu Disposable Transaction and Rollback QA (synthetic)
+
+on:
+  pull_request:
+    paths:
+      - 'qa/phase6/installer/ai09_transaction_lab.py'
+      - 'qa/phase6/installer/test_ai09_transaction_lab.py'
+      - 'docs/qa/installer/AI09_DISPOSABLE_TRANSACTION_ACCEPTANCE.md'
+      - '.github/workflows/phase6-ai09-transaction-lab.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu-synthetic-transaction:
+    name: Ubuntu 24.04 disposable fake-version security matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout only ephemeral PR worktree
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify frozen exact source and four additive QA paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='283edc8a1101f63e08f12c172d6b2d6688b9a5ca'
+          git cat-file -e "$base^{commit}"
+          git merge-base --is-ancestor "$base" HEAD
+          mapfile -t changed < <(git diff --name-only "$base" HEAD)
+          test "${#changed[@]}" -eq 4
+          for path in "${changed[@]}"; do
+            case "$path" in
+              '.github/workflows/phase6-ai09-transaction-lab.yml'|\
+              'qa/phase6/installer/ai09_transaction_lab.py'|\
+              'qa/phase6/installer/test_ai09_transaction_lab.py'|\
+              'docs/qa/installer/AI09_DISPOSABLE_TRANSACTION_ACCEPTANCE.md') ;;
+              *) printf 'FROZEN SOURCE OR FOREIGN FILE: %s\n' "$path"; exit 1 ;;
+            esac
+          done
+          echo 'Frozen #34 ancestor and exact changed-path allowlist: PASS'
+      - name: Run isolated synthetic transaction and real test-child SIGKILL tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${CI:-}" = true
+          test "${GITHUB_ACTIONS:-}" = true
+          test -n "${RUNNER_TEMP:-}"
+          isolated="$(mktemp -d "$RUNNER_TEMP/ai09-private-home-XXXXXXXX")"
+          chmod 700 "$isolated"
+          export HOME="$isolated/home"
+          export XDG_CONFIG_HOME="$isolated/config"
+          export XDG_CACHE_HOME="$isolated/cache"
+          export XDG_DATA_HOME="$isolated/data"
+          export XDG_STATE_HOME="$isolated/state"
+          export XDG_RUNTIME_DIR="$isolated/runtime"
+          export TMPDIR="$isolated"
+          mkdir -m 700 "$HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_RUNTIME_DIR"
+          python3 -m compileall -q qa/phase6/installer/ai09_transaction_lab.py qa/phase6/installer/test_ai09_transaction_lab.py
+          PYTHONPATH=qa/phase6/installer python3 -m unittest discover -s qa/phase6/installer -p 'test_ai09_transaction_lab.py' -v
+      - name: Unambiguous scope boundary
+        shell: bash
+        run: |
+          echo 'AI-09: disposable fake executable only; 18 synthetic tests.'
+          echo 'NOT an installed native package; no user machine, providers, model, map, GPU, SDR or service touched.'
+          echo 'Actual native installer, hostile same-UID security, full uninstall, cross-OS and release: HOLD'
