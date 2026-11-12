@@ -118,16 +118,16 @@ pub struct ModelRecord {
 
 impl ModelRecord {
     pub fn discovered_file(&self) -> bool {
-        matches!(self.reference, ModelReference::File(_)) && !self.missing
+        matches!(&self.reference, ModelReference::File(_)) && !self.missing
     }
 
     pub fn validated_model(&self) -> bool {
-        matches!(self.artifact_validation, ArtifactValidation::Validated { .. })
+        matches!(&self.artifact_validation, ArtifactValidation::Validated { .. })
     }
 
     pub fn available_endpoint(&self) -> bool {
         matches!(
-            self.reference,
+            &self.reference,
             ModelReference::Endpoint(EndpointObservation {
                 state: EndpointState::ListedByAuthorizedClient,
                 ..
@@ -136,7 +136,7 @@ impl ModelRecord {
     }
 
     pub fn verified_runtime_compatibility(&self) -> bool {
-        matches!(self.runtime_verification, RuntimeVerification::Verified { .. })
+        matches!(&self.runtime_verification, RuntimeVerification::Verified { .. })
     }
 }
 
