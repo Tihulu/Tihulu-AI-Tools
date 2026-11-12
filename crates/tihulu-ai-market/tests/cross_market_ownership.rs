@@ -5,10 +5,9 @@ use std::path::PathBuf;
 
 use tihulu_ai_market::{
     inspect_registered_model, ApplicationId, ApplicationTask, HardwareTarget, HostId,
-    InventoryCompatibilityReport, InventoryInspection, MatchVerdict, ModelArchitecture,
-    ModelManifest, ModelSource, ModelStatus, Modality, RegistryModelId, RegistryOwner, Runtime,
-    RuntimeTarget,
-    TaskKind, TaskRequest, TrustedHardwareProbe,
+    InventoryCompatibilityReport, InventoryInspection, MatchVerdict, Modality, ModelArchitecture,
+    ModelManifest, ModelSource, ModelStatus, RegistryModelId, RegistryOwner, Runtime,
+    RuntimeTarget, TaskKind, TaskRequest, TrustedHardwareProbe,
 };
 use tihulu_ai_registry::registry::{
     ArtifactObservation, ArtifactValidation, FileFormat, ModelId, ModelOwner, ModelRecord,
@@ -63,7 +62,11 @@ fn record(owner: ModelOwner, adapter: SourceAdapter, verified: bool) -> ModelRec
     }
 }
 
-fn report(model: &ModelManifest, record: &ModelRecord, consumer: &str) -> InventoryCompatibilityReport {
+fn report(
+    model: &ModelManifest,
+    record: &ModelRecord,
+    consumer: &str,
+) -> InventoryCompatibilityReport {
     let target = RuntimeTarget {
         host_id: HostId::new("local").unwrap(),
         runtime: Runtime::LlamaCpp,
@@ -112,7 +115,10 @@ fn tihulu_application_model_stays_external_and_discovered_is_not_runnable() {
     let observed = record(owner.clone(), SourceAdapter::TihuluAppDirectory, false);
     let result = report(&model, &observed, OWNER_APP);
     assert_eq!(result.readiness.catalog_status, ModelStatus::External);
-    assert_eq!(result.source_owner, RegistryOwner::TihuluApp(OWNER_APP.into()));
+    assert_eq!(
+        result.source_owner,
+        RegistryOwner::TihuluApp(OWNER_APP.into())
+    );
     assert!(result.readiness.discovered);
     assert!(!result.readiness.artifact_verified);
     assert!(!result.readiness.target_runtime_verified);
@@ -122,7 +128,10 @@ fn tihulu_application_model_stays_external_and_discovered_is_not_runnable() {
 
     let verified = record(owner.clone(), SourceAdapter::TihuluAppDirectory, true);
     let preflight = report(&model, &verified, OWNER_APP);
-    assert_eq!(preflight.decision.compatibility.verdict, MatchVerdict::Recommended);
+    assert_eq!(
+        preflight.decision.compatibility.verdict,
+        MatchVerdict::Recommended
+    );
     assert_eq!(preflight.readiness.catalog_status, ModelStatus::External);
     assert!(preflight.readiness.runnable_preflight);
     assert!(preflight.decision.read_only);
@@ -138,7 +147,10 @@ fn distinct_tihulu_app_ids_and_usernamed_aliases_never_match() {
         true,
     );
     let mismatch = report(&model, &other_owner, OWNER_APP);
-    assert_eq!(mismatch.decision.compatibility.verdict, MatchVerdict::Incompatible);
+    assert_eq!(
+        mismatch.decision.compatibility.verdict,
+        MatchVerdict::Incompatible
+    );
     assert!(!mismatch.decision.can_propose_assignment);
 
     let generic_alias = record(
@@ -147,7 +159,10 @@ fn distinct_tihulu_app_ids_and_usernamed_aliases_never_match() {
         true,
     );
     let alias = report(&model, &generic_alias, OWNER_APP);
-    assert_eq!(alias.decision.compatibility.verdict, MatchVerdict::Incompatible);
+    assert_eq!(
+        alias.decision.compatibility.verdict,
+        MatchVerdict::Incompatible
+    );
     assert!(!alias.readiness.runnable_preflight);
 
     let mut forged_source = model;
@@ -160,7 +175,10 @@ fn distinct_tihulu_app_ids_and_usernamed_aliases_never_match() {
         true,
     );
     let forged = report(&forged_source, &real_owner, OWNER_APP);
-    assert_eq!(forged.decision.compatibility.verdict, MatchVerdict::Incompatible);
+    assert_eq!(
+        forged.decision.compatibility.verdict,
+        MatchVerdict::Incompatible
+    );
 }
 
 #[test]
@@ -184,7 +202,10 @@ fn another_app_cannot_assign_model_even_with_verified_synthetic_probe() {
         true,
     );
     let wrong_scope = report(&model, &unapproved, OWNER_APP);
-    assert_eq!(wrong_scope.decision.compatibility.verdict, MatchVerdict::Unknown);
+    assert_eq!(
+        wrong_scope.decision.compatibility.verdict,
+        MatchVerdict::Unknown
+    );
     assert!(!wrong_scope.decision.can_propose_assignment);
 }
 
@@ -195,10 +216,16 @@ fn app_owner_catalog_ids_must_be_valid_and_cannot_claim_ai_tools_installation() 
     assert!(model.validate().is_err());
 
     model.availability = ModelStatus::External;
-    model.source = ModelSource::TihuluApp { app_id: "tihulu_media_center".into() };
+    model.source = ModelSource::TihuluApp {
+        app_id: "tihulu_media_center".into(),
+    };
     assert!(model.validate().is_err());
-    model.source = ModelSource::TihuluApp { app_id: String::new() };
+    model.source = ModelSource::TihuluApp {
+        app_id: String::new(),
+    };
     assert!(model.validate().is_err());
-    model.source = ModelSource::TihuluApp { app_id: OWNER_APP.into() };
+    model.source = ModelSource::TihuluApp {
+        app_id: OWNER_APP.into(),
+    };
     assert!(model.validate().is_ok());
 }
