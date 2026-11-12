@@ -113,3 +113,7 @@ Scanning a foreign model directory permits **read-only discovery**, not editing 
 Never put secrets or raw provider access tokens in `aipath.txt`. Both application path and model reference must be validated against owner-granted scopes. The matching LLM must not generate a writable path that bypasses Rust-side validation.
 
 See [discovery and matching](MODEL_DISCOVERY_AND_MATCHING.md) and [Jan integration](JAN_INTEGRATION.md).
+
+## Standalone installations and legacy directory control (2026-11-12 confirmed)
+
+All TIHULU apps are independently installable and runnable without AI Tools. New installers should provision models using a documented, AI Tools-compatible shared base directory while retaining app-specific settings. On existing installations, preserve legacy paths until a user-approved change. AI Tools offers read-only discovery of current/old per-app directories and safe per-app model-root reassignment; moving executable installation directories requires a platform installer, not a raw file rename. Physical file relocation requires scoped grants, backup, verification, rollback and independent shared-client checks. Pure planner and tests live in `crates/tihulu-ai-registry/src/app_paths.rs`; exact cross-app contract is in [independent app path management](ci/INDEPENDENT_APP_PATHS.md). No real app files have yet been modified.
