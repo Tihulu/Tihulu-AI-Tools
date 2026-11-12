@@ -25,7 +25,7 @@ Authorized hardware/runtime observer ── TrustedHardwareProbe(
              match_registry_model  [PURE / READ-ONLY]
                   │
                   └─ RegistryMatchDecision {
-                       inventory_status, compatibility verdict + reasons,
+                       inventory_status, observed_presence, compatibility verdict + reasons,
                        registry_model_id, catalog_model_id, application_id,
                        target, can_propose_assignment, read_only: true
                      }
