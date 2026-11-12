@@ -385,11 +385,14 @@ mod tests {
             let keys: Vec<_> = self.contexts.keys().copied().collect();
             let mut cleanup = Vec::new();
             for key in keys {
-                if let Some(item) = self.contexts.get_mut(&key) {
-                    item.holders.remove(&owner);
-                }
-                if let Some(request) = self.last_release(key) {
-                    cleanup.push(request);
+                let removed = self
+                    .contexts
+                    .get_mut(&key)
+                    .is_some_and(|item| item.holders.remove(&owner).is_some());
+                if removed {
+                    if let Some(request) = self.last_release(key) {
+                        cleanup.push(request);
+                    }
                 }
             }
             Ok(cleanup)
@@ -676,6 +679,26 @@ mod tests {
         ));
         assert_eq!(source_path.to_string_lossy(), "/synthetic/external/model.gguf");
         assert_eq!(ledger.active_lease_count(binding.resource), Some(0));
+    }
+
+    #[test]
+    fn stopping_unrelated_owner_cannot_emit_foreign_cleanup() {
+        let mut ledger = MockResourceLedger::default();
+        let first = LedgerOwnerRef(84);
+        let unrelated = LedgerOwnerRef(85);
+        ledger.open_owner(first);
+        ledger.open_owner(unrelated);
+        let binding = binding(184, ModelOwner::AiTools, ContextAuthority::ManagedShared);
+        register_initial_task(
+            &mut ledger,
+            &binding,
+            first,
+            consumer("app-84", "task-a"),
+        )
+        .unwrap();
+        assert!(stop_app(&mut ledger, unrelated).unwrap().is_empty());
+        assert_eq!(ledger.active_lease_count(binding.resource), Some(1));
+        assert_eq!(stop_app(&mut ledger, first).unwrap().len(), 1);
     }
 
     #[test]
