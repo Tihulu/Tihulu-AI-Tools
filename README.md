@@ -1,6 +1,6 @@
 # TIHULU AI Tools
 
-**Status: Planning only — Draft v0.4 (12 November 2026)**
+**Status: Planning only — Draft v0.5 (12 November 2026)**
 
 TIHULU AI Tools is a planned **Rust-first**, cross-platform AI model management and optional inference-hosting application. The current repository contains **product plans, contracts and interface mockups**, not a functioning installer, AI runtime, marketplace, server, or agent.
 
@@ -34,6 +34,14 @@ TIHULU AI Tools is a planned **Rust-first**, cross-platform AI model management 
 `Auto Detect` · `Regular Computer` · `Performance / Experimental` · `Raspberry Pi 5 — 8 GB` · `Raspberry Pi 5 + AI HAT+ 2` · `Custom`
 
 **Compatibility is verified per model, runtime and device; architecture support alone does not mean Hailo NPU support.** A remote browser client does not automatically contribute phone GPU capacity.
+
+## v0.5: shared host for AI Tools itself
+
+TIHULU AI Tools on a Raspberry Pi 5 can be configured to use a paired x86-64 PC GPU as the inference host for **its own AI Advisor and App Control Agent chats**. The same paired PC may be selected per AI task by independent TIHULU applications, including Survival Kit, without a separate copy of PC-hosted model weights on Pi. A remote Rust host service must be running and securely paired for remote inference; an application does not need the AI Tools **GUI** open to start.
+
+The two experimental AI tabs now use **chat-style mockups** with message history, input composer, compute selectors (**Auto / This device / Paired PC GPU**), and visible permission controls. The GPU Server tab previews routing its host to AI Tools features and selected TIHULU apps. All UI responses and host assignments are **simulated**; no inference, file or app changes occur.
+
+See [v0.5 feature specifications](docs/TIHULU_AI_TOOLS_PLAN.md#35-v05-approved-requirement--ai-tools-itself-consumes-a-paired-gpu-host), [editable diagrams](docs/ARCHITECTURE.md), and the [interactive concept](ui/index.html).
 
 ## Planning workflow
 
