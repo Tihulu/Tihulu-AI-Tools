@@ -84,3 +84,52 @@ are not on its ancestry.
 8. Proof of an exact integrated SHA after Phase 5 agents are assembled.
 
 **No GO, merge, release, real installation, model migration or hardware approval.**
+
+
+## Independent Phase 5 Draft reviews and actual three-OS QA run
+
+Reviewed current Phase 5 agent Drafts, each **independently** descended
+from PR #19 and **not** combined with the others:
+
+| Draft | Reviewed head | Independent CI at review | Scope |
+| --- | --- | --- | --- |
+| #20 Registry discovery | `7c3030d09c30a841ed42813b6427d7e7d7f7b589` | Rust Core multi-OS success (run 43167579541) | Six Registry-owned files, bounded synthetic consent scope |
+| #22 Market compatibility | `d015a806966d97e340f807b6b5ef418b17d0a492` | Rust Core multi-OS success (run 43167409284) | Eight Market-owned files, read-only Registry bridge |
+| #23 GPU Host | `b5223371259235285bb5c88d18905f765a9c0e5c` | Rust Core multi-OS success (run 43167546657) | Eight Transport-owned files, synthetic ledger receipts |
+| #24 Jan/Ollama | `d7a0120a49affc130f951325a19aaad8c0c14962` | Rust Core run 43167628325 in progress at review | Four Integrations-owned files, opt-in provider mock |
+
+**BLOCKER QA-CROSS-01 — source-contract coexistence.** PR #20 adds a new
+`ModelOwner::TihuluApp(String)` variant to Registry. PR #22's
+`crates/tihulu-ai-market/src/inventory_bridge.rs` has an exhaustive
+`match owner: &ModelOwner` without a `TihuluApp` arm. The combined source
+would produce a Rust non-exhaustive pattern error. Market's typed
+`RegistryOwner` mapping must also account for this independent-app owner.
+This is **source review evidence**, not a claim of an executed combined build.
+Neither individual green CI run can authorize a merge.
+
+**Executed QA workflow at head
+`51b5d436fcdeff9b6ad85d4c082883a00f0e4ba5`:**
+[Actions run 43167482748](https://github.com/Tihulu/Tihulu-AI-Tools/actions/runs/43167482748).
+
+- QA Rust `fmt`, `test --all-targets`, `clippy -D warnings`;
+  root `cargo test --workspace --all-targets`, and existing UI regression
+  tests **passed on ubuntu-24.04, windows-2025 and macos-15**.
+- QA JS negative tests on each OS: **5 pass, 1 expected regression failure**,
+  `qa/phase5/js/native-safety.test.mjs:49`. The native status validator
+  returns `native_contracts_linked` for a forged `registry_records=1`
+  despite `approved_source_scans=0`; expect
+  `invalid_native_modules`. The CI aggregates this as a failure,
+  and the test was not suppressed or weakened.
+- Native Tauri `cargo fmt/test/clippy` **PASS** on Ubuntu 24.04 x64 and
+  macOS 15 ARM64 (source/native tests only, no installed startup).
+- **BLOCKER QA-WIN-01:** Windows 2025 native Tauri `cargo test`
+  **FAIL** in `tauri-build` because
+  `apps/tihulu-ai-desktop/src-tauri/icons/icon.ico` does not exist
+  (Windows resource generation); subsequent native Clippy skipped.
+  QA did not alter production icons or packaging.
+- No real model scans/provider connections, filesystem migrations, CUDA,
+  measured VRAM, Tauri GUI launch, signed installers or hardware acceptance.
+
+**Acceptance remains HOLD**: coordinator/owner must address both real
+CI failures and independent branch contract mismatch; then assemble an exact
+combined SHA and rerun this suite. Tests/CI must remain blocking.
