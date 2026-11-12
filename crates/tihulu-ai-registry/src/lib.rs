@@ -22,6 +22,6 @@ pub use leases::{
 };
 pub use registry::{
     default_model_library, ArtifactObservation, ArtifactValidation, EndpointObservation,
-    EndpointState, FileFormat, ModelId, ModelOwner, ModelRecord, ModelReference,
-    ModelRegistry, RuntimeVerification, SourceAdapter,
+    EndpointState, FileFormat, ModelId, ModelOwner, ModelRecord, ModelReference, ModelRegistry,
+    RuntimeVerification, SourceAdapter,
 };
