@@ -1,0 +1,125 @@
+name: Phase 2 — Standalone Agent Tests (no merge)
+
+# This intentionally checks out each agent branch INDEPENDENTLY.
+# The foundation workspace does not include most agent crates yet; a green
+# foundation run is not proof of any agent's test results.
+on:
+  push:
+    branches: [coord/phase2-agent-ci]
+    paths:
+      - ".github/workflows/phase2-agent-validation.yml"
+      - "docs/ci/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  standalone-rust:
+    name: "${{ matrix.agent }} — Rust standalone"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - agent: "Agent 02 / Model Registry"
+            ref: "agent/02-discovery"
+            manifest: "crates/tihulu-ai-registry/Cargo.toml"
+          - agent: "Agent 03 / Model Market"
+            ref: "agent/03-market"
+            manifest: "crates/tihulu-ai-market/Cargo.toml"
+          - agent: "Agent 04 / GPU Transport"
+            ref: "agent/04-compute"
+            manifest: "crates/tihulu-ai-transport/Cargo.toml"
+          - agent: "Agent 05 / Jan Integration"
+            ref: "agent/05-integrations"
+            manifest: "crates/tihulu-ai-integrations/Cargo.toml"
+    steps:
+      - name: Check out exact agent branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.ref }}
+          persist-credentials: false
+      - name: Display tested commit
+        shell: bash
+        run: |
+          echo "Agent branch: ${{ matrix.ref }}"
+          git rev-parse HEAD
+          echo "Manifest: ${{ matrix.manifest }}"
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      # Always execute all checks. A rustfmt failure must not hide a broken
+      # compile, unit test, or Clippy error in another agent's standalone crate.
+      - name: Format standalone crate
+        id: formatting
+        continue-on-error: true
+        run: cargo fmt --manifest-path ${{ matrix.manifest }} --all --check
+      - name: Run standalone crate tests
+        id: testing
+        continue-on-error: true
+        run: cargo test --manifest-path ${{ matrix.manifest }} --all-targets
+      - name: Run standalone crate Clippy
+        id: linting
+        continue-on-error: true
+        run: cargo clippy --manifest-path ${{ matrix.manifest }} --all-targets -- -D warnings
+      - name: Aggregate results (fail job if any check failed)
+        if: always()
+        shell: bash
+        run: |
+          echo "Format: ${{ steps.formatting.outcome }}"
+          echo "Tests: ${{ steps.testing.outcome }}"
+          echo "Clippy: ${{ steps.linting.outcome }}"
+          if [[ "${{ steps.formatting.outcome }}" != "success" ]] ||
+             [[ "${{ steps.testing.outcome }}" != "success" ]] ||
+             [[ "${{ steps.linting.outcome }}" != "success" ]]; then
+            echo "::error::Standalone Rust validations did not all pass."
+            exit 1
+          fi
+
+  platform-01:
+    name: Agent 01 — Python process lifecycle tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/01-platform
+          persist-credentials: false
+      - name: Record tested commit
+        run: git rev-parse HEAD
+      - name: Python syntax
+        run: python3 -m compileall -q scripts
+      - name: Lifecycle unit tests (synthetic)
+        run: python3 -m unittest discover -s scripts/tests -v
+      # The real-owned child smoke may spawn only a dummy child process;
+      # no actual model, Jan, radio, SDR or GPU sessions are touched.
+      - name: Spawn and clean owned dummy child
+        run: python3 scripts/platform_lifecycle_smoke.py --owned-child-smoke
+
+  ui-06:
+    name: Agent 06 — Responsive UI state tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/06-ui
+          persist-credentials: false
+      - name: Record tested commit
+        run: git rev-parse HEAD
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check web JavaScript syntax
+        run: npm --prefix apps/tihulu-ai-web run check
+      - name: Run dependency-free UI mock tests
+        run: npm --prefix apps/tihulu-ai-web test
+
+# NOT validated by this workflow:
+# - Physical Raspberry Pi 5, Hailo-10H NPU, NVIDIA/Metal GPUs, SDR hardware
+# - Tauri 2 native installers or signed desktop builds
+# - Actual Jan MCP handshake, remote TLS, live inference or model unload
+# - Root Cargo workspace integration / inter-crate API compatibility
