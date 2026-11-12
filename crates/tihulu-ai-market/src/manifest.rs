@@ -23,6 +23,8 @@ pub enum ModelStatus {
 pub enum ModelSource {
     Tihulu,
     External { application: String },
+    /// An independently owned TIHULU application model store (not AI Tools).
+    TihuluApp { app_id: String },
     Market,
 }
 
@@ -222,6 +224,10 @@ impl ModelManifest {
         match (&self.source, self.availability) {
             (ModelSource::External { application }, ModelStatus::External)
                 if !application.trim().is_empty() => {}
+            (ModelSource::TihuluApp { app_id }, ModelStatus::External)
+                if app_id.len() <= 64
+                    && app_id.bytes().next().is_some_and(|first| first.is_ascii_lowercase())
+                    && app_id.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-') => {}
             (ModelSource::Tihulu, ModelStatus::Installed)
             | (ModelSource::Market, ModelStatus::Downloadable)
             | (_, ModelStatus::Candidate | ModelStatus::Unknown | ModelStatus::Unverified) => {}
