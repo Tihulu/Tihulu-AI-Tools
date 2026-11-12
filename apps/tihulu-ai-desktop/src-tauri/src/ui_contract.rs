@@ -322,7 +322,7 @@ pub fn validate_request(request: &UiRequest) -> Result<(), &'static str> {
         || !request
             .request_id
             .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b':' )
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b':')
     {
         return Err("Invalid request id");
     }
