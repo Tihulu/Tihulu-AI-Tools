@@ -85,6 +85,9 @@ export function validateInventoryFixture(data) {
         !["tihulu_app","jan","ollama","hugging_face","user_folder"].includes(m.origin) ||
         !["ggml","gguf","safetensors","hef","onnx"].includes(m.format) ||
         !["app_managed","borrowed_external","user_managed"].includes(m.ownership) ||
+        (["jan","ollama","hugging_face"].includes(m.origin) && m.ownership !== "borrowed_external") ||
+        (m.origin === "tihulu_app" && m.ownership !== "app_managed") ||
+        (m.origin === "user_folder" && m.ownership !== "user_managed") ||
         m.verification !== "unverified" || m.runtime !== "not_checked" ||
         !mockPath(m.location)) return false;
     seenModels.add(m.model_id);
