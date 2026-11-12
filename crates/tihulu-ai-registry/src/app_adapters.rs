@@ -350,10 +350,7 @@ pub fn inventory_from_adapter(
 
     let mut seen = BTreeSet::new();
     let declared = [
-        (
-            declaration.user_model_override,
-            CandidateRole::UserOverride,
-        ),
+        (declaration.user_model_override, CandidateRole::UserOverride),
         (
             declaration.active_model_root,
             CandidateRole::AppReportedActive,
