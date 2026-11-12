@@ -82,7 +82,10 @@ fn only_registered_available_scoped_adapters_advertise_tools() {
         }))
         .unwrap();
     assert_eq!(bridge.list_tools("jan-client").len(), 1);
-    assert_eq!(bridge.list_tools("jan-client")[0].name, "tihulu.get_app_status");
+    assert_eq!(
+        bridge.list_tools("jan-client")[0].name,
+        "tihulu.get_app_status"
+    );
     assert_eq!(bridge.list_tools("jan-client")[0].access, Access::ReadOnly);
     assert!(bridge.list_tools("other-client").is_empty());
     let mut lifecycle = LifecycleSupervisor::default();
@@ -98,7 +101,10 @@ fn only_registered_available_scoped_adapters_advertise_tools() {
     assert_eq!(result, Err(BridgeError::NotGranted));
     let result = bridge.invoke(
         "jan-client",
-        &request(Capability::RequestMediaTask, Arguments::TaskId("job".into())),
+        &request(
+            Capability::RequestMediaTask,
+            Arguments::TaskId("job".into()),
+        ),
         None,
         &CancellationToken::default(),
         &mut lifecycle,
@@ -127,7 +133,10 @@ fn mcp_tool_names_are_unique_for_multiple_authorized_app_adapters() {
     let tools = bridge.list_tools("jan");
     assert_eq!(tools.len(), 1);
     assert_eq!(tools[0].name, "tihulu.get_app_status");
-    assert_eq!(tools[0].allowed_app_ids, vec!["media".to_owned(), "satellite".to_owned()]);
+    assert_eq!(
+        tools[0].allowed_app_ids,
+        vec!["media".to_owned(), "satellite".to_owned()]
+    );
 }
 
 #[test]
@@ -149,7 +158,9 @@ fn unavailable_adapter_and_stopped_session_are_not_callable() {
     let mut lifecycle = LifecycleSupervisor::default();
     lifecycle.start_session("active").unwrap();
     lifecycle.start_session("stopped").unwrap();
-    lifecycle.shutdown("stopped", ShutdownReason::Stop, Duration::ZERO).unwrap();
+    lifecycle
+        .shutdown("stopped", ShutdownReason::Stop, Duration::ZERO)
+        .unwrap();
     let req = request(Capability::GetAppStatus, Arguments::None);
     assert_eq!(
         bridge.invoke(
@@ -211,11 +222,25 @@ fn mutating_tool_requires_exact_scoped_single_use_approval() {
         .owner_approved_action("jan", &req, "active")
         .unwrap();
     assert_eq!(
-        bridge.invoke("jan", &wrong, Some(ticket), &cancel, &mut lifecycle, "active"),
+        bridge.invoke(
+            "jan",
+            &wrong,
+            Some(ticket),
+            &cancel,
+            &mut lifecycle,
+            "active"
+        ),
         Err(BridgeError::InvalidApproval)
     );
     assert_eq!(
-        bridge.invoke("other", &req, Some(ticket), &cancel, &mut lifecycle, "active"),
+        bridge.invoke(
+            "other",
+            &req,
+            Some(ticket),
+            &cancel,
+            &mut lifecycle,
+            "active"
+        ),
         Err(BridgeError::NotGranted)
     );
     assert!(bridge
@@ -368,7 +393,11 @@ fn l08_unresponsive_owned_worker_escalates_only_own_handle() {
         )
         .unwrap();
     let report = lifecycle
-        .shutdown("own-session", ShutdownReason::Exit, Duration::from_millis(1))
+        .shutdown(
+            "own-session",
+            ShutdownReason::Exit,
+            Duration::from_millis(1),
+        )
         .unwrap();
     assert_eq!(report.force_close_requests, 1);
     assert_eq!(report.state, SessionState::Stopped);
@@ -393,7 +422,7 @@ fn l10_late_registration_blocked_and_leaked_resource_reported() {
     let report = lifecycle
         .shutdown("old-session", ShutdownReason::HardStop, Duration::ZERO)
         .unwrap();
-    assert_eq!(report.state, &mut lifecycle, "stopped");
+    assert_eq!(report.state, SessionState::Stopping);
     assert_eq!(report.unresolved_owned, 1);
     assert_eq!(
         lifecycle.track(
@@ -411,7 +440,10 @@ fn l10_late_registration_blocked_and_leaked_resource_reported() {
         .unwrap();
     assert_eq!(report.state, SessionState::Stopped);
     lifecycle.start_session("fresh-session").unwrap();
-    assert_eq!(lifecycle.state("fresh-session"), Some(&mut lifecycle, "active"));
+    assert_eq!(
+        lifecycle.state("fresh-session"),
+        Some(SessionState::Running)
+    );
 }
 
 #[test]
@@ -432,7 +464,10 @@ fn jan_wizard_manual_fallback_requires_external_verification() {
         Err(WizardError::PermissionRequired)
     );
     assert_eq!(wizard.review().unwrap(), SetupMethod::GuidedManual);
-    assert_eq!(wizard.owner_approved(true).unwrap(), SetupMethod::GuidedManual);
+    assert_eq!(
+        wizard.owner_approved(true).unwrap(),
+        SetupMethod::GuidedManual
+    );
     assert_eq!(wizard.state(), WizardState::AwaitingManualConfiguration);
     wizard.record_configuration(true, true).unwrap();
     assert_eq!(
@@ -507,10 +542,9 @@ fn aipath_references_are_non_secret_and_gui_independent() {
         Err(ReferenceError::UnknownField)
     );
     assert_eq!(
-        StartupReferences::parse_proposal(&spec.replace(
-            "external:jan:llm-v1",
-            "external:jan:../../private"
-        )),
+        StartupReferences::parse_proposal(
+            &spec.replace("external:jan:llm-v1", "external:jan:../../private")
+        ),
         Err(ReferenceError::InvalidValue)
     );
 }

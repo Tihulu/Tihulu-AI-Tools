@@ -126,7 +126,11 @@ impl SetupWizard {
 
     /// The trusted host reports a supported CLI registration/manual save.
     /// A false report never implies a connected Jan instance.
-    pub fn record_configuration(&mut self, successful: bool, created_by_us: bool) -> Result<(), WizardError> {
+    pub fn record_configuration(
+        &mut self,
+        successful: bool,
+        created_by_us: bool,
+    ) -> Result<(), WizardError> {
         if !matches!(
             self.state,
             WizardState::ConfiguredDisabled | WizardState::AwaitingManualConfiguration

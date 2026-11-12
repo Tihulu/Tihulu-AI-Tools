@@ -9,19 +9,20 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use crate::bridge::{
-    AppAdapter, Arguments, BridgeError, Capability, ToolRequest, ToolResponse,
-};
+use crate::bridge::{AppAdapter, Arguments, BridgeError, Capability, ToolRequest, ToolResponse};
 use crate::lifecycle::{
     CancellationToken, LifecycleSupervisor, Ownership, ResourceHandle, ResourceKind,
 };
 
 fn valid_identifier(value: &str) -> bool {
     value.len() <= 128
-        && value.as_bytes().first().is_some_and(u8::is_ascii_alphanumeric)
-        && value.bytes().all(|b| {
-            b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b':')
-        })
+        && value
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphanumeric)
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b':'))
         && !value.contains("..")
 }
 
@@ -72,7 +73,6 @@ pub struct CallerIdentity {
     pub owner_session: OwnerSessionId,
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TaskKind {
     Chat,
@@ -113,8 +113,7 @@ pub struct RegistryRecord {
 /// local API tokens, Jan chats or user-private model file content.
 pub trait RegistryReader: Send + Sync {
     fn list_visible(&self, app: &AppId) -> Vec<RegistryRecord>;
-    fn resolve_visible(&self, app: &AppId, model: &RegistryModelId)
-        -> Option<RegistryRecord>;
+    fn resolve_visible(&self, app: &AppId, model: &RegistryModelId) -> Option<RegistryRecord>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -226,14 +225,7 @@ impl TypedAppAdapter {
         records
             .iter()
             .take(MAX_VISIBLE)
-            .map(|r| {
-                format!(
-                    "{} ({:?}, {:?})",
-                    r.id.as_str(),
-                    r.owner,
-                    r.verification
-                )
-            })
+            .map(|r| format!("{} ({:?}, {:?})", r.id.as_str(), r.owner, r.verification))
             .collect::<Vec<_>>()
             .join("; ")
     }

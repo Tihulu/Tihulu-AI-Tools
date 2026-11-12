@@ -102,7 +102,8 @@ impl LifecycleSupervisor {
         if self.states.contains_key(session) {
             return Err(LifecycleError::AlreadyStarted);
         }
-        self.states.insert(session.to_owned(), SessionState::Running);
+        self.states
+            .insert(session.to_owned(), SessionState::Running);
         Ok(())
     }
 
@@ -155,7 +156,8 @@ impl LifecycleSupervisor {
             }
             _ => {}
         }
-        self.states.insert(session.to_owned(), SessionState::Stopping);
+        self.states
+            .insert(session.to_owned(), SessionState::Stopping);
         let mut report = ShutdownReport {
             cancellation_requests: 0,
             force_close_requests: 0,
@@ -185,9 +187,7 @@ impl LifecycleSupervisor {
         }
 
         for resource in self.resources.iter().filter(|r| {
-            r.session == session
-                && r.ownership == Ownership::AppOwned
-                && !r.handle.is_released()
+            r.session == session && r.ownership == Ownership::AppOwned && !r.handle.is_released()
         }) {
             resource.handle.force_close_owned();
             report.force_close_requests += 1;
@@ -209,7 +209,8 @@ impl LifecycleSupervisor {
         });
         if report.unresolved_owned == 0 {
             report.state = SessionState::Stopped;
-            self.states.insert(session.to_owned(), SessionState::Stopped);
+            self.states
+                .insert(session.to_owned(), SessionState::Stopped);
         }
         Ok(report)
     }
