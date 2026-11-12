@@ -292,7 +292,7 @@ pub fn observe_local_endpoint(request: EndpointRequest) -> io::Result<Vec<Endpoi
 fn validate_loopback_url(url: &str) -> io::Result<()> {
     let invalid = || io::Error::new(io::ErrorKind::InvalidInput, "only literal local HTTP endpoints");
     let rest = url.strip_prefix("http://").ok_or_else(invalid)?;
-    if rest.contains(['@', '?', '#', '%', '\\']) || rest.contains("..") {
+    if rest.chars().any(|ch| matches!(ch, '@' | '?' | '#' | '%' | '\\')) || rest.contains("..") {
         return Err(invalid());
     }
     let authority = rest.split('/').next().ok_or_else(invalid)?;
