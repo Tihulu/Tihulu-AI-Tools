@@ -144,8 +144,10 @@ pub enum UiCommand {
     SetServiceMode(ConfirmedServiceMode),
 }
 
+// Serde flatten cannot be combined with deny_unknown_fields at this outer level.
+// Inner typed payloads reject unknown fields, and the eventual native dispatcher
+// must independently authenticate the caller and enforce an exact top-level schema.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct UiRequest {
     pub schema_version: u8,
     pub request_id: String,
@@ -313,6 +315,16 @@ pub struct ServiceModeResult {
 /// Validates request envelope and confirmation gates, without authorizing work.
 /// Real adapters additionally require authenticated owner/session and policy
 /// approval. It never treats a browser request as authoritative.
+fn valid_opaque_id(id: &str) -> bool {
+    id.len() <= 128
+        && !id.is_empty()
+        && !id.contains("..")
+        && id.as_bytes()[0].is_ascii_alphanumeric()
+        && id.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-')
+        })
+}
+
 pub fn validate_request(request: &UiRequest) -> Result<(), &'static str> {
     if request.schema_version != UI_SCHEMA_VERSION {
         return Err("Unsupported UI schema version");
@@ -330,9 +342,11 @@ pub fn validate_request(request: &UiRequest) -> Result<(), &'static str> {
         UiCommand::ExecuteStop(command) if !command.confirmed => Err("Stop confirmation is required"),
         UiCommand::SetServiceMode(command) if !command.confirmed => Err("Service-mode confirmation is required"),
         UiCommand::ReadCompatibility(query)
-            if query.model_id.is_empty() || query.task_id.is_empty() || query.host_id.is_empty() =>
+            if !valid_opaque_id(&query.model_id)
+                || !valid_opaque_id(&query.task_id)
+                || !valid_opaque_id(&query.host_id) =>
         {
-            Err("A typed model, task and host identity are required")
+            Err("Stable opaque model, task and host IDs are required")
         }
         UiCommand::SetJanStep(request) if !(-1..=3).contains(&request.step) => {
             Err("Wizard stage out of range")
@@ -394,6 +408,32 @@ mod tests {
             r#"{"schema_version":1,"request_id":"jan-1","kind":"set_jan_step","payload":{"step":10}}"#
         ).unwrap();
         assert!(validate_request(&invalid).is_err());
+    }
+
+    #[test]
+    fn opaque_model_task_and_host_ids_cannot_be_paths_or_unbounded() {
+        for invalid in ["/etc/passwd", "path/segment", "..", "foo..bar", ""] {
+            let request = UiRequest {
+                schema_version: UI_SCHEMA_VERSION,
+                request_id: "id-check".into(),
+                command: UiCommand::ReadCompatibility(CompatibilityQuery {
+                    model_id: invalid.into(),
+                    task_id: "chat".into(),
+                    host_id: "local".into(),
+                }),
+            };
+            assert!(validate_request(&request).is_err(), "{invalid:?}");
+        }
+        let valid = UiRequest {
+            schema_version: UI_SCHEMA_VERSION,
+            request_id: "id-check".into(),
+            command: UiCommand::ReadCompatibility(CompatibilityQuery {
+                model_id: "demo:external-gguf".into(),
+                task_id: "task_01".into(),
+                host_id: "paired.host-01".into(),
+            }),
+        };
+        assert_eq!(validate_request(&valid), Ok(()));
     }
 
     #[test]
