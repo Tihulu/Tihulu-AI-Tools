@@ -359,9 +359,9 @@ fn phase2_two_pi_apps_share_pc_gpu_ledger_is_only_unload_authority() {
         && event.model == model("llm") && event.resource == LedgerResourceId(500)));
     assert_ne!(acquired[0].owner, acquired[1].owner);
     // At-least-once delivery must be deduplicated by host+sequence at the ledger adapter.
-    assert!(host.acknowledge_ledger_event(acquired[0].sequence));
-    assert!(!host.acknowledge_ledger_event(acquired[0].sequence));
-    assert!(host.acknowledge_ledger_event(acquired[1].sequence));
+    assert!(host.acknowledge_ledger_event(acquired[0].sequence, 10));
+    assert!(!host.acknowledge_ledger_event(acquired[0].sequence, 10));
+    assert!(host.acknowledge_ledger_event(acquired[1].sequence, 10));
     host.close_app(&first, 2).unwrap();
     assert_eq!(host.model_lease_count(&model("llm")), 1);
     assert!(!host.awaiting_ledger_unload(&model("llm")));
@@ -382,9 +382,9 @@ fn phase2_two_pi_apps_share_pc_gpu_ledger_is_only_unload_authority() {
     assert_eq!(releases.len(), 2);
     assert_eq!(host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
         gen, true, 5), Err(Error::LedgerAckRejected)); // Ledger has not processed release yet.
-    assert!(!host.acknowledge_ledger_event(releases[1].sequence)); // Out of order.
-    assert!(host.acknowledge_ledger_event(releases[0].sequence));
-    assert!(host.acknowledge_ledger_event(releases[1].sequence));
+    assert!(!host.acknowledge_ledger_event(releases[1].sequence, 10)); // Out of order.
+    assert!(host.acknowledge_ledger_event(releases[0].sequence, 10));
+    assert!(host.acknowledge_ledger_event(releases[1].sequence, 10));
     assert_eq!(host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(999),
         gen, true, 6), Err(Error::LedgerAckRejected));
     assert_eq!(host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
@@ -417,7 +417,7 @@ fn phase2_ledger_ttl_disconnect_and_borrowed_runtime_no_unload() {
     let event_ids: Vec<_> = host.pending_ledger_events().iter()
         .map(|event| event.sequence).collect();
     assert_eq!(event_ids.len(), 3);
-    for event in event_ids { assert!(host.acknowledge_ledger_event(event)); }
+    for event in event_ids { assert!(host.acknowledge_ledger_event(event, 10)); }
     host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
         1, true, 31).unwrap();
     assert_eq!(host.total_owned_vram_mib(), 0);
@@ -494,4 +494,41 @@ fn phase2_missing_or_conflicting_coordinator_mapping_fails_closed() {
     host.open_lease(&peer, lease("a"), model("llm"), 0).unwrap();
     assert_eq!(host.set_lifecycle_authority(LifecycleAuthority::MockLocal),
         Err(Error::InvalidConfiguration));
+}
+
+
+#[test]
+fn phase2_restricted_grant_revokes_existing_app_work_only() {
+    let mut host = setup();
+    let a = evidence("pi", "advisor");
+    let b = evidence("pi-2", "text");
+    host.open_lease(&a, lease("a"), model("llm"), 0).unwrap();
+    host.open_lease(&b, lease("b"), model("llm"), 0).unwrap();
+    host.submit(&a, request("j-a", "a"), 1).unwrap();
+    host.submit(&b, request("j-b", "b"), 1).unwrap();
+    host.set_grant(client("pi"), app("advisor"), grant(&["asr"]), 2).unwrap();
+    assert_eq!(host.model_lease_count(&model("llm")), 1);
+    assert_eq!(host.job_status(&RequestId::new("j-a").unwrap()), Some(JobStatus::Cancelled));
+    assert_eq!(host.job_status(&RequestId::new("j-b").unwrap()), Some(JobStatus::Queued));
+    assert_eq!(host.total_owned_vram_mib(), 3000);
+}
+
+#[test]
+fn phase2_host_drain_not_reported_complete_before_ledger_ack() {
+    let mut host = ledger_host();
+    let pi = evidence("pi", "advisor");
+    host.open_lease(&pi, lease("a"), model("llm"), 0).unwrap();
+    host.begin_host_drain(1);
+    assert_eq!(host.status(), HostStatus::Draining);
+    assert!(host.awaiting_ledger_unload(&model("llm")));
+    assert_eq!(host.total_owned_vram_mib(), 3000);
+    let pending: Vec<_> = host.pending_ledger_events().iter()
+        .map(|event| event.sequence).collect();
+    assert_eq!(pending.len(), 2);
+    for event in pending { assert!(host.acknowledge_ledger_event(event, 2)); }
+    assert_eq!(host.status(), HostStatus::Draining);
+    host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
+        1, true, 3).unwrap();
+    assert_eq!(host.total_owned_vram_mib(), 0);
+    assert_eq!(host.status(), HostStatus::Drained);
 }
