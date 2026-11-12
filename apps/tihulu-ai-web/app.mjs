@@ -1,4 +1,4 @@
-import { SHUTDOWN, createDemoState, getResource, getTotals } from "./state.mjs";
+import { SHUTDOWN, createDemoState, getResource } from "./state.mjs";
 import { createMockUiAdapter, uiRequest, UI_COMMANDS, SERVICE_MODES, MODEL_FIXTURES } from "./ui-contract.mjs";
 import { translate } from "./i18n.mjs";
 
@@ -91,6 +91,7 @@ function market() {
       '"></label><div class="market-grid">' +
       (matching.length ? matching.map((m) =>
         '<article class="market-card">' + chip(t(m.state), m.state === "external" ? "neutral" : "warning") +
+        chip(t("unknownCompatibility") + " · " + typedRead(UI_COMMANDS.COMPATIBILITY, { model_id: m.id, task_id: m.task, host_id: "local" }).verdict, "warning") +
         '<h3>' + esc(m.name) + '</h3><p>' + esc(m.owner) + '</p><div class="meta-grid"><span>' + esc(m.task) + '</span><span>' + esc(m.format) +
         '</span><span>' + t("connectionNotReady") + '</span></div></article>'
       ).join("") : '<p class="hint">No matching demo candidates.</p>') + "</div>");
@@ -130,10 +131,10 @@ function gpuHost() {
       '<div class="cards"><div class="card"><div class="micro">' + t("status") +
       '</div><div class="value">' + t(host.service_phase === "active" ? "active" : "released") +
       '</div></div><div class="card"><div class="micro">' + t("hostClients") + '</div><div class="value">' +
-      Number(host.active_other_clients || 0) + '</div></div></div><button type="button" class="btn secondary" data-explain="pairing">' +
+      Number(host.active_other_clients || 0) + '</div></div></div><p class="hint">' + t("guiPhase") + ": " + esc(host.gui_phase) + " · " + t("servicePhase") + ": " + esc(host.service_phase) + '</p><button type="button" class="btn secondary" data-explain="pairing">' +
       t("pairing") + "</button>" +
       '<div class="actions"><span class="chip neutral">' + esc(t("serviceMode")) + ": " + esc(t(host.service_mode === SERVICE_MODES.INDEPENDENT ? "serviceIndependent" : "serviceDisabled")) + '</span></div>' +
-      '<button type="button" class="btn ghost" data-service-mode="' + (host.service_mode === SERVICE_MODES.INDEPENDENT ? "disabled" : "independent") + '">' + t(host.service_mode === SERVICE_MODES.INDEPENDENT ? "disableService" : "enableService") + '</button>' +
+      '<button type="button" class="btn ghost" ' + (host.gui_phase === "closed" ? "disabled " : "") + 'data-service-mode="' + (host.service_mode === SERVICE_MODES.INDEPENDENT ? "disabled" : "independent") + '">' + t(host.service_mode === SERVICE_MODES.INDEPENDENT ? "disableService" : "enableService") + '</button>' +
       '<p class="hint">' + esc(t("serviceModeDemo")) + '</p>') + '</div><div>' +
     panel(t("permission"), t("readOnly"), '<p>' + t("approve") + '</p>' + chip(t("unsupported"), "warning")) +
     "</div></div>";
@@ -275,10 +276,10 @@ root.addEventListener("click", (event) => {
       [t("readOnly"), t("approve"), t("noShell"), t("demoDetail")]);
     return;
   }
-  if (button.dataset.janStart !== undefined) { state = { ...state, janStep: 0 }; render(); return; }
-  if (button.dataset.janPrev !== undefined) { state = { ...state, janStep: Math.max(0, state.janStep - 1) }; render(); return; }
+  if (button.dataset.janStart !== undefined) { uiAdapter.request(uiRequest(UI_COMMANDS.JAN_STEP, { step: 0 })); render(); return; }
+  if (button.dataset.janPrev !== undefined) { uiAdapter.request(uiRequest(UI_COMMANDS.JAN_STEP, { step: Math.max(0, state.janStep - 1) })); render(); return; }
   if (button.dataset.janNext !== undefined) {
-    state = { ...state, janStep: state.janStep === 3 ? -1 : state.janStep + 1 };
+    uiAdapter.request(uiRequest(UI_COMMANDS.JAN_STEP, { step: state.janStep === 3 ? -1 : state.janStep + 1 }));
     render();
   }
 });
