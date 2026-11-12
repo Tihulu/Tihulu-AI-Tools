@@ -51,6 +51,8 @@ pub struct InventoryReadiness {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InventoryCompatibilityReport {
     pub readiness: InventoryReadiness,
+    /// Exact typed Registry owner; independent TIHULU app ID is not erased.
+    pub source_owner: RegistryOwner,
     /// This is only the Registry's extension/name format HINT.
     pub observed_format: Option<ModelFormat>,
     /// Versioned catalog claim, not architecture read from model weights.
@@ -191,6 +193,7 @@ fn unavailable(
             runnable_preflight: false,
         },
         observed_format,
+        source_owner: registry_owner(&input.registry.owner),
         declared_architecture: input.catalog.architecture,
         declared_tasks: input.catalog.tasks.clone(),
         decision,
@@ -328,6 +331,7 @@ pub fn inspect_registered_model(input: &InventoryInspection<'_>) -> InventoryCom
             runnable_preflight,
         },
         observed_format,
+        source_owner: registry_owner(&input.registry.owner),
         declared_architecture: input.catalog.architecture,
         declared_tasks: input.catalog.tasks.clone(),
         decision,
