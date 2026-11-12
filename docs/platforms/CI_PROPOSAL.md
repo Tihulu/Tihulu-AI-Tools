@@ -38,3 +38,20 @@ python3 scripts/platform_lifecycle_smoke.py --owned-child-smoke
 The runner supports `--repo-root PATH --only registry|market|transport|integrations|desktop --execute` for branch-specific checkouts and defaults Cargo to `--offline` (dependency download explicit with `--allow-network`). Don't use it as a source merge mechanism; no other repositories may be touched. Before a Tauri desktop job, provide OS-specific libraries as documented in [installer prerequisites](INSTALLER_DEPENDENCIES.md); do not infer Pi/Hailo/RTX/SDR or installer acceptance from a passed CI job. Python tests on all five runners are separate from Rust crate jobs. Include scripts/docs paths in future CI triggers if approved.
 
 Physical lifecycle tests for L-01/L-08/L-10/L-11/L-12/L-14 still require managed workers, native Windows Job Objects and verified OSX/Linux/Pi shutdown behavior. The Python harness only manages its own disposable dummy processes. See [Phase 2 guide](PHASE2_VALIDATION.md).
+
+
+## Phase 3 — exact integrated workspace proposal (coordinator only)
+
+[Sandbox PR #17](https://github.com/Tihulu/Tihulu-AI-Tools/pull/17) already lists the coordinator's root `Cargo.toml` members and explicitly excludes Tauri. For root integration verification, **on the coordinator-owned disposable sandbox only**, use:
+
+```sh
+python3 -m compileall -q scripts
+python3 -m unittest discover -s scripts/tests -v
+python3 scripts/platform_lifecycle_smoke.py --owned-child-smoke
+python3 scripts/validate_standalone_crates.py --integrated
+python3 scripts/validate_standalone_crates.py --integrated --execute
+```
+
+Supply Python 3.11+ (for `tomllib`), Rust fmt/clippy, target-native MSVC/macOS/Linux toolchains and approved Cargo dependency cache. If pre-provisioning online dependencies is permitted, replace the final command with `--integrated --execute --allow-network` (build dependencies only). Do not claim offline success without a populated cache. Use identical commands (PowerShell: `python` in place of `python3`) on `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-15`, `windows-2025` and `windows-11-arm`, and record **each** OS job's individual exit codes.
+
+The separate Tauri 2 shell must be reviewed on a native prerequisite-provisioned runner with `--only desktop --execute`; **do not enroll it in root Cargo or alter its bundle settings from Agent 01**. Existing shared workflow triggers exclude script-only changes. Coordinator owns any amended path filters and actions. The coordinator's initial sandbox run [#43155781257](https://github.com/Tihulu/Tihulu-AI-Tools/actions/runs/43155781257) failed across the five target jobs (Rust formatting and compilation errors), so CI remains red pending **other agent owners'** fixes. See [Phase 3 detailed plan](PHASE3_INTEGRATION.md). Hardware release remains separate.
