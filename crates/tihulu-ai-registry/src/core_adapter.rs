@@ -17,7 +17,7 @@ impl ResourceLedgerPort for ResourceLedger {
         initial_owner: LedgerOwnerRef,
         binding: &ModelRuntimeBinding,
     ) -> Result<(), Self::Error> {
-        let provenance = match binding.authority {
+        let provenance = match &binding.authority {
             ContextAuthority::ManagedShared => Provenance::SharedManaged,
             ContextAuthority::ManagedExclusive(owner) => Provenance::Exclusive(OwnerId(owner.0)),
             ContextAuthority::BorrowedExternal(_) => Provenance::BorrowedExternal,
