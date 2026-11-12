@@ -9,14 +9,26 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PreviewResource {
     /// An owned model context, not a model weight file on disk.
-    OwnedModel { model_id: String },
+    OwnedModel {
+        model_id: String,
+    },
     /// Runtime/service is externally managed and must never be terminated.
-    BorrowedExternal { service_id: String },
-    RamBuffer { bytes: u64 },
-    VramBuffer { bytes: u64 },
-    NpuBuffer { bytes: u64 },
+    BorrowedExternal {
+        service_id: String,
+    },
+    RamBuffer {
+        bytes: u64,
+    },
+    VramBuffer {
+        bytes: u64,
+    },
+    NpuBuffer {
+        bytes: u64,
+    },
     /// A future owned, cancellable download task. No actual download here.
-    PendingDownload { job_id: String },
+    PendingDownload {
+        job_id: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -161,13 +173,33 @@ mod tests {
     fn l01_quit_releases_owned_buffers_and_context_without_external_kills() {
         let mut supervisor = MarketPreviewSupervisor::new();
         let s = supervisor.open_session().unwrap();
-        supervisor.track(s, PreviewResource::OwnedModel { model_id: "chat".into() }).unwrap();
-        supervisor.track(s, PreviewResource::RamBuffer { bytes: 2048 }).unwrap();
-        supervisor.track(s, PreviewResource::VramBuffer { bytes: 4096 }).unwrap();
-        supervisor.track(s, PreviewResource::BorrowedExternal { service_id: "jan".into() }).unwrap();
+        supervisor
+            .track(
+                s,
+                PreviewResource::OwnedModel {
+                    model_id: "chat".into(),
+                },
+            )
+            .unwrap();
+        supervisor
+            .track(s, PreviewResource::RamBuffer { bytes: 2048 })
+            .unwrap();
+        supervisor
+            .track(s, PreviewResource::VramBuffer { bytes: 4096 })
+            .unwrap();
+        supervisor
+            .track(
+                s,
+                PreviewResource::BorrowedExternal {
+                    service_id: "jan".into(),
+                },
+            )
+            .unwrap();
         let actions = supervisor.close_all();
         assert_eq!(supervisor.active_sessions(), 0);
-        assert!(actions.contains(&CleanupAction::UnloadOwnedModel { model_id: "chat".into() }));
+        assert!(actions.contains(&CleanupAction::UnloadOwnedModel {
+            model_id: "chat".into()
+        }));
         assert!(actions.contains(&CleanupAction::FreeVramBuffer { bytes: 4096 }));
         assert!(actions.contains(&CleanupAction::FreeRamBuffer { bytes: 2048 }));
         assert_eq!(actions.len(), 3);
@@ -180,10 +212,22 @@ mod tests {
         let a = supervisor.open_session().unwrap();
         let b = supervisor.open_session().unwrap();
         for session in [a, b] {
-            supervisor.track(session, PreviewResource::OwnedModel { model_id: "shared".into() }).unwrap();
+            supervisor
+                .track(
+                    session,
+                    PreviewResource::OwnedModel {
+                        model_id: "shared".into(),
+                    },
+                )
+                .unwrap();
         }
         assert!(supervisor.close_session(a).is_empty());
-        assert_eq!(supervisor.close_session(b), vec![CleanupAction::UnloadOwnedModel { model_id: "shared".into() }]);
+        assert_eq!(
+            supervisor.close_session(b),
+            vec![CleanupAction::UnloadOwnedModel {
+                model_id: "shared".into()
+            }]
+        );
     }
 
     #[test]
@@ -192,7 +236,10 @@ mod tests {
         let previous = first.open_session().unwrap();
         first.close_all();
         assert_eq!(first.open_session(), Err(SupervisorError::Closed));
-        assert_eq!(first.track(previous, PreviewResource::RamBuffer { bytes: 1 }), Err(SupervisorError::Closed));
+        assert_eq!(
+            first.track(previous, PreviewResource::RamBuffer { bytes: 1 }),
+            Err(SupervisorError::Closed)
+        );
         let mut relaunched = MarketPreviewSupervisor::new();
         assert_eq!(relaunched.open_session(), Ok(1));
     }
@@ -201,9 +248,21 @@ mod tests {
     fn l16_download_worker_must_cancel_and_never_turn_into_installed() {
         let mut supervisor = MarketPreviewSupervisor::new();
         let session = supervisor.open_session().unwrap();
-        supervisor.track(session, PreviewResource::PendingDownload { job_id: "preview-only".into() }).unwrap();
+        supervisor
+            .track(
+                session,
+                PreviewResource::PendingDownload {
+                    job_id: "preview-only".into(),
+                },
+            )
+            .unwrap();
         let actions = supervisor.close_all();
-        assert_eq!(actions, vec![CleanupAction::CancelOwnedDownload { job_id: "preview-only".into() }]);
+        assert_eq!(
+            actions,
+            vec![CleanupAction::CancelOwnedDownload {
+                job_id: "preview-only".into()
+            }]
+        );
         assert!(supervisor.close_session(session).is_empty());
     }
 }
