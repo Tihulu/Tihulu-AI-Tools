@@ -2,7 +2,7 @@
 
 > **GitHub migration note (2026-11-12):** The original v0.4 planning text is preserved in this repository. Its legacy downloadable ZIP also contained standalone PNG/SVG/DOT files; those binary assets have not been migrated. References below point to [GitHub-native, editable Mermaid diagrams](ARCHITECTURE.md) or the [interactive HTML mockup](../ui/index.html) instead. These represent design concepts, not tested software.
 
-> **Status:** DRAFT v0.7 — requirements captured; technical choices still subject to review  
+> **Status:** DRAFT v0.8 — independent Rust foundation underway; most features remain proposed/experimental  
 > **Date:** 2026-11-12  
 > **Language:** Technical documentation in English; planned product UI in English, Turkish, and German  
 > **Change policy:** Planning only. **No existing applications, branches, repositories, installers, or models are modified.**  
@@ -1060,3 +1060,38 @@ The requested primary entry point is **External Apps → Jan → Set Up Jan Inte
 See [Jan Setup Wizard design](JAN_SETUP_WIZARD.md) and [Jan MCP integration specification](JAN_INTEGRATION.md). These requirements are approved, but the actual automated method, CLI availability by Jan distribution and compatibility tests are still **proposed**.
 
 **Change ledger v0.7:** Built-in Jan setup guide and approved automated installation button captured as product requirements. Repo remains documentation/UI-preview only; no Jan settings, TIHULU applications or running services have been changed.
+
+
+---
+
+## 44. v0.8 independent Rust foundation starts (authorized 2026-11-12)
+
+**User-approved implementation gate change:** The six existing TIHULU applications are *not prerequisites* for independently implementing TIHULU AI Tools' own core, model registry, compatibility checks, GPU protocol and future UI. The application preservation/split audits are still prerequisites for **editing and integrating those existing application repositories**. Only `Tihulu/Tihulu-AI-Tools` gets implementation work under this authorization; keep `main` stable and use reviewable branches.
+
+### Cross-platform product requirements (now confirmed)
+
+- macOS on Apple Silicon M-series (aarch64-apple-darwin).
+- Debian/Ubuntu/Pop!_OS Linux x86-64 and ARM64 (x86_64-unknown-linux-gnu / aarch64-unknown-linux-gnu).
+- Windows x64 and ARM64; exact Windows ARM64 application packaging and inference runtimes require validation.
+- Raspberry Pi 5 8 GB (aarch64 Linux, Raspberry Pi OS), with and without AI HAT+ 2 / Hailo-10H; dedicated NPU memory is not CPU RAM or NVIDIA VRAM.
+- Shared Rust-first core/control plane with runtime adapters; native desktop UI and responsive browser management on Pi; no mandatory WebUSB for hardware access.
+- Desktop packages and headless/server install modes may differ by platform. **Cross-platform native Rust builds are not a substitute for testing real installers or model runtimes on target hardware.**
+
+### Independent bootstrap code and initial safety boundary
+
+An isolated `feat/rust-foundation` branch now contains a Rust workspace with platform-neutral `tihulu-ai-core`, a development-only `tihulu-ai-cli`, consent-gated read-only model *candidate* scanning, pure route preference selection, six hardware preset labels, unit tests and an OS/architecture CI proposal. No GPU server, Market backend, installed app migration, Jan config change or LLM runtime is provided in this first slice. No external TIHULU app repo is modified.
+
+Cross-OS CI runners: Linux x86-64, Linux ARM64, Windows x64, Windows ARM64, and macOS Apple Silicon. Raspberry Pi 5, Hailo-10H, RTX CUDA and native Debian/Pop!_OS installations still require physical/OS-specific acceptance tests. Rust was not present in the authoring container when sources were committed; all test results must be verified via CI or a later actual local toolchain run.
+
+### Six workstreams
+
+1. Platform support and cross-OS CI/packaging.
+2. User-approved registry and Jan/Ollama/custom model discovery.
+3. Market manifest and verifiable compatibility/matching.
+4. Secure paired GPU host protocol and per-app routing.
+5. Jan MCP bridge and permissioned TIHULU app SDK.
+6. Tauri desktop + responsive Pi web UI, chat first, EN/TR/DE.
+
+Each agent gets separate branch/path ownership, tests and a Draft PR. Do not merge or modify other apps without subsequent approval. See [independent start and platform matrix](IMPLEMENTATION_START.md) and [parallel workstream divisions](AGENT_WORKSTREAMS.md).
+
+**v0.8 change ledger:** Product requirements from previous versions remain in force. Authorized AI Tools-only Rust development and specified cross-platform targets are confirmed; running GPU/NPU workloads, actual Jan connections, model migrations, app tools, installers and remote hosts are NOT implemented or verified.
