@@ -156,7 +156,7 @@ impl MockComputeHost {
         let key = (client, app, session);
         if self.ledger_owners.get(&key) == Some(&owner) { return Ok(()); }
         if self.ledger_owners.contains_key(&key)
-            || self.ledger_owners.iter().any(|(k, id)| *id == owner && *k != key)
+            || self.ledger_owners.iter().any(|(k, id)| *id == owner && k != &key)
         {
             return Err(Error::IdentifierConflict);
         }
@@ -340,7 +340,20 @@ impl MockComputeHost {
         {
             return Err(Error::QuotaExceeded);
         }
-        if self.used_lease_ids.contains_key(&id) { return Err(Error::IdentifierConflict); }
+        if let Some(owner) = self.used_lease_ids.get(&id) {
+            let expected = (peer.client.clone(), peer.app.clone(),
+                peer.app_session.clone(), peer.task.clone());
+            if owner != &expected { return Err(Error::NotOwner); }
+            if let Some(existing) = self.leases.get(&id) {
+                if existing.model == model && existing.status == LeaseStatus::Active {
+                    // Retry after lost response is the SAME lease, never a second load.
+                    return Ok(());
+                }
+                return Err(Error::LeaseExpired);
+            }
+            // Tombstones are never reused, even after a TTL expiry or Quit.
+            return Err(Error::LeaseExpired);
+        }
         if self.used_lease_ids.len() >= MAX_LEASE_IDENTITIES {
             return Err(Error::RecordCapacityReached);
         }
@@ -368,10 +381,11 @@ impl MockComputeHost {
         let state = self.models.get_mut(&model).ok_or(Error::UnknownModel)?;
         let first_load = reg.ownership == RuntimeOwnership::HostOwned && !state.loaded_by_us;
         if first_load {
+            let next_generation = state.generation.checked_add(1)
+                .ok_or(Error::RecordCapacityReached)?;
+            state.generation = next_generation;
             state.loaded_by_us = true;
             state.load_count += 1;
-            state.generation = state.generation.checked_add(1)
-                .ok_or(Error::RecordCapacityReached)?;
         }
         let record = LeaseRecord {
             client: peer.client.clone(), app: peer.app.clone(),
