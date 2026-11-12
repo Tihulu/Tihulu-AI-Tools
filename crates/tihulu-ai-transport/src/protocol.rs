@@ -9,6 +9,7 @@ pub enum Error {
     InvalidConfiguration,
     PairingRequired,
     UnverifiedChannel,
+    UnverifiedApplication,
     TransportUnavailable,
     IdentityMismatch,
     PermissionDenied,
@@ -84,11 +85,20 @@ pub enum ChannelSecurity {
 
 /// Trusted boundary: a real transport must construct this ONLY from verified mTLS
 /// session identity and pinned certificate data, never from requester-supplied JSON.
+/// A future identity broker must validate a per-application credential, not only
+/// the shared Pi/device mTLS certificate. These flags are mock-only assertions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AppAuthentication {
+    VerifiedScopedCredential,
+    Unverified,
+}
+
 #[derive(Clone, Debug)]
 pub struct PeerEvidence {
     pub host: HostId,
     pub client: ClientId,
     pub app: AppId,
+    pub app_authentication: AppAuthentication,
     pub client_cert_sha256: String,
     pub server_cert_sha256: String,
     pub security: ChannelSecurity,
