@@ -1,0 +1,152 @@
+name: Phase 5 P0 Remediation — Disposable Combined QA
+
+# QA-only workflow; pin exact PR refs and stage code solely in throwaway
+# GitHub-hosted worktrees. Does NOT modify production branches or launch apps.
+on:
+  push:
+    branches: [agent/08-phase5-independent-qa]
+    paths:
+      - "qa/phase5/**"
+      - "docs/qa/**"
+      - ".github/workflows/phase5-remediation-acceptance.yml"
+  pull_request:
+    paths:
+      - "qa/phase5/**"
+      - "docs/qa/**"
+      - ".github/workflows/phase5-remediation-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  p0-quick-ui:
+    name: P0 merged-source native inventory negative tests (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Freeze source heads; assemble QA-only disposable worktree
+        shell: bash
+        run: bash qa/phase5/scripts/overlay-remediations.sh
+      - name: Original independent negative regressions (unchanged)
+        shell: bash
+        run: |
+          cd "$PHASE5_QA_WORKTREE"
+          node --test qa/phase5/js/native-safety.test.mjs
+      - name: PR #28 browser/native bridge regressions
+        shell: bash
+        run: |
+          cd "$PHASE5_QA_WORKTREE"
+          npm --prefix apps/tihulu-ai-web test
+
+  p0-portable:
+    name: P0 source union — Rust, UI and QA ( ${{ matrix.os }} )
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Freeze sources; assemble isolated PR #29 + #25 + #28 + #30 and QA
+        shell: bash
+        run: bash qa/phase5/scripts/overlay-remediations.sh
+      - name: Original QA Rust format
+        shell: bash
+        run: |
+          cd "$PHASE5_QA_WORKTREE"
+          cargo fmt --manifest-path qa/phase5/Cargo.toml --all -- --check
+      - name: Original QA Rust security tests
+        shell: bash
+        run: |
+          cd "$PHASE5_QA_WORKTREE"
+          cargo test --manifest-path qa/phase5/Cargo.toml --all-targets
+      - name: Original QA Rust lint
+        shell: bash
+        run: |
+          cd "$PHASE5_QA_WORKTREE"
+          cargo clippy --manifest-path qa/phase5/Cargo.toml --all-targets -- -D warnings
+      - name: Combined Registry + Market + App Paths + providers workspace tests
+        shell: bash
+        run: |
+          cd "$PHASE5_QA_WORKTREE"
+          cargo fmt --all -- --check
+          cargo test --workspace --all-targets
+          cargo clippy --workspace --all-targets -- -D warnings
+      - name: Existing native/web mock and PR #28 regressions
+        shell: bash
+        run: |
+          cd "$PHASE5_QA_WORKTREE"
+          npm --prefix apps/tihulu-ai-web test
+      - name: Original independent QA UI negative tests (failure blocks acceptance)
+        shell: bash
+        run: |
+          cd "$PHASE5_QA_WORKTREE"
+          node --test qa/phase5/js/native-safety.test.mjs
+
+  p0-native:
+    name: P0 source union — native Tauri ( ${{ matrix.os }} )
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Freeze sources; assemble disposable P0 source union
+        shell: bash
+        run: bash qa/phase5/scripts/overlay-remediations.sh
+      - name: Linux native Tauri dependencies
+        if: runner.os == 'Linux'
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev patchelf
+      - name: Original and repaired icon integrity/security tests
+        shell: bash
+        run: |
+          cd "$PHASE5_QA_WORKTREE"
+          python -m unittest discover -s scripts/tests -p test_phase5_windows_icon.py -v
+      - name: Native Tauri formatting
+        shell: bash
+        run: |
+          cd "$PHASE5_QA_WORKTREE"
+          cargo fmt --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml --all -- --check
+      - name: Native Tauri compile and tests (no launch, no installer)
+        shell: bash
+        run: |
+          cd "$PHASE5_QA_WORKTREE"
+          cargo test --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml --all-targets
+      - name: Native Tauri strict lint
+        shell: bash
+        run: |
+          cd "$PHASE5_QA_WORKTREE"
+          cargo clippy --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
+
+# Every job is a synthetic source/mock check. Passing P0 source union does not
+# establish full Phase 5 (PRs #23/#24/#26/#27) integrated or real acceptance.
