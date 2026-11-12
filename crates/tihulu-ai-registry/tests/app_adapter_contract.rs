@@ -10,6 +10,16 @@ use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+fn native_path(path: &str) -> PathBuf {
+    #[cfg(windows)]
+    {
+        if path.starts_with('/') {
+            return PathBuf::from(format!("C:{}", path.replace('/', "\\")));
+        }
+    }
+    PathBuf::from(path)
+}
+
 #[derive(Default)]
 struct FakeProbe {
     paths: BTreeMap<PathBuf, Result<PathEvidence, ProbeError>>,
@@ -19,9 +29,9 @@ struct FakeProbe {
 impl FakeProbe {
     fn directory(&mut self, path: &str) {
         self.paths.insert(
-            path.into(),
+            native_path(path),
             Ok(PathEvidence {
-                canonical_path: path.into(),
+                canonical_path: native_path(path),
                 kind: NodeKind::Directory,
                 owner: OsOwner::CurrentUser,
                 readable: true,
@@ -33,17 +43,17 @@ impl FakeProbe {
     fn redirect(&mut self, from: &str, to: &str) {
         self.directory(from);
         self.paths
-            .get_mut(Path::new(from))
+            .get_mut(native_path(from).as_path())
             .unwrap()
             .as_mut()
             .unwrap()
-            .canonical_path = to.into();
+            .canonical_path = native_path(to);
     }
 
     fn unreadable(&mut self, path: &str) {
         self.directory(path);
         self.paths
-            .get_mut(Path::new(path))
+            .get_mut(native_path(path).as_path())
             .unwrap()
             .as_mut()
             .unwrap()
@@ -53,7 +63,7 @@ impl FakeProbe {
     fn foreign_owner(&mut self, path: &str) {
         self.directory(path);
         self.paths
-            .get_mut(Path::new(path))
+            .get_mut(native_path(path).as_path())
             .unwrap()
             .as_mut()
             .unwrap()
@@ -92,13 +102,13 @@ fn declaration(app: SupportedApp) -> AppDeclaration {
         version: "1.0.0".into(),
         identity_evidence: IdentityEvidence::OsPackageDatabase,
         install_method: InstallMethod::OsManaged,
-        executable_path: "/opt/tihulu/bin/app".into(),
-        installation_path: "/opt/tihulu".into(),
-        config_root: Some("/home/u/.config/tihulu".into()),
+        executable_path: native_path("/opt/tihulu/bin/app"),
+        installation_path: native_path("/opt/tihulu"),
+        config_root: Some(native_path("/home/u/.config/tihulu")),
         user_model_override: None,
-        active_model_root: Some("/home/u/models/active".into()),
-        standalone_default_root: Some("/home/u/models/apps/tihulu".into()),
-        legacy_model_roots: vec!["/home/u/models/legacy".into()],
+        active_model_root: Some(native_path("/home/u/models/active")),
+        standalone_default_root: Some(native_path("/home/u/models/apps/tihulu")),
+        legacy_model_roots: vec![native_path("/home/u/models/legacy")],
         model_owner: ModelOwner::AppManaged,
     }
 }
@@ -114,7 +124,7 @@ fn grant(app: SupportedApp, purpose: ScopePurpose, root: &str) -> ReadGrant {
     ReadGrant {
         app,
         purpose,
-        root: root.into(),
+        root: native_path(root),
         approval_reference: "synthetic-approval".into(),
     }
 }
@@ -205,11 +215,11 @@ fn install_binary_and_model_paths_are_distinct_even_without_consent() {
         inventory_from_adapter(&adapter(SupportedApp::TextCenter), &probe, &[]).unwrap();
     assert_eq!(
         inventory.executable_path.as_deref(),
-        Some(Path::new("/opt/tihulu/bin/app"))
+        Some(native_path("/opt/tihulu/bin/app").as_path())
     );
     assert_eq!(
         inventory.installation_path.as_deref(),
-        Some(Path::new("/opt/tihulu"))
+        Some(native_path("/opt/tihulu").as_path())
     );
     assert_eq!(inventory.config_root, None);
     assert!(inventory.model_directories.is_empty());
@@ -223,10 +233,10 @@ fn override_active_convention_and_legacy_precedence_is_deduped() {
     let app = SupportedApp::FlightRadar;
     let mut fake = adapter(app);
     let record = fake.record.as_mut().unwrap();
-    record.user_model_override = Some("/home/u/models/target".into());
+    record.user_model_override = Some(native_path("/home/u/models/target"));
     record
         .legacy_model_roots
-        .push("/home/u/models/active".into());
+        .push(native_path("/home/u/models/active"));
     let inventory = inventory_from_adapter(&fake, &base_probe(), &grants(app)).unwrap();
     assert_eq!(inventory.model_directories.len(), 4);
     assert_eq!(
@@ -263,7 +273,7 @@ fn override_active_convention_and_legacy_precedence_is_deduped() {
 fn inaccessible_override_must_not_silently_fall_back() {
     let app = SupportedApp::MediaCenter;
     let mut fake = adapter(app);
-    fake.record.as_mut().unwrap().user_model_override = Some("/mnt/private/models".into());
+    fake.record.as_mut().unwrap().user_model_override = Some(native_path("/mnt/private/models"));
     let inventory = inventory_from_adapter(&fake, &base_probe(), &grants(app)).unwrap();
     assert!(inventory.unresolved_declared_override);
     assert!(inventory.effective_model_root().is_none());
@@ -303,7 +313,7 @@ fn wrong_app_scope_unreadable_and_foreign_owned_folders_are_blocked() {
 fn relative_traversal_and_unbounded_legacy_inputs_fail_closed() {
     let app = SupportedApp::RfGeolocation;
     let mut fake = adapter(app);
-    fake.record.as_mut().unwrap().active_model_root = Some("/home/u/models/../secrets".into());
+    fake.record.as_mut().unwrap().active_model_root = Some(native_path("/home/u/models/../secrets"));
     fake.record.as_mut().unwrap().legacy_model_roots = vec!["relative/root".into()];
     let inventory = inventory_from_adapter(&fake, &base_probe(), &grants(app)).unwrap();
     assert_eq!(inventory.model_directories.len(), 1);
@@ -318,7 +328,7 @@ fn relative_traversal_and_unbounded_legacy_inputs_fail_closed() {
     );
     let mut many = adapter(app);
     many.record.as_mut().unwrap().legacy_model_roots = (0..17)
-        .map(|index| format!("/old/{index}").into())
+        .map(|index| native_path(&format!("/old/{index}")))
         .collect();
     let probe = base_probe();
     assert_eq!(
@@ -332,7 +342,7 @@ fn relative_traversal_and_unbounded_legacy_inputs_fail_closed() {
 fn custom_external_ssd_model_root_requires_its_own_scope() {
     let app = SupportedApp::MediaCenter;
     let mut fake = adapter(app);
-    fake.record.as_mut().unwrap().user_model_override = Some("/mnt/ssd/tihulu/weights".into());
+    fake.record.as_mut().unwrap().user_model_override = Some(native_path("/mnt/ssd/tihulu/weights"));
     let mut probe = base_probe();
     probe.directory("/mnt/ssd/tihulu");
     probe.directory("/mnt/ssd/tihulu/weights");
@@ -346,7 +356,7 @@ fn custom_external_ssd_model_root_requires_its_own_scope() {
             .unwrap()
             .directory
             .canonical_path,
-        PathBuf::from("/mnt/ssd/tihulu/weights")
+        native_path("/mnt/ssd/tihulu/weights")
     );
 }
 
@@ -359,7 +369,7 @@ fn preview_is_reversible_and_never_moves_or_writes_anything() {
         &inventory,
         &probe,
         &approved,
-        Path::new("/home/u/models/target"),
+        native_path("/home/u/models/target").as_path(),
         PathChangeKind::StagedCopyPreview,
         true,
         1,
@@ -367,12 +377,12 @@ fn preview_is_reversible_and_never_moves_or_writes_anything() {
     .unwrap();
     assert_eq!(
         preview.current_root.canonical_path,
-        PathBuf::from("/home/u/models/active")
+        native_path("/home/u/models/active")
     );
     assert_eq!(preview.rollback_to, preview.current_root);
     assert_eq!(
         preview.requested_root.canonical_path,
-        PathBuf::from("/home/u/models/target")
+        native_path("/home/u/models/target")
     );
     assert!(preview.backup_config_required);
     assert!(preview.atomic_config_update_required);
@@ -390,7 +400,8 @@ fn preview_is_reversible_and_never_moves_or_writes_anything() {
 fn consent_config_and_target_are_required_for_preview() {
     let app = SupportedApp::MediaCenter;
     let (inventory, probe, approved) = inventoried(app);
-    let target = Path::new("/home/u/models/target");
+    let target_path = native_path("/home/u/models/target");
+    let target = target_path.as_path();
     assert_eq!(
         preview_model_root_change(
             &inventory,
@@ -434,7 +445,7 @@ fn consent_config_and_target_are_required_for_preview() {
             &inventory,
             &probe,
             &approved,
-            Path::new("/home/u/models/active"),
+            native_path("/home/u/models/active").as_path(),
             PathChangeKind::RepointOnly,
             true,
             1
@@ -447,7 +458,8 @@ fn consent_config_and_target_are_required_for_preview() {
 fn borrowed_model_and_shared_clients_block_generic_transfer() {
     let app = SupportedApp::MediaCenter;
     let (mut inventory, probe, approved) = inventoried(app);
-    let target = Path::new("/home/u/models/target");
+    let target_path = native_path("/home/u/models/target");
+    let target = target_path.as_path();
     inventory.model_directories[0].owner = ModelOwner::BorrowedExternal;
     for kind in [
         PathChangeKind::StagedCopyPreview,
