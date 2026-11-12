@@ -133,3 +133,38 @@ Neither individual green CI run can authorize a merge.
 **Acceptance remains HOLD**: coordinator/owner must address both real
 CI failures and independent branch contract mismatch; then assemble an exact
 combined SHA and rerun this suite. Tests/CI must remain blocking.
+
+
+## Later independent drafts — app paths and UI source review
+
+- **AI-07 APP-PATH #25** reviewed head
+  `0e033b63be555c08262b11cdfe762c87654b2071`: adds only
+  `crates/tihulu-ai-registry/src/app_adapters.rs` and isolated integration
+  tests, not live native disk adapters, app discovery, or exports.
+  **FAIL QA-APP-WIN-01:** [Rust Core run 43167815768](https://github.com/Tihulu/Tihulu-AI-Tools/actions/runs/43167815768)
+  passed format and Clippy everywhere and tests on Linux/macOS, but Windows
+  x64 and ARM64 tests each reported **11 failures / 14 app-adapter tests**,
+  all failing with `InvalidInstallRecord`. The fake declaration uses
+  POSIX `/opt/tihulu/bin/app` and `/opt/tihulu` paths; the contract's
+  `valid_absolute` invokes native `Path::is_absolute()`, so these POSIX
+  fixture paths are not absolute on Windows. Owner must use Windows-aware
+  synthetic path fixtures while preserving strict native path validation.
+  Do not disable tests or weaken authorization.
+- **AI-06 UI #26** reviewed head
+  `3706d73a59dfedc8087a7a0e1c7b32e306eb7f8d`: seven new UI-only
+  files (model, view, i18n, CSS, tests, docs), `demo://` path aliases,
+  all provider connections `not_checked`, native picker/consent disabled,
+  no actual Tauri IPC integration. PR author reports in-process synthetic
+  tests; **no GitHub workflow run was associated with this exact head when
+  QA checked**. Independent CI/consent/native wiring still unverified.
+- **AI-05 Jan/Ollama #24** at
+  `d7a0120a49affc130f951325a19aaad8c0c14962` subsequently
+  completed Rust Core multi-OS successfully (run 43167628325); still
+  offline mock-only and not combined with Registry/Market/GPU.
+- The stable app identifier used by PR #25 and #26 for RF Geolocation is
+  `tihulu-rf-geolocation`. QA source test fixture was aligned to that
+  exact identifier; no app or Registry production source changed.
+
+**Global status: HOLD.** There is no integration ref containing #20, #22,
+#23, #24, #25, and #26 together, nor evidence that their mocks integrate
+into native UI. Green isolated CI is not a combined acceptance.
