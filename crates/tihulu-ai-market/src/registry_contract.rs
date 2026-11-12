@@ -16,7 +16,8 @@ use crate::matching::{
 pub struct RegistryModelId(String);
 
 impl RegistryModelId {
-    /// Preserve Registry's stable reference key; never reinterpret it as SHA.
+    /// Accept an adapter-issued opaque handle for Registry's typed ModelId.
+    /// Do not stringify ModelId::Artifact paths or expose raw endpoint URLs.
     pub fn new(id: impl Into<String>) -> Result<Self, ContractError> {
         let id = id.into();
         if id.trim().is_empty() {
@@ -121,9 +122,10 @@ pub struct CatalogIdentityBinding {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegistryModelSnapshot {
-    /// Must be issued by the Registry, preserving its ref-v1 identity.
+    /// Opaque local handle issued by a trusted adapter for Registry ModelId.
+    /// Agent 02's ModelId is a provenance enum, not a ref-v1 hash/string.
     pub id: RegistryModelId,
-    /// Explicit provenance mapping: registry ref IDs are NOT model digests.
+    /// Explicit identity mapping: opaque handles are NOT model digests.
     pub catalog_binding: Option<CatalogIdentityBinding>,
     pub owner: RegistryOwner,
     pub presence: RegistryPresence,
@@ -255,6 +257,8 @@ fn reject(
 /// one target. This pure function cannot assign, download, load or unload.
 /// Registry binding / probe authenticity MUST be checked by the caller.
 /// A Registry lease is never owned or released by this module.
+/// An authorized Registry adapter keeps Agent 02's typed ModelId (which may
+/// contain private file paths) private and maps it to this opaque handle.
 pub fn match_registry_model(
     manifest: &ModelManifest,
     registry: &RegistryModelSnapshot,
