@@ -1,6 +1,6 @@
 # TIHULU AI Tools
 
-**Status: Planning only — Draft v0.5 (12 November 2026)**
+**Status: Planning only — Draft v0.6 (12 November 2026)**
 
 TIHULU AI Tools is a planned **Rust-first**, cross-platform AI model management and optional inference-hosting application. The current repository contains **product plans, contracts and interface mockups**, not a functioning installer, AI runtime, marketplace, server, or agent.
 
@@ -42,6 +42,19 @@ TIHULU AI Tools on a Raspberry Pi 5 can be configured to use a paired x86-64 PC 
 The two experimental AI tabs now use **chat-style mockups** with message history, input composer, compute selectors (**Auto / This device / Paired PC GPU**), and visible permission controls. The GPU Server tab previews routing its host to AI Tools features and selected TIHULU apps. All UI responses and host assignments are **simulated**; no inference, file or app changes occur.
 
 See [v0.5 feature specifications](docs/TIHULU_AI_TOOLS_PLAN.md#35-v05-approved-requirement--ai-tools-itself-consumes-a-paired-gpu-host), [editable diagrams](docs/ARCHITECTURE.md), and the [interactive concept](ui/index.html).
+
+## v0.6: Existing AI apps, model matching and optional Jan chat tools
+
+**User-confirmed plan:** AI Tools may discover models in an installed application by its name, its user-approved data directory, an explicitly selected model folder, or a documented local inference endpoint. With read-only consent it will add those external models to **My Models** as references, not duplicate files. **Jan** is a first-class discovery target, and other providers can be added via extensible source adapters.
+
+The **Model Market** and **TIHULU Apps** screens will explain which pre-installed models can serve each supported app's AI tasks and why. Users may choose **Use this model**, after compatibility checks and an approved mapping preview, without moving the provider-owned model. Separate safe copy/move and rollback plans remain optional. An experimental AI Matching Advisor can opt into Internet research and cited recommendations; it cannot silently change files or download models.
+
+**Jan Desktop:** planned optional Rust **TIHULU MCP Server** exposing only permissioned TIHULU app tools for Jan chat. **Jan Agent:** optional, separate skill/plugin wrapper around the same integration. Real Jan tools will exist only when corresponding TIHULU app adapters are implemented and authorized. No Jan configuration or model files have been changed.
+
+- [Universal Model Discovery & Matching](docs/MODEL_DISCOVERY_AND_MATCHING.md)
+- [Jan Desktop MCP and Jan Agent Plugin Proposal](docs/JAN_INTEGRATION.md)
+- [Model reference / aipath contract](docs/AIPATH_CONTRACT.md)
+- [Updated interactive HTML concept](ui/index.html)
 
 ## Planning workflow
 
