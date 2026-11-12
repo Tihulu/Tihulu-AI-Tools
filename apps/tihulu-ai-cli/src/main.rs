@@ -19,7 +19,11 @@ fn main() -> ExitCode {
     let mut args = env::args_os();
     let _program = args.next();
 
-    match args.next().and_then(|arg| arg.into_string().ok()).as_deref() {
+    match args
+        .next()
+        .and_then(|arg| arg.into_string().ok())
+        .as_deref()
+    {
         Some("profile") if args.next().is_none() => {
             let host = DetectedHost::detect();
             println!("OS: {}", host.os);
