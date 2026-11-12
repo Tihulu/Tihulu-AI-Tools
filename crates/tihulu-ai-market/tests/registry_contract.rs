@@ -245,8 +245,19 @@ fn asr_and_directional_translation_are_distinct_app_tasks() {
 #[test]
 fn cuda_and_pi_cpu_differ_in_memory_and_runtime_probe_identity() {
     let cuda = fixture("cuda");
-    let (record, request, mut probe) =
+    let (mut record, request, mut probe) =
         setup(&cuda, RegistryOwner::AiTools, target(R::LlamaCpp, H::Cuda, "pc-gpu"));
+    record.runtime = RegistryRuntimeEvidence::Unchecked;
+    let installed_but_unverified = match_registry_model(&cuda, &record, &request, &probe);
+    assert_eq!(installed_but_unverified.inventory_status, ModelStatus::Installed);
+    assert_eq!(installed_but_unverified.compatibility.verdict, MatchVerdict::Candidate);
+    assert!(!installed_but_unverified.can_propose_assignment);
+    record.runtime = RegistryRuntimeEvidence::Verified {
+        runtime: R::LlamaCpp,
+        hardware: H::Cuda,
+        host_id: HostId::new("pc-gpu").unwrap(),
+        evidence_id: "synthetic-fixture-probe".into(),
+    };
     assert_eq!(
         match_registry_model(&cuda, &record, &request, &probe).compatibility.verdict,
         MatchVerdict::Recommended,
@@ -261,6 +272,14 @@ fn cuda_and_pi_cpu_differ_in_memory_and_runtime_probe_identity() {
     assert_eq!(
         match_registry_model(&cuda, &record, &request, &probe).compatibility.verdict,
         MatchVerdict::Unknown,
+    );
+    probe.target.host_id = HostId::new("pc-gpu").unwrap();
+    record.runtime = RegistryRuntimeEvidence::Incompatible {
+        reason: "runtime self-test failed".into(),
+    };
+    assert_eq!(
+        match_registry_model(&cuda, &record, &request, &probe).compatibility.verdict,
+        MatchVerdict::Incompatible,
     );
 
     let pi = fixture("pi");
