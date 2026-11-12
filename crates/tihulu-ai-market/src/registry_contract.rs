@@ -109,9 +109,18 @@ pub enum RegistryRuntimeEvidence {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CatalogIdentityBinding {
+    /// Only an authorized Registry adapter can establish this provenance link.
+    pub catalog_model_id: String,
+    pub evidence_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegistryModelSnapshot {
     /// Must be issued by the Registry, preserving its ref-v1 identity.
     pub id: RegistryModelId,
+    /// Explicit provenance mapping: registry ref IDs are NOT model digests.
+    pub catalog_binding: Option<CatalogIdentityBinding>,
     pub owner: RegistryOwner,
     pub presence: RegistryPresence,
     /// Registry's trusted artifact-validation state, not a model-card claim.
@@ -246,6 +255,20 @@ pub fn match_registry_model(
             MatchVerdict::Unknown,
             ModelStatus::Unknown,
             "catalog and registry identities do not match the requested binding",
+        );
+    }
+    if !matches!(
+        &registry.catalog_binding,
+        Some(binding)
+            if binding.catalog_model_id == manifest.id
+                && !binding.evidence_id.trim().is_empty()
+    ) {
+        return reject(
+            request,
+            manifest,
+            MatchVerdict::Unknown,
+            ModelStatus::Unknown,
+            "Registry has not verified the catalog-to-reference provenance binding",
         );
     }
     if manifest.validate().is_err() {
@@ -406,7 +429,7 @@ pub fn match_registry_model(
     // A Registry entry with unchecked artifact or runtime is observed, not
     // proven runnable. Surface this explicitly, even if catalog claims proof.
     if result.verdict == MatchVerdict::Candidate
-        && (!artifact_verified || matches!(registry.runtime, RegistryRuntimeEvidence::Unchecked))
+        && (!artifact_verified || matches!(&registry.runtime, RegistryRuntimeEvidence::Unchecked))
     {
         result.reasons.push("Registry validation or target runtime evidence is incomplete".into());
     }
