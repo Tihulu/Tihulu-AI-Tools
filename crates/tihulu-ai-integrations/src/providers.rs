@@ -11,8 +11,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::lifecycle::{
-    CancellationToken, LifecycleSupervisor, Ownership, ResourceHandle, ResourceKind,
-    SessionState, ShutdownReason, ShutdownReport,
+    CancellationToken, LifecycleSupervisor, Ownership, ResourceHandle, ResourceKind, SessionState,
+    ShutdownReason, ShutdownReport,
 };
 use crate::typed::{AppId, ClientId, JobId, OwnerSessionId, RegistryModelId, TaskKind};
 
@@ -81,9 +81,9 @@ impl ProviderModelId {
             || value.len() > 128
             || !value.as_bytes()[0].is_ascii_alphanumeric()
             || value.contains("..")
-            || !value
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b':'))
+            || !value.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b':')
+            })
         {
             return Err(ProviderError::InvalidRequest);
         }
@@ -358,7 +358,8 @@ impl<D: ProviderDiscoveryPort, E: ProviderExecutionPort> ProviderController<D, E
             return Err(ProviderError::AuthorizationRequired);
         }
         self.require_running(caller, lifecycle)?;
-        self.require_grant(caller, action.provider)?.allows(action)?;
+        self.require_grant(caller, action.provider)?
+            .allows(action)?;
         if self.approvals.len() >= MAX_APPROVALS {
             return Err(ProviderError::CapacityExceeded);
         }
@@ -479,9 +480,8 @@ impl<D: ProviderDiscoveryPort, E: ProviderExecutionPort> ProviderController<D, E
     /// It does not close Jan/Ollama, other provider grants or other sessions.
     pub fn revoke_provider(&mut self, caller: &ProviderCaller, provider: ProviderKind) {
         self.grants.remove(&(caller.clone(), provider));
-        self.approvals.retain(|_, (owner, action)| {
-            owner != caller || action.provider != provider
-        });
+        self.approvals
+            .retain(|_, (owner, action)| owner != caller || action.provider != provider);
         for ((owner, _), job) in &mut self.jobs {
             if owner == caller && job.provider == provider {
                 job.state = JobState::Cancelling;
@@ -517,6 +517,9 @@ impl<D: ProviderDiscoveryPort, E: ProviderExecutionPort> ProviderController<D, E
     }
 
     pub fn active_mock_jobs(&self, caller: &ProviderCaller) -> usize {
-        self.jobs.keys().filter(|(owner, _)| owner == caller).count()
+        self.jobs
+            .keys()
+            .filter(|(owner, _)| owner == caller)
+            .count()
     }
 }
