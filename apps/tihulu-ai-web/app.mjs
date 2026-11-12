@@ -55,7 +55,7 @@ function shutdownControls() {
   ];
   return '<div class="btn-grid">' + specs.map(([action, text, tone]) =>
     '<button class="btn ' + tone + '" type="button" data-shutdown="' + action + '">' + esc(t(text)) + "</button>"
-  ).join("") + '</div><p class="hint" style="margin-top:14px">' + esc(t("shutdownNote")) + "</p>";
+  ).join("") + '</div><p class="hint">' + esc(t("shutdownNote")) + "</p>";
 }
 function overview() {
   const totals = getTotals(state);
@@ -85,7 +85,7 @@ function market() {
   return pageHeading(t("browse"), t("marketHint")) +
     panel(t("market"), t("modelNames"), '<label class="field">' + t("search") +
       '<input id="market-query" type="search" maxlength="80" value="' + esc(state.marketQuery) + '" placeholder="' + esc(t("search")) +
-      '"></label><div class="market-grid" style="margin-top:18px">' +
+      '"></label><div class="market-grid">' +
       (matching.length ? matching.map((m) =>
         '<article class="market-card">' + chip(t(m.state), m.state === "external" ? "neutral" : "warning") +
         '<h3>' + esc(m.name) + '</h3><p>' + esc(m.owner) + '</p><div class="meta-grid"><span>' + esc(m.task) + '</span><span>' + esc(m.format) +
@@ -103,9 +103,9 @@ function apps() {
       '<div class="table-scroll"><table><thead><tr><th>' + t("appName") + '</th><th>' + t("selection") + '</th><th>' + t("selectedHost") + '</th><th>' + t("permission") + "</th></tr></thead><tbody>" +
       applications.map((name, i) => '<tr><td><strong>' + esc(name) + '</strong><div class="resource-meta">' + t("connectionNotReady") + "</div></td><td>" +
         '<select aria-label="' + esc(name + " model") + '" data-app-model="' + i + '"><option value="none">None / demo</option>' +
-        models.map((m) => '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>').join("") + '</select></td><td>' +
-        '<select aria-label="' + esc(name + " host") + '" data-app-host="' + i + '"><option value="local">' + t("local") +
-        '</option><option value="paired">' + t("paired") + '</option></select></td><td>' +
+        models.map((m) => '<option value="' + esc(m.id) + '"' + (state.appModel[i] === m.id ? ' selected' : '') + '>' + esc(m.name) + '</option>').join("") + '</select></td><td>' +
+        '<select aria-label="' + esc(name + " host") + '" data-app-host="' + i + '"><option value="local"' + (state.appHost[i] !== "paired" ? ' selected' : '') + '>' + t("local") +
+        '</option><option value="paired"' + (state.appHost[i] === "paired" ? ' selected' : '') + '>' + t("paired") + '</option></select></td><td>' +
         '<button type="button" class="btn secondary compact" data-explain="scope">' + t("review") + "</button></td></tr>"
       ).join("") + "</tbody></table></div>") +
     panel(t("permission"), t("readOnly"), '<p>' + esc(t("approve")) + " " + esc(t("noShell")) + "</p>");
@@ -114,7 +114,7 @@ function devices() {
   return pageHeading(t("deviceHeading"), t("deviceHint")) +
     '<div class="two-col"><div>' +
     panel(t("hardware"), t("future"), fieldSelect("profile", profiles.map(([value, key]) => [value, t(key)]), state.profile, 'id="hardware-profile"') +
-      '<p class="hint" style="margin-top:14px">' + t("connectionNotReady") + "</p>") +
+      '<p class="hint">' + t("connectionNotReady") + "</p>") +
     '</div><div>' +
     panel(t("resourceTitle"), t("source"), resourceTable(state.resources.filter((r) => r.scope === "device" || r.scope === "external"))) +
     "</div></div>";
@@ -124,8 +124,8 @@ function gpuHost() {
   return pageHeading(t("hostHeading"), t("hostHint")) +
     '<div class="two-col"><div>' +
     panel(t("hostIndependent"), t("connectionNotReady"),
-      '<div class="cards" style="grid-template-columns:1fr 1fr"><div class="card"><div class="micro">' + t("status") +
-      '</div><div class="value" style="font-size:20px">' + t(host.status === "active" ? "active" : "released") +
+      '<div class="cards"><div class="card"><div class="micro">' + t("status") +
+      '</div><div class="value">' + t(host.status === "active" ? "active" : "released") +
       '</div></div><div class="card"><div class="micro">' + t("hostClients") + '</div><div class="value">' +
       Number(host.clients || 0) + '</div></div></div><button type="button" class="btn secondary" data-explain="pairing">' +
       t("pairing") + "</button>") + '</div><div>' +
@@ -150,7 +150,7 @@ function chat(type) {
       t("closeChat") + '</button>') + '</div><div>' +
     panel(t("selection"), t("connectionNotReady"),
       fieldSelect("selection", models.map((m) => [m.id, m.name]), state.model[type], 'data-model="' + type + '"') +
-      '<div style="height:14px"></div>' +
+      '<div></div>' +
       fieldSelect("selectedHost", [["local", t("local")], ["paired", t("paired")]], state.compute[type], 'data-compute="' + type + '"')) +
     panel(t("permission"), t("readOnly"),
       '<p>' + t("approve") + '</p><p class="hint">' + t("noShell") + '</p>' + chip(t("future"), "warning")) +
@@ -163,7 +163,7 @@ function jan() {
     panel(t("howJan"), t("connectionNotReady"),
       '<ol class="steps">' + [1, 2, 3, 4].map((i) => '<li>' + esc(t("janGuide" + i)) + '</li>').join("") + '</ol>') +
     '</div><div>' +
-    panel(t("setupJan"), t("janHint"), chip(t("disconnected"), "warning") + '<p class="hint" style="margin-top:12px">MCP / STDIO: ' +
+    panel(t("setupJan"), t("janHint"), chip(t("disconnected"), "warning") + '<p class="hint">MCP / STDIO: ' +
       t("connectionNotReady") + '</p>' +
       (state.janStep < 0 ? '<button type="button" class="btn" data-jan-start>' + t("setupJan") + '</button>' :
       '<div><h3>' + t("wizard") + ' · ' + (state.janStep + 1) + '/4</h3><p>' + esc(t(stages[state.janStep])) + '</p><div class="actions">' +
@@ -241,7 +241,7 @@ root.addEventListener("click", (event) => {
     const preview = previewShutdown(state, action);
     const affected = preview.affected.map((id) => getResource(state, id).name);
     showModal(preview.title + " — " + t("detailPanel"),
-      preview.description + " " + t("nothingActive").replace(t("nothingActive"), affected.length ? "" : t("nothingActive")),
+      preview.description + (affected.length ? "" : " " + t("nothingActive")),
       [t("affected") + ": " + (affected.join(", ") || "None"), t("preserved") + ": " +
         (preview.preserved.map((id) => getResource(state, id).name).join(", ") || "None"), ...preview.warnings],
       () => { state = applyShutdown(state, action); state.activeTab = "overview"; render(); });
@@ -281,7 +281,9 @@ root.addEventListener("change", (event) => {
   else if (el.id === "market-query") state = { ...state, marketQuery: el.value.slice(0, 80) };
   else if (el.dataset.model) state = { ...state, model: { ...state.model, [el.dataset.model]: el.value } };
   else if (el.dataset.compute) state = { ...state, compute: { ...state.compute, [el.dataset.compute]: el.value } };
-  // Mock app selectors are intentionally not persisted as real adapter settings.
+  else if (el.dataset.appModel !== undefined) state = { ...state, appModel: { ...state.appModel, [el.dataset.appModel]: el.value } };
+  else if (el.dataset.appHost !== undefined) state = { ...state, appHost: { ...state.appHost, [el.dataset.appHost]: el.value } };
+  // Mock app selectors persist only in this browser's volatile simulator.
   render();
 });
 document.querySelector("#dialog-cancel").addEventListener("click", () => { pendingAction = null; modal.close(); });
