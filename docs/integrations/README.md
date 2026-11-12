@@ -97,3 +97,26 @@ The root workspace intentionally does not include this crate yet. Existing
 root CI may be green while this isolated crate remains untested. Physical
 SDR, hardware resource release, CUDA/Hailo and real Jan connection require
 separate acceptance and must not be reported as passed from mocks.
+
+
+## Phase 2 integration boundary
+
+- **New typed contracts:** `typed.rs` provides `AppId`,
+  `RegistryModelId`, `HostId`, `HostModelId`, `JobId`, `TaskKind`,
+  read-only Registry records, Host route/lease callbacks, and a mock-only
+  app adapter that is registered explicitly with the permissioned bridge.
+- Exact one-shot action tickets now bind the **owner session** as well as
+  client and entire request. A distinct validated host model ID is
+  required; no Registry candidate is ever treated as verified runnable
+  merely because it was discovered in Jan.
+- The adapter reserves a non-allocating owner-specific close handle before
+  mock host dispatch. Actual last-lease unload authority remains with
+  the coordinator's single core ledger / authorized GPU Host, never the
+  MCP bridge. Borrowed Jan, Ollama, readsb and tar1090 remain untouched.
+- Read [PHASE2_TYPE_BOUNDARY.md](PHASE2_TYPE_BOUNDARY.md) for the explicit
+  cross-workstream ID/provenance mapping and trust boundary; read
+  [PHASE2_ACCEPTANCE.md](PHASE2_ACCEPTANCE.md) for scenario commands,
+  unresolved CI and physical-hardware gates.
+- Existing Phase 1 mocked tests remain in `tests/mock_integration.rs`.
+  Phase 2 adds `tests/typed_phase2.rs` (typed query, action approval,
+  STOP and borrowed external tests). **No live MCP/Jan bridge exists.**
