@@ -81,6 +81,10 @@ opaque_id!(ModelId);
 opaque_id!(RuntimeId);
 opaque_id!(LeaseId);
 opaque_id!(RequestId);
+// One-shot, bounded lifetime pairing proposal; never use as an authentication key.
+opaque_id!(PairingAttemptId);
+// Describes one reported GPU device without exposing OS device handles.
+opaque_id!(AcceleratorId);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NetworkRoute {
