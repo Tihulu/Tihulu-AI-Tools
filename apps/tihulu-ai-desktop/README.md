@@ -25,3 +25,7 @@ These commands require the Rust toolchain and Tauri 2 OS-specific development de
 - Desktop targets: Linux x86-64/aarch64, macOS Apple Silicon, Windows x64/ARM64; Raspberry Pi browser interface uses the same web assets and an **explicitly started, authenticated native Rust server** only after that backend is implemented.
 
 The current four shutdown controls **simulate state transitions only**. A window close only closes this no-worker UI shell and does not claim to manage any real external services.
+
+## Phase 2 interface-only additions
+
+`src-tauri/src/ui_contract.rs` defines Serde DTOs matching the web `ui-contract.mjs` envelope, with unit tests for request types, shutdown approval, independent GUI/host state, Jan wizard and chat payload bounds. This module is compiled into the Tauri shell but deliberately registers **no commands**. JavaScript cannot invoke OS cleanup, and app-window close currently performs no supervisor-managed teardown because none is attached. Real native behavior requires coordinator Rust ledger integration and actual hardware validation. The standalone Tauri manifest includes Serde and test-only serde_json, without changing the root workspace.
