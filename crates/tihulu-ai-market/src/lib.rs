@@ -22,5 +22,5 @@ pub use manifest::{
 };
 pub use matching::{
     match_model, rank_models, CompatibilityContext, MatchResult, MatchVerdict,
-    TaskRequest,
+    TaskRequest, TrustedRuntimeProbe,
 };
