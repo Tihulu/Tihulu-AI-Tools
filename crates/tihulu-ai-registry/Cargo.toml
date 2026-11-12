@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Read-only, provenance-aware model inventory and runtime lease contracts"
 edition = "2021"
 rust-version = "1.82"
-license = "MIT"
 
 [lib]
 name = "tihulu_ai_registry"
