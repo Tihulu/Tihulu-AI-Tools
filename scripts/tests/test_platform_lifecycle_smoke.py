@@ -78,6 +78,25 @@ class SyntheticLifecycleTests(unittest.TestCase):
             s.stop(-1)
         self.assertEqual(s.state, "running")
 
+    def test_cleanup_failure_requires_retry_and_is_never_reported_stopped(self):
+        class RecoverableChild(FakeChild):
+            def wait(self, timeout):
+                self.wait_count += 1
+                if self.wait_count <= 2:
+                    raise subprocess.TimeoutExpired(cmd="fake-owned", timeout=timeout)
+                self.exited = True
+                return 0
+
+        s = SpySupervisor(RecoverableChild())
+        first = s.stop(grace_seconds=0)
+        self.assertFalse(first["owned_reaped"])
+        self.assertEqual(s.state, "cleanup_failed")
+        with self.assertRaises(RuntimeError):
+            s.spawn_owned_dummy()
+        second = s.stop(grace_seconds=0)
+        self.assertTrue(second["owned_reaped"])
+        self.assertEqual(s.state, "stopped")
+
     def test_l14_os_owned_dummy_reaped(self):
         s = MODULE.OwnedDummySupervisor()
         s.record_borrowed_label("fake-independent-host")
