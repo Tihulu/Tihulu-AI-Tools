@@ -1,0 +1,51 @@
+name: Phase 3 Sandbox — Apply rustfmt (isolated branch only)
+
+# One-shot formatter for coordinator-owned integration branch. This workflow
+# never checks out, writes to, merges or releases main or an agent branch.
+on:
+  push:
+    branches: [coord/phase2-integration-sandbox]
+    paths: [".github/workflows/phase3-sandbox-format.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  rustfmt-sandbox:
+    if: github.repository == 'Tihulu/Tihulu-AI-Tools' && github.ref == 'refs/heads/coord/phase2-integration-sandbox'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact sandbox head
+        uses: actions/checkout@v4
+        with:
+          ref: coord/phase2-integration-sandbox
+          persist-credentials: true
+      - name: Rust format toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Apply rustfmt across combined workspace
+        run: cargo fmt --all
+      - name: Validate diff for whitespace errors
+        run: git diff --check
+      - name: Commit formatter-only Rust changes to sandbox
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No rustfmt changes required."
+            exit 0
+          fi
+          git diff --stat
+          if git diff --name-only | grep -Ev '^(crates/|apps/tihulu-ai-cli/).*\.rs$'; then
+            echo "::error::Formatting modified a non-Rust source path."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- crates/ apps/tihulu-ai-cli/
+          git commit -m "style(sandbox): apply cargo fmt to integrated Rust workspace"
+          git push origin HEAD:refs/heads/coord/phase2-integration-sandbox
+      - name: Verify formatted working tree
+        run: cargo fmt --all -- --check
