@@ -252,7 +252,7 @@ function renderGpu(){let mode=d('gpu-mode').value,link=d('gpu-link').value;const
 function render(){renderOverview();renderMarket();renderInstalled();renderApps();renderProfile();renderGpu();renderAipath()}
 function openModal(t){d('modal-title').textContent=t;d('custom-name').value='';d('custom-path').value='';d('modal').showModal()}
 function activeApp(){return d('app-select').value||apps[0][3]}
-function renderAipath(){const a=appSettings[activeApp()]||appSettings[apps[0][3]],app=activeApp();const modelID=a.model||'whisper-small';const path=a.location.replace(/\/$/,'')+'/aipath.txt';const filename={ 'whisper-small':'Models/Speech/ggml-small.bin', 'faster-whisper':'Models/Speech/medium/',argos:'Models/Translation/en-tr/', 'qwen-gguf':'Models/LLM/example.gguf','hailo-genai':'Models/Hailo/vendor-artifact/','ocr':'Models/Vision/example/'}[modelID]||'Models/Other/';const pp=['# Example only — generated text, NOT written','schema=1','app_id='+app,'manager_mode=optional','registry_path=~/.local/share/tihulu/ai-tools/registry.json','model.'+modelID+'=~/TIHULU AI Tools/'+filename,'compute_preference='+a.policy,'remote_host_id=paired-pc-01','fallback=legacy','# Destination: '+path].join('\n');d('aipath-preview').textContent=pp;return pp}
+function renderAipath(){const a=appSettings[activeApp()]||appSettings[apps[0][3]],app=activeApp();const modelID=a.model||'whisper-small';const path=a.location.replace(/\/$/,'')+'/aipath.txt';const filename={ 'whisper-small':'Models/Speech/ggml-small.bin', 'faster-whisper':'Models/Speech/medium/',argos:'Models/Translation/en-tr/', 'qwen-gguf':'Models/LLM/example.gguf','hailo-genai':'Models/Hailo/vendor-artifact/','ocr':'Models/Vision/example/'}[modelID]||'Models/Other/';const external=modelID.startsWith('sample-external-');const exampleModelLine=external?'model_ref=external:'+modelID+' # simulated, no file discovered':'model.'+modelID+'=~/TIHULU AI Tools/'+filename;const pp=['# Example only — generated text, NOT written','schema=1','app_id='+app,'manager_mode=optional','registry_path=~/.local/share/tihulu/ai-tools/registry.json',exampleModelLine,'compute_preference='+a.policy,'remote_host_id=paired-pc-01','fallback=legacy','# Destination: '+path].join('\n');d('aipath-preview').textContent=pp;return pp}
 function loadAppEditor(){const a=appSettings[activeApp()];d('app-location').value=a.location;d('app-model').value=a.model;d('app-policy').value=a.policy;renderAipath()}
 function populateApp(){d('app-select').innerHTML=apps.map(a=>`<option value="${a[3]}">${a[0]}</option>`).join('');d('app-model').innerHTML=models.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');loadAppEditor()}
 populateApp();
@@ -342,6 +342,7 @@ function syncMatchModels(){
  const currentModel=d('match-model').value;
  const available=[...models,...custom].filter(m=>installed.has(m.id));
  d('match-model').innerHTML=available.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.name)+' ('+esc(m.category)+')</option>').join('');
+ d('app-model').innerHTML=[...models,...custom].map(m=>'<option value="'+esc(m.id)+'">'+esc(m.name)+(m.id.startsWith('sample-external-')?' [EXTERNAL DEMO]':'')+'</option>').join('');
  if(available.some(m=>m.id===currentModel))d('match-model').value=currentModel;
 }
 d('discover-preview').onclick=()=>{
