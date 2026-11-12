@@ -172,21 +172,21 @@ impl MockComputeHost {
         if self.lifecycle_authority != LifecycleAuthority::CoordinatorLedger {
             return Err(Error::InvalidConfiguration);
         }
-        let model = &new_binding.model;
-        let state = self.models.get(model).ok_or(Error::UnknownModel)?;
+        let model = new_binding.model.clone();
+        let state = self.models.get(&model).ok_or(Error::UnknownModel)?;
         if !state.ledger_resource_spent || state.loaded_by_us
-            || state.awaiting_ledger_ack || self.model_lease_count(model) != 0
-            || self.ledger_events.iter().any(|event| &event.model == model)
+            || state.awaiting_ledger_ack || self.model_lease_count(&model) != 0
+            || self.ledger_events.iter().any(|event| event.model == model)
         {
             return Err(Error::LedgerCleanupPending);
         }
-        self.ledger_models.get(model).ok_or(Error::LedgerBindingRequired)?;
+        self.ledger_models.get(&model).ok_or(Error::LedgerBindingRequired)?;
         if self.used_ledger_resources.contains(&new_binding.resource)
             || self.used_ledger_resources.len() >= MAX_LEDGER_RESOURCE_IDENTITIES
             || (state.registration.ownership == RuntimeOwnership::HostOwned
                 && self.used_owned_runtime_ids.contains(&new_binding.runtime))
             || self.ledger_models.iter().any(|(other_model, binding)| {
-                other_model != model && binding.runtime == new_binding.runtime
+                other_model != &model && binding.runtime == new_binding.runtime
             })
         {
             return Err(Error::IdentifierConflict);
@@ -196,7 +196,7 @@ impl MockComputeHost {
             self.used_owned_runtime_ids.insert(new_binding.runtime.clone());
         }
         self.ledger_models.insert(model.clone(), new_binding);
-        if let Some(state) = self.models.get_mut(model) {
+        if let Some(state) = self.models.get_mut(&model) {
             state.ledger_resource_spent = false;
         }
         Ok(())

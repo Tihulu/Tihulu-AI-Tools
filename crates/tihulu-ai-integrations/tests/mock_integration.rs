@@ -393,7 +393,7 @@ fn l10_late_registration_blocked_and_leaked_resource_reported() {
     let report = lifecycle
         .shutdown("old-session", ShutdownReason::HardStop, Duration::ZERO)
         .unwrap();
-    assert_eq!(report.state, &mut lifecycle, "stopped");
+    assert_eq!(report.state, SessionState::Stopping);
     assert_eq!(report.unresolved_owned, 1);
     assert_eq!(
         lifecycle.track(
@@ -411,7 +411,7 @@ fn l10_late_registration_blocked_and_leaked_resource_reported() {
         .unwrap();
     assert_eq!(report.state, SessionState::Stopped);
     lifecycle.start_session("fresh-session").unwrap();
-    assert_eq!(lifecycle.state("fresh-session"), Some(&mut lifecycle, "active"));
+    assert_eq!(lifecycle.state("fresh-session"), Some(SessionState::Running));
 }
 
 #[test]
