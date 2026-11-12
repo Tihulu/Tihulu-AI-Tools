@@ -1,15 +1,14 @@
 //! Phase 2 integration-contract fixtures: synthetic only; no Registry, GPU,
 //! Jan, Pi or Hailo adapter runs here.
+use tihulu_ai_market::registry_contract::{
+    match_registry_model, ApplicationId, ApplicationTask, ArtifactEvidence, CatalogIdentityBinding,
+    HostId, RegistryMatchRequest, RegistryModelId, RegistryModelSnapshot, RegistryOwner,
+    RegistryPresence, RegistryRuntimeEvidence, RuntimeTarget, TrustedHardwareProbe,
+};
 use tihulu_ai_market::{
     validate_advisor_proposal, AdvisorPolicy, AdvisorProposal, Citation, HardwareTarget as H,
-    License, MatchVerdict, ModelFormat as F, ModelManifest, ModelStatus,
-    ProposalError, Runtime as R, TaskKind as T, TaskRequest,
-};
-use tihulu_ai_market::registry_contract::{
-    match_registry_model, ApplicationId, ApplicationTask, ArtifactEvidence,
-    CatalogIdentityBinding, HostId, RegistryMatchRequest, RegistryModelId,
-    RegistryModelSnapshot, RegistryOwner, RegistryPresence, RegistryRuntimeEvidence,
-    RuntimeTarget, TrustedHardwareProbe,
+    License, MatchVerdict, ModelFormat as F, ModelManifest, ModelStatus, ProposalError,
+    Runtime as R, TaskKind as T, TaskRequest,
 };
 
 fn fixture(name: &str) -> ModelManifest {
@@ -115,8 +114,11 @@ fn rejects_empty_typed_identifiers() {
 #[test]
 fn jan_owned_gguf_is_external_inventory_not_implicitly_runtime_verified() {
     let model = fixture("jan");
-    let (mut record, request, probe) =
-        setup(&model, RegistryOwner::JanDesktop, target(R::LlamaCpp, H::Cpu, "local"));
+    let (mut record, request, probe) = setup(
+        &model,
+        RegistryOwner::JanDesktop,
+        target(R::LlamaCpp, H::Cpu, "local"),
+    );
     record.runtime = RegistryRuntimeEvidence::Unchecked;
     let untested = match_registry_model(&model, &record, &request, &probe);
     assert_eq!(untested.inventory_status, ModelStatus::External);
@@ -125,12 +127,16 @@ fn jan_owned_gguf_is_external_inventory_not_implicitly_runtime_verified() {
     assert!(!untested.can_propose_assignment);
 
     record.runtime = RegistryRuntimeEvidence::Verified {
-        runtime: R::LlamaCpp, hardware: H::Cpu, host_id: HostId::new("local").unwrap(),
+        runtime: R::LlamaCpp,
+        hardware: H::Cpu,
+        host_id: HostId::new("local").unwrap(),
         evidence_id: "synthetic-fixture-probe".into(),
     };
     record.artifact = ArtifactEvidence::Unchecked;
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Candidate,
     );
 
@@ -147,11 +153,16 @@ fn jan_owned_gguf_is_external_inventory_not_implicitly_runtime_verified() {
 #[test]
 fn catalog_reference_binding_and_ownership_must_be_consistent() {
     let model = fixture("jan");
-    let (mut record, mut request, probe) =
-        setup(&model, RegistryOwner::JanDesktop, target(R::LlamaCpp, H::Cpu, "local"));
+    let (mut record, mut request, probe) = setup(
+        &model,
+        RegistryOwner::JanDesktop,
+        target(R::LlamaCpp, H::Cpu, "local"),
+    );
     record.catalog_binding = None;
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Unknown,
     );
     record.catalog_binding = Some(CatalogIdentityBinding {
@@ -159,7 +170,9 @@ fn catalog_reference_binding_and_ownership_must_be_consistent() {
         evidence_id: "synthetic-provenance-binding".into(),
     });
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Unknown,
     );
     record.catalog_binding = Some(CatalogIdentityBinding {
@@ -167,7 +180,9 @@ fn catalog_reference_binding_and_ownership_must_be_consistent() {
         evidence_id: "".into(),
     });
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Unknown,
     );
     record.catalog_binding = Some(CatalogIdentityBinding {
@@ -176,13 +191,17 @@ fn catalog_reference_binding_and_ownership_must_be_consistent() {
     });
     request.registry_model_id = RegistryModelId::new("ref-v1-other").unwrap();
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Unknown,
     );
     request.registry_model_id = record.id.clone();
     record.owner = RegistryOwner::AiTools;
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Incompatible,
     );
 }
@@ -190,11 +209,18 @@ fn catalog_reference_binding_and_ownership_must_be_consistent() {
 #[test]
 fn wrong_format_and_missing_or_unlisted_reference_are_never_recommended() {
     let model = fixture("wrong-format");
-    let (mut record, request, probe) =
-        setup(&model, RegistryOwner::JanDesktop, target(R::LlamaCpp, H::Cpu, "local"));
-    record.presence = RegistryPresence::FileObserved { format_hint: F::Onnx };
+    let (mut record, request, probe) = setup(
+        &model,
+        RegistryOwner::JanDesktop,
+        target(R::LlamaCpp, H::Cpu, "local"),
+    );
+    record.presence = RegistryPresence::FileObserved {
+        format_hint: F::Onnx,
+    };
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.status,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .status,
         ModelStatus::Incompatible,
     );
     record.presence = RegistryPresence::Missing;
@@ -205,7 +231,9 @@ fn wrong_format_and_missing_or_unlisted_reference_are_never_recommended() {
     assert!(!missing.can_propose_assignment);
     record.presence = RegistryPresence::EndpointDeclared;
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.status,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .status,
         ModelStatus::Unknown,
     );
 }
@@ -213,31 +241,46 @@ fn wrong_format_and_missing_or_unlisted_reference_are_never_recommended() {
 #[test]
 fn asr_and_directional_translation_are_distinct_app_tasks() {
     let asr = fixture("asr");
-    let (record, mut request, probe) =
-        setup(&asr, RegistryOwner::AiTools, target(R::WhisperCpp, H::Cpu, "local"));
+    let (record, mut request, probe) = setup(
+        &asr,
+        RegistryOwner::AiTools,
+        target(R::WhisperCpp, H::Cpu, "local"),
+    );
     request.application_task.application_id = ApplicationId::new("media-center").unwrap();
     assert_eq!(
-        match_registry_model(&asr, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&asr, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Recommended,
     );
     request.application_task.request.task = T::Translation;
     assert_eq!(
-        match_registry_model(&asr, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&asr, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Incompatible,
     );
     let translator = fixture("translation");
-    let (record, mut request, probe) =
-        setup(&translator, RegistryOwner::AiTools, target(R::Ctranslate2, H::Cpu, "local"));
+    let (record, mut request, probe) = setup(
+        &translator,
+        RegistryOwner::AiTools,
+        target(R::Ctranslate2, H::Cpu, "local"),
+    );
     request.application_task.request.languages = vec!["tr".into(), "de".into()];
     assert_eq!(
-        match_registry_model(&translator, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&translator, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Recommended,
     );
-    request.application_task.request.translation = Some(
-        tihulu_ai_market::LanguagePair { from: "de".into(), to: "tr".into() },
-    );
+    request.application_task.request.translation = Some(tihulu_ai_market::LanguagePair {
+        from: "de".into(),
+        to: "tr".into(),
+    });
     assert_eq!(
-        match_registry_model(&translator, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&translator, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Incompatible,
     );
 }
@@ -245,12 +288,21 @@ fn asr_and_directional_translation_are_distinct_app_tasks() {
 #[test]
 fn cuda_and_pi_cpu_differ_in_memory_and_runtime_probe_identity() {
     let cuda = fixture("cuda");
-    let (mut record, request, mut probe) =
-        setup(&cuda, RegistryOwner::AiTools, target(R::LlamaCpp, H::Cuda, "pc-gpu"));
+    let (mut record, request, mut probe) = setup(
+        &cuda,
+        RegistryOwner::AiTools,
+        target(R::LlamaCpp, H::Cuda, "pc-gpu"),
+    );
     record.runtime = RegistryRuntimeEvidence::Unchecked;
     let installed_but_unverified = match_registry_model(&cuda, &record, &request, &probe);
-    assert_eq!(installed_but_unverified.inventory_status, ModelStatus::Installed);
-    assert_eq!(installed_but_unverified.compatibility.verdict, MatchVerdict::Candidate);
+    assert_eq!(
+        installed_but_unverified.inventory_status,
+        ModelStatus::Installed
+    );
+    assert_eq!(
+        installed_but_unverified.compatibility.verdict,
+        MatchVerdict::Candidate
+    );
     assert!(!installed_but_unverified.can_propose_assignment);
     record.runtime = RegistryRuntimeEvidence::Verified {
         runtime: R::LlamaCpp,
@@ -259,18 +311,24 @@ fn cuda_and_pi_cpu_differ_in_memory_and_runtime_probe_identity() {
         evidence_id: "synthetic-fixture-probe".into(),
     };
     assert_eq!(
-        match_registry_model(&cuda, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&cuda, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Recommended,
     );
     probe.available_vram_mib = Some(2048);
     assert_eq!(
-        match_registry_model(&cuda, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&cuda, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Incompatible,
     );
     probe.available_vram_mib = Some(16384);
     probe.target.host_id = HostId::new("different-host").unwrap();
     assert_eq!(
-        match_registry_model(&cuda, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&cuda, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Unknown,
     );
     probe.target.host_id = HostId::new("pc-gpu").unwrap();
@@ -278,21 +336,30 @@ fn cuda_and_pi_cpu_differ_in_memory_and_runtime_probe_identity() {
         reason: "runtime self-test failed".into(),
     };
     assert_eq!(
-        match_registry_model(&cuda, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&cuda, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Incompatible,
     );
 
     let pi = fixture("pi");
-    let (record, request, probe) =
-        setup(&pi, RegistryOwner::AiTools, target(R::LlamaCpp, H::RaspberryPiCpu, "pi-5"));
+    let (record, request, probe) = setup(
+        &pi,
+        RegistryOwner::AiTools,
+        target(R::LlamaCpp, H::RaspberryPiCpu, "pi-5"),
+    );
     assert_eq!(
-        match_registry_model(&pi, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&pi, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Recommended,
     );
     let mut not_pi = request.clone();
     not_pi.target.hardware = H::Cuda;
     assert_eq!(
-        match_registry_model(&pi, &record, &not_pi, &probe).compatibility.verdict,
+        match_registry_model(&pi, &record, &not_pi, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Unknown,
     );
 }
@@ -300,15 +367,22 @@ fn cuda_and_pi_cpu_differ_in_memory_and_runtime_probe_identity() {
 #[test]
 fn hailo_hef_never_equals_cuda_and_npu_budget_is_independent() {
     let model = fixture("hailo");
-    let (record, request, mut probe) =
-        setup(&model, RegistryOwner::AiTools, target(R::HailoRt, H::Hailo, "pi-hailo"));
+    let (record, request, mut probe) = setup(
+        &model,
+        RegistryOwner::AiTools,
+        target(R::HailoRt, H::Hailo, "pi-hailo"),
+    );
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Recommended,
     );
     probe.available_npu_mib = Some(2048);
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Incompatible,
     );
     probe.available_npu_mib = Some(8192);
@@ -317,7 +391,9 @@ fn hailo_hef_never_equals_cuda_and_npu_budget_is_independent() {
     let mut cuda_probe = probe.clone();
     cuda_probe.target = cuda_request.target.clone();
     assert_eq!(
-        match_registry_model(&model, &record, &cuda_request, &cuda_probe).compatibility.verdict,
+        match_registry_model(&model, &record, &cuda_request, &cuda_probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Incompatible,
     );
 }
@@ -331,18 +407,24 @@ fn paired_gpu_host_is_not_a_local_cuda_lease_and_requires_authorization() {
         target(R::OpenAiApi, H::PairedGpuHost, "gpu-host-1"),
     );
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Recommended,
     );
     probe.paired_host_authorized = false;
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Incompatible,
     );
     probe.paired_host_authorized = true;
     record.presence = RegistryPresence::EndpointDeclared;
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Unknown,
     );
 }
@@ -350,8 +432,11 @@ fn paired_gpu_host_is_not_a_local_cuda_lease_and_requires_authorization() {
 #[test]
 fn unknown_license_never_becomes_verified_runnable() {
     let model = fixture("license");
-    let (record, request, probe) =
-        setup(&model, RegistryOwner::AiTools, target(R::LlamaCpp, H::Cpu, "local"));
+    let (record, request, probe) = setup(
+        &model,
+        RegistryOwner::AiTools,
+        target(R::LlamaCpp, H::Cpu, "local"),
+    );
     assert_eq!(model.license, License::Unknown);
     let decision = match_registry_model(&model, &record, &request, &probe);
     assert_eq!(decision.inventory_status, ModelStatus::Installed);
@@ -362,8 +447,11 @@ fn unknown_license_never_becomes_verified_runnable() {
 #[test]
 fn untrusted_online_recommendations_cannot_create_registry_probes_or_download() {
     let model = fixture("online");
-    let (record, request, probe) =
-        setup(&model, RegistryOwner::AiTools, target(R::LlamaCpp, H::Cpu, "local"));
+    let (record, request, probe) = setup(
+        &model,
+        RegistryOwner::AiTools,
+        target(R::LlamaCpp, H::Cpu, "local"),
+    );
     let result = match_registry_model(&model, &record, &request, &probe);
     assert_eq!(result.compatibility.verdict, MatchVerdict::Incompatible);
     assert!(!result.can_propose_assignment);
@@ -395,26 +483,40 @@ fn untrusted_online_recommendations_cannot_create_registry_probes_or_download() 
         trusted_probes: Vec::new(),
     };
     assert_eq!(
-        validate_advisor_proposal(&suggestion, &AdvisorPolicy::default(),
-            &[model.clone()], &req, &ctx),
+        validate_advisor_proposal(
+            &suggestion,
+            &AdvisorPolicy::default(),
+            &[model.clone()],
+            &req,
+            &ctx
+        ),
         Err(ProposalError::InternetNotAuthorized),
     );
     let validated = validate_advisor_proposal(
         &suggestion,
-        &AdvisorPolicy { internet_opt_in: true },
+        &AdvisorPolicy {
+            internet_opt_in: true,
+        },
         &[model],
         &req,
         &ctx,
-    ).unwrap();
+    )
+    .unwrap();
     assert!(!validated.executable);
-    assert_ne!(validated.deterministic_match.verdict, MatchVerdict::Recommended);
+    assert_ne!(
+        validated.deterministic_match.verdict,
+        MatchVerdict::Recommended
+    );
 }
 
 #[test]
 fn application_adapter_and_host_readiness_are_independent_of_catalog_inventory() {
     let model = fixture("jan");
-    let (record, mut request, mut probe) =
-        setup(&model, RegistryOwner::JanDesktop, target(R::LlamaCpp, H::Cpu, "local"));
+    let (record, mut request, mut probe) = setup(
+        &model,
+        RegistryOwner::JanDesktop,
+        target(R::LlamaCpp, H::Cpu, "local"),
+    );
     request.application_task.adapter_verified = false;
     let decision = match_registry_model(&model, &record, &request, &probe);
     assert_eq!(decision.inventory_status, ModelStatus::External);
@@ -422,7 +524,9 @@ fn application_adapter_and_host_readiness_are_independent_of_catalog_inventory()
     request.application_task.adapter_verified = true;
     probe.runtime_ready = false;
     assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.verdict,
+        match_registry_model(&model, &record, &request, &probe)
+            .compatibility
+            .verdict,
         MatchVerdict::Unknown,
     );
 }
