@@ -103,10 +103,51 @@ pub enum RuntimeVerification {
     Incompatible { reason: String },
 }
 
+/// Stable, typed *source-reference* identity. Never a content hash, GPU
+/// resource handle, runtime instance, authorization token or public URL.
+///
+/// Full path components are retained without lossy UTF-8 conversion. These
+/// identities can disclose private paths and must stay in a private registry.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ModelId {
+    Artifact {
+        adapter: SourceAdapter,
+        owner: ModelOwner,
+        source_path: PathBuf,
+        canonical_path: PathBuf,
+    },
+    Endpoint {
+        adapter: SourceAdapter,
+        owner: ModelOwner,
+        base_url: String,
+        served_model_id: String,
+    },
+}
+
+impl ModelId {
+    pub fn from_artifact(value: &ArtifactObservation) -> Self {
+        Self::Artifact {
+            adapter: value.adapter,
+            owner: value.owner.clone(),
+            source_path: value.source_path.clone(),
+            canonical_path: value.canonical_path.clone(),
+        }
+    }
+
+    pub fn from_endpoint(value: &EndpointObservation) -> Self {
+        Self::Endpoint {
+            adapter: value.adapter,
+            owner: value.owner.clone(),
+            base_url: value.base_url.clone(),
+            served_model_id: value.served_model_id.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModelRecord {
-    /// Stable *reference* key, not a SHA-256/content digest.
-    pub id: String,
+    /// Typed provenance identity; never a running ResourceLedger ResourceId.
+    pub id: ModelId,
     pub owner: ModelOwner,
     pub reference: ModelReference,
     pub artifact_validation: ArtifactValidation,
@@ -142,9 +183,7 @@ impl ModelRecord {
 
 #[derive(Debug, Default)]
 pub struct ModelRegistry {
-    entries: BTreeMap<String, ModelRecord>,
-    /// Collision-safe identity table: an ID hash is never treated as a digest.
-    identities: BTreeMap<String, String>,
+    entries: BTreeMap<ModelId, ModelRecord>,
 }
 
 impl ModelRegistry {
@@ -152,29 +191,18 @@ impl ModelRegistry {
         Self::default()
     }
 
-    /// Idempotent only for *identical provenance*. Same filename, different
-    /// directory, owner or server remains a separate reference.
-    pub fn register_file(&mut self, observation: ArtifactObservation) -> String {
-        let identity = format!(
-            "file-v1|{:?}|{:?}|{}|{}",
-            observation.adapter,
-            observation.owner,
-            observation.source_path.display(),
-            observation.canonical_path.display()
-        );
-        self.register(identity, observation.owner.clone(), ModelReference::File(observation))
+    /// Re-registering exactly the same source/path preserves the typed ID.
+    /// Different provenance, path or endpoint IDs are distinct, regardless of
+    /// filename or unverified size. No content hash is fabricated.
+    pub fn register_file(&mut self, observation: ArtifactObservation) -> ModelId {
+        let id = ModelId::from_artifact(&observation);
+        self.register(id, observation.owner.clone(), ModelReference::File(observation))
     }
 
-    pub fn register_endpoint(&mut self, observation: EndpointObservation) -> String {
-        let identity = format!(
-            "endpoint-v1|{:?}|{:?}|{}|{}",
-            observation.adapter,
-            observation.owner,
-            observation.base_url,
-            observation.served_model_id
-        );
+    pub fn register_endpoint(&mut self, observation: EndpointObservation) -> ModelId {
+        let id = ModelId::from_endpoint(&observation);
         self.register(
-            identity,
+            id,
             observation.owner.clone(),
             ModelReference::Endpoint(observation),
         )
@@ -182,39 +210,32 @@ impl ModelRegistry {
 
     fn register(
         &mut self,
-        identity: String,
+        id: ModelId,
         owner: ModelOwner,
         reference: ModelReference,
-    ) -> String {
-        if let Some(id) = self.identities.get(&identity) {
-            let record = self.entries.get_mut(id).expect("identity points to entry");
-            record.reference = reference;
-            record.missing = false;
-            return id.clone();
+    ) -> ModelId {
+        use std::collections::btree_map::Entry;
+        match self.entries.entry(id.clone()) {
+            Entry::Occupied(mut occupied) => {
+                let record = occupied.get_mut();
+                record.reference = reference;
+                record.missing = false;
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(ModelRecord {
+                    id: id.clone(),
+                    owner,
+                    reference,
+                    artifact_validation: ArtifactValidation::Unchecked,
+                    runtime_verification: RuntimeVerification::Unchecked,
+                    missing: false,
+                });
+            }
         }
-        // FNV-1a is an index key only. Resolve collisions by checking the
-        // complete identity; never merge entries merely because hashes match.
-        let digest = stable_reference_hash(identity.as_bytes());
-        let mut id = format!("ref-v1-{digest:016x}");
-        let mut suffix = 1u64;
-        while self.entries.contains_key(&id) {
-            id = format!("ref-v1-{digest:016x}-{suffix}");
-            suffix += 1;
-        }
-        let record = ModelRecord {
-            id: id.clone(),
-            owner,
-            reference,
-            artifact_validation: ArtifactValidation::Unchecked,
-            runtime_verification: RuntimeVerification::Unchecked,
-            missing: false,
-        };
-        self.identities.insert(identity, id.clone());
-        self.entries.insert(id.clone(), record);
         id
     }
 
-    pub fn get(&self, id: &str) -> Option<&ModelRecord> {
+    pub fn get(&self, id: &ModelId) -> Option<&ModelRecord> {
         self.entries.get(id)
     }
 
@@ -230,8 +251,8 @@ impl ModelRegistry {
         self.entries.values()
     }
 
-    /// Mark a missing path without deleting a registry record or file.
-    pub fn mark_missing(&mut self, id: &str) -> bool {
+    /// Mark missing without deleting the registry record or external file.
+    pub fn mark_missing(&mut self, id: &ModelId) -> bool {
         if let Some(record) = self.entries.get_mut(id) {
             record.missing = true;
             true
@@ -239,15 +260,6 @@ impl ModelRegistry {
             false
         }
     }
-}
-
-fn stable_reference_hash(bytes: &[u8]) -> u64 {
-    let mut hash = 0xcbf29ce484222325u64;
-    for byte in bytes {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    hash
 }
 
 /// Construct a location only. Never creates directories or changes files.
@@ -316,4 +328,30 @@ mod tests {
         let p = default_model_library(Path::new("/synthetic/home"));
         assert_eq!(p, PathBuf::from("/synthetic/home/TIHULU AI Tools/Models"));
     }
+    #[test]
+    fn identity_is_typed_and_independent_of_registration_order() {
+        let a = observation("/fixtures/one.gguf", ModelOwner::JanDesktop);
+        let b = observation("/fixtures/two.gguf", ModelOwner::Ollama);
+        let mut first = ModelRegistry::new();
+        let one = first.register_file(a.clone());
+        first.register_file(b.clone());
+        let mut reverse = ModelRegistry::new();
+        reverse.register_file(b);
+        let two = reverse.register_file(a);
+        assert_eq!(one, two);
+        assert!(matches!(one, ModelId::Artifact { .. }));
+    }
+
+    #[test]
+    fn model_identity_does_not_claim_binary_or_runtime_validation() {
+        let artifact = observation("/fixtures/model.gguf", ModelOwner::JanDesktop);
+        let id = ModelId::from_artifact(&artifact);
+        let mut registry = ModelRegistry::new();
+        assert_eq!(registry.register_file(artifact), id);
+        let entry = registry.get(&id).unwrap();
+        assert!(entry.discovered_file());
+        assert!(!entry.validated_model());
+        assert!(!entry.verified_runtime_compatibility());
+    }
+
 }
