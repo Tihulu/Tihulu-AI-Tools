@@ -9,6 +9,7 @@ pub enum Error {
     InvalidConfiguration,
     PairingRequired,
     UnverifiedChannel,
+    TransportUnavailable,
     IdentityMismatch,
     PermissionDenied,
     UnknownModel,
