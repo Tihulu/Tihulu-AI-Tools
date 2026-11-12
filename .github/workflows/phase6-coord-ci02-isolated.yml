@@ -1,0 +1,90 @@
+name: Phase 6 — COORD-CI-02 Isolated Attestation and Real Counts (QA only)
+
+on:
+  pull_request:
+    paths:
+      - 'qa/coord/ci02_runner.py'
+      - 'qa/coord/test_ci02_runner.py'
+      - 'docs/qa/COORD_CI_02.md'
+      - '.github/workflows/phase6-coord-ci02-isolated.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frozen-scope-and-adversarial:
+    name: Pinned Git trees and falsified-count negatives
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch exactly pinned historic snapshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          for sha in \
+            283edc8a1101f63e08f12c172d6b2d6688b9a5ca \
+            127b5331236cc9d5adb37122d8ab52f7492203c5 \
+            ea6667b72d01fadf222c1c50363e4df7a2a3b7f3 \
+            c11d2bb38f04d0ac4c03529a70284c136e58c254 \
+            b28a4b1b1869289fd77392f8e1985f9b3b00f3b5 \
+            c817eed1a1088fa642102fefce6cc57b6ac981a6
+          do
+            git cat-file -e "${sha}^{commit}" 2>/dev/null || git fetch --no-tags origin "$sha"
+            git cat-file -e "${sha}^{commit}"
+          done
+      - name: Source and mode guard — old 187 blobs and all pinned additions
+        run: python3 -I -B qa/coord/ci02_runner.py attest
+      - name: Adversarial negatives — fake test counts, symlinks, root aliases, integrity drift
+        run: python3 -B -m unittest discover -s qa/coord -p 'test_ci02_runner.py' -v
+      - name: Evidence boundary
+        if: always()
+        run: |
+          echo 'This job does not certify actual native installation, provider inference or release.'
+          echo 'Frozen Phase 6 #34 workflow remains unmodified and its descendant policy failures are not waived.'
+
+  isolated-suite:
+    name: ${{ matrix.suite }} — isolated Ubuntu runner
+    needs: frozen-scope-and-adversarial
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [ai09_preflight, ai09_transaction, ai10_policy, ai10_sessions]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch fixed historic snapshots for this runner ONLY
+        shell: bash
+        run: |
+          set -euo pipefail
+          for sha in \
+            283edc8a1101f63e08f12c172d6b2d6688b9a5ca \
+            127b5331236cc9d5adb37122d8ab52f7492203c5 \
+            ea6667b72d01fadf222c1c50363e4df7a2a3b7f3 \
+            c11d2bb38f04d0ac4c03529a70284c136e58c254 \
+            b28a4b1b1869289fd77392f8e1985f9b3b00f3b5 \
+            c817eed1a1088fa642102fefce6cc57b6ac981a6
+          do
+            git cat-file -e "${sha}^{commit}" 2>/dev/null || git fetch --no-tags origin "$sha"
+            git cat-file -e "${sha}^{commit}"
+          done
+      - name: Execute only this pinned fixture group, count real unittest.TestResult tests
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 -I -B qa/coord/ci02_runner.py suite ${{ matrix.suite }}
+      - name: Never confuse synthetic validation with production readiness
+        if: always()
+        run: |
+          echo 'Suite executed independently on its own GitHub-hosted runner.'
+          echo 'Real installer, real CPU/GPU inference, Jan/OpenCode and owner files are NOT tested.'
+          echo 'Required-check migration and release: HOLD.'
