@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "id": "fixture:online-suggestion",
+  "display_name": "Synthetic untrusted online model",
+  "source": {
+    "kind": "market"
+  },
+  "availability": "downloadable",
+  "format": "gguf",
+  "runtimes": [
+    "llama_cpp"
+  ],
+  "hardware_targets": [
+    "cpu"
+  ],
+  "tasks": [
+    "chat"
+  ],
+  "input": "text",
+  "output": "text",
+  "languages": [
+    "en",
+    "tr",
+    "de"
+  ],
+  "translation_pairs": [],
+  "quantization": "Q4_K_M",
+  "memory": {
+    "ram_mib": 4096,
+    "vram_mib": null,
+    "npu_mib": null
+  },
+  "license": {
+    "kind": "unknown"
+  },
+  "integrity_verified": false,
+  "verified_runtimes": [],
+  "supports_tool_calling": false,
+  "internet_required": true
+}
