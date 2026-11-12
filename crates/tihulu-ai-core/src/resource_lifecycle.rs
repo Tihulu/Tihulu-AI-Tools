@@ -384,7 +384,12 @@ mod tests {
     fn one_owner_can_have_multiple_task_references() {
         let mut ledger = ledger_with_two_owners();
         ledger
-            .register(A, MODEL, ResourceKind::ModelContext, Provenance::SharedManaged)
+            .register(
+                A,
+                MODEL,
+                ResourceKind::ModelContext,
+                Provenance::SharedManaged,
+            )
             .unwrap();
         ledger.attach(A, MODEL).unwrap();
         ledger.attach(B, MODEL).unwrap();
@@ -444,12 +449,7 @@ mod tests {
     fn exclusive_sdr_cannot_be_taken_by_second_app() {
         let mut ledger = ledger_with_two_owners();
         ledger
-            .register(
-                A,
-                SDR,
-                ResourceKind::SdrHandle,
-                Provenance::Exclusive(A),
-            )
+            .register(A, SDR, ResourceKind::SdrHandle, Provenance::Exclusive(A))
             .unwrap();
         assert_eq!(
             ledger.attach(B, SDR),
@@ -491,7 +491,12 @@ mod tests {
     fn failed_cleanup_remains_reported_for_explicit_retry() {
         let mut ledger = ledger_with_two_owners();
         ledger
-            .register(A, MODEL, ResourceKind::ModelContext, Provenance::Exclusive(A))
+            .register(
+                A,
+                MODEL,
+                ResourceKind::ModelContext,
+                Provenance::Exclusive(A),
+            )
             .unwrap();
         ledger.stop_owner(A).unwrap();
         ledger.complete_cleanup(MODEL, false).unwrap();
@@ -529,7 +534,12 @@ mod tests {
     fn cannot_attach_to_resource_during_cleanup() {
         let mut ledger = ledger_with_two_owners();
         ledger
-            .register(A, MODEL, ResourceKind::ModelContext, Provenance::SharedManaged)
+            .register(
+                A,
+                MODEL,
+                ResourceKind::ModelContext,
+                Provenance::SharedManaged,
+            )
             .unwrap();
         ledger.stop_owner(A).unwrap();
         assert_eq!(
