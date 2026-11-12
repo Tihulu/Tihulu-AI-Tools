@@ -1,5 +1,12 @@
 // UI translation table. English is the default; status and fixture labels remain explicitly marked DEMO.
 const en = {
+  stopAiDesc: "Release this GUI's mock Advisor, Agent and AI model leases only.",
+  appQuitDesc: "Close this GUI session and release all its mock-owned resources. An opt-in independent host remains for other clients.",
+  hardStopDesc: "Escalate simulated cleanup of this GUI's owned resources, including the mock SDR handle. Do not affect external processes.",
+  quitAllDesc: "Also stop the simulated independent TIHULU host after warning its authorized clients. External services are preserved.",
+  hostSurvives: "The independent host is preserved for its other authorized clients.",
+  noMatchingModels: "No matching demo model candidates.",
+  noneDemo: "None / demo",
   serviceMode: "Host service mode",
   serviceIndependent: "Independent (demo)",
   serviceDisabled: "Disabled (default)",
@@ -59,6 +66,13 @@ const en = {
   future: "Planned, not functional", unsupported: "Unavailable", summary: "Overview",
 };
 const tr = {
+  stopAiDesc: "Yalnızca bu arayüzün demo Danışman, Ajan ve yapay zekâ model kiralarını bırak.",
+  appQuitDesc: "Bu arayüz oturumunu kapat ve sahip olduğu demo kaynaklarını bırak. İzinli bağımsız sunucu diğer istemciler için kalır.",
+  hardStopDesc: "Demo SDR bağlantısı dahil arayüze ait kaynakları zorunlu simülasyonla durdur. Dış süreçlere dokunma.",
+  quitAllDesc: "İzinli istemcileri uyardıktan sonra demo bağımsız TIHULU sunucusunu da durdur. Dış hizmetler korunur.",
+  hostSurvives: "Bağımsız sunucu diğer izinli istemciler için korunur.",
+  noMatchingModels: "Eşleşen demo model adayı bulunamadı.",
+  noneDemo: "Yok / demo",
   serviceMode: "Sunucu hizmet modu",
   serviceIndependent: "Bağımsız (demo)",
   serviceDisabled: "Kapalı (varsayılan)",
@@ -118,6 +132,13 @@ const tr = {
   future:"Planlandı, çalışmıyor",unsupported:"Kullanılamaz",summary:"Genel Bakış"
 };
 const de = {
+  stopAiDesc: "Nur die simulierten KI-Berater-, Agent- und Modell-Leases dieser GUI freigeben.",
+  appQuitDesc: "GUI-Sitzung schließen und ihre Demo-Ressourcen freigeben. Der optional unabhängige Host bleibt für andere Clients erhalten.",
+  hardStopDesc: "Simulierte Freigabe aller GUI-eigenen Ressourcen einschließlich Demo-SDR eskalieren. Fremde Prozesse unberührt lassen.",
+  quitAllDesc: "Auch den simulierten unabhängigen TIHULU-Host nach Warnung seiner Clients stoppen. Fremddienste bleiben erhalten.",
+  hostSurvives: "Der unabhängige Host bleibt für andere autorisierte Clients bestehen.",
+  noMatchingModels: "Keine passenden Demo-Modellkandidaten.",
+  noneDemo: "Keine / Demo",
   serviceMode: "Host-Dienstmodus",
   serviceIndependent: "Unabhängig (Demo)",
   serviceDisabled: "Aus (Standard)",
