@@ -1,4 +1,4 @@
-# Architecture diagrams — planning baseline v0.5
+# Architecture diagrams — planning baseline v0.6
 
 **Status:** Design diagrams, not a deployed architecture. These Mermaid diagrams are the text-editable reference for future discussions and reviews. They render in GitHub Markdown.
 
@@ -197,9 +197,71 @@ flowchart LR
   GATE -->|No| DENY["No app action"]
 ```
 
+## J. Discovery by app or folder; register, then match
+
+```mermaid
+flowchart TD
+  SRC["Owner enters app name, directory, model file or authorized local API"] --> SCOPE{"User approves read-only scope?"}
+  SCOPE -->|No| STOP["No scan / no changes"]
+  SCOPE -->|Yes| DETECT["Rust discovery adapters: Jan / Ollama / other / custom"]
+  DETECT --> INVENTORY["Model metadata, format, owner, candidate runtime, ID/hash"]
+  INVENTORY --> REG["Model Market registry: Already installed / External reference"]
+  REG --> MATCH["Task-level deterministic compatibility and suitability"]
+  MATCH --> READY{"Verified target model + runtime + app adapter?"}
+  READY -->|No| PROPOSE["Show unknown/incompatible or Market alternatives"]
+  READY -->|Yes| BIND{"User chooses Use this model & approves config preview?"}
+  BIND -->|No| REG
+  BIND -->|Yes| CONFIG["Atomically update approved app model or inference mapping"]
+  CONFIG --> TEST{"Smoke test on approved target?"}
+  TEST -->|Pass| ACTIVE["Binding active; owner model path unchanged"]
+  TEST -->|Fail| ROLL["Rollback consumer mapping; preserve owner files"]
+```
+
+## K. Experimental online AI recommendations
+
+```mermaid
+flowchart TB
+  TASK["Chosen TIHULU app + AI task"] --> HARD["Hard filters: modality / runtime / format / memory / adapter"]
+  HARD --> META["Local registered model candidates + versioned evidence"]
+  META --> OPT{"User opts into Internet research?"}
+  OPT -->|No| RANK["Evidence-grounded local suggestions"]
+  OPT -->|Yes| WEB["Fetch permitted public docs and model cards"]
+  WEB --> LLM["Optional local or paired GPU LLM explains/compares; cite evidence"]
+  LLM --> RANK
+  RANK --> REVIEW["User reviews candidates + uncertainty + test plan"]
+  REVIEW --> ENGINE["Trusted Rust adapter validates before any approved bind"]
+```
+
+## L. Jan chat tools through optional Rust MCP bridge
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant J as Jan Desktop Chat (MCP client)
+  participant M as Rust TIHULU MCP Server
+  participant P as Permission broker
+  participant T as TIHULU app adapter
+  U->>J: Ask for an authorized TIHULU app operation
+  J->>M: Call named, scoped MCP tool
+  M->>P: Validate Jan client / app scope / action
+  alt Approved
+    P->>T: Invoke supported task adapter
+    T-->>M: Actual result
+    M-->>J: Scoped result
+  else Not approved
+    P-->>M: Denied / approval required
+    M-->>J: Permission error
+  end
+  J-->>U: Reply in Jan chat
+```
+
+Jan Desktop MCP integration is independent of Jan Agent's separate plugin package; no generic shell or unrestricted device control is exposed.
+
 ## Related specifications
 
 - [Full product plan](TIHULU_AI_TOOLS_PLAN.md)
 - [Proposed aipath compatibility contract](AIPATH_CONTRACT.md)
 - [Decisions and phase gates](DECISIONS.md)
 - [Interactive mockup (non-functional)](../ui/index.html)
+- [Universal Model Discovery & Matching](MODEL_DISCOVERY_AND_MATCHING.md)
+- [Jan Desktop and Jan Agent optional integrations](JAN_INTEGRATION.md)
