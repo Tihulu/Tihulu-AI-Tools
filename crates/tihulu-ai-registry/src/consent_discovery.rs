@@ -811,3 +811,6 @@ fn read_ollama_manifest(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
