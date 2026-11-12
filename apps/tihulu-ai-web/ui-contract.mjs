@@ -8,7 +8,7 @@
  * @typedef {"running"|"closed"} GuiPhase
  * @typedef {"unknown"|"candidate"|"installed"|"external"} ModelAvailability
  * @typedef {"unverified"|"incompatible"|"verified"} CompatibilityVerdict
- * @typedef {"read_overview"|"read_models"|"read_compatibility"|"read_gpu_host"|"read_chat"|"read_jan"|"preview_stop"|"execute_stop"|"set_service_mode"} UiRequestKind
+ * @typedef {"read_overview"|"read_models"|"read_compatibility"|"read_gpu_host"|"read_chat"|"read_jan"|"set_jan_step"|"send_chat"|"close_chat"|"preview_stop"|"execute_stop"|"set_service_mode"} UiRequestKind
  *
  * @typedef {{schema_version:1, source:EvidenceSource, request_id:string, kind:string, data:object}} UiResponse
  * @typedef {{schema_version:1, request_id:string, kind:UiRequestKind, payload:object}} UiRequest
@@ -19,7 +19,8 @@ export const UI_SCHEMA_VERSION = 1;
 export const EVIDENCE = Object.freeze({ DEMO: "demo_fixture", VERIFIED: "backend_verified" });
 export const UI_COMMANDS = Object.freeze({
   OVERVIEW: "read_overview", MODELS: "read_models", COMPATIBILITY: "read_compatibility",
-  HOST: "read_gpu_host", CHAT: "read_chat", JAN: "read_jan",
+  HOST: "read_gpu_host", CHAT: "read_chat", JAN: "read_jan", JAN_STEP: "set_jan_step",
+  SEND_CHAT: "send_chat", CLOSE_CHAT: "close_chat",
   PREVIEW_STOP: "preview_stop", EXECUTE_STOP: "execute_stop", SERVICE_MODE: "set_service_mode",
 });
 export const SERVICE_MODES = Object.freeze({ DISABLED: "disabled", INDEPENDENT: "independent" });
@@ -43,7 +44,10 @@ export function isUiRequest(value) {
   const p = /** @type {Record<string, unknown>} */ (v.payload);
   switch (v.kind) {
     case UI_COMMANDS.COMPATIBILITY: return typeof p.model_id === "string" && typeof p.task_id === "string" && typeof p.host_id === "string";
-    case UI_COMMANDS.CHAT: return p.agent === "advisor" || p.agent === "agent";
+    case UI_COMMANDS.CHAT:
+    case UI_COMMANDS.CLOSE_CHAT: return p.agent === "advisor" || p.agent === "agent";
+    case UI_COMMANDS.SEND_CHAT: return (p.agent === "advisor" || p.agent === "agent") && typeof p.message === "string" && p.message.trim().length > 0 && p.message.length <= 500;
+    case UI_COMMANDS.JAN_STEP: return Number.isInteger(p.step) && p.step >= -1 && p.step <= 3;
     case UI_COMMANDS.PREVIEW_STOP: return stopActions.has(p.action);
     case UI_COMMANDS.EXECUTE_STOP: return stopActions.has(p.action) && p.confirmed === true;
     case UI_COMMANDS.SERVICE_MODE: return (p.mode === SERVICE_MODES.DISABLED || p.mode === SERVICE_MODES.INDEPENDENT) && p.confirmed === true;
@@ -72,7 +76,7 @@ function respond(request, data) {
  * Typed mocked adapter. All values are synthetic, even when resource state says active/released.
  * The Rust authoritative ledger must eventually supply snapshots and acknowledge actual cleanup.
  *
- * @param {{readState:()=>import("./state.mjs").createDemoState, writeState:(state:any)=>void}} bindings
+ * @param {{readState:()=>any, writeState:(state:any)=>void}} bindings
  */
 export function createMockUiAdapter({ readState, writeState }) {
   if (typeof readState !== "function" || typeof writeState !== "function") throw new TypeError("State bindings required");
@@ -124,6 +128,22 @@ export function createMockUiAdapter({ readState, writeState }) {
             connection: "not_configured", wizard_step: state.janStep,
             registered: false, verified_handshake: false, executable_available: false,
           });
+        case UI_COMMANDS.JAN_STEP: {
+          if (state.lifecycle !== "running") throw new Error("GUI session closed");
+          writeState({ ...state, janStep: request.payload.step });
+          return respond(request, { outcome: "simulated_only", wizard_step: request.payload.step, connection: "not_configured", backend_verified: false });
+        }
+        case UI_COMMANDS.SEND_CHAT: {
+          if (state.lifecycle !== "running") throw new Error("GUI session closed");
+          const next = sendMockMessage(state, request.payload.agent, request.payload.message);
+          writeState(next);
+          return respond(request, { outcome: "simulated_only", accepted: next !== state, inference_connected: false });
+        }
+        case UI_COMMANDS.CLOSE_CHAT: {
+          if (state.lifecycle !== "running") throw new Error("GUI session closed");
+          writeState(closeChat(state, request.payload.agent));
+          return respond(request, { outcome: "simulated_only", backend_verified: false });
+        }
         case UI_COMMANDS.PREVIEW_STOP:
           return respond(request, { ...previewShutdown(state, request.payload.action), backend_verified: false });
         case UI_COMMANDS.EXECUTE_STOP: {
@@ -138,6 +158,7 @@ export function createMockUiAdapter({ readState, writeState }) {
           });
         }
         case UI_COMMANDS.SERVICE_MODE: {
+          if (state.lifecycle !== "running") throw new Error("GUI session closed");
           const enabled = request.payload.mode === SERVICE_MODES.INDEPENDENT;
           const next = {
             ...state,
@@ -157,15 +178,10 @@ export function createMockUiAdapter({ readState, writeState }) {
     },
     /** Synthetic chat event; no remote or native provider is invoked. */
     sendChat(agent, message) {
-      const current = readState();
-      const next = sendMockMessage(current, agent, message);
-      writeState(next);
-      return { source: EVIDENCE.DEMO, accepted: next !== current, inference_connected: false };
+      return this.request(uiRequest(UI_COMMANDS.SEND_CHAT, { agent, message })).data;
     },
     closeChat(agent) {
-      const current = readState();
-      writeState(closeChat(current, agent));
-      return { source: EVIDENCE.DEMO, outcome: "simulated_only" };
+      return this.request(uiRequest(UI_COMMANDS.CLOSE_CHAT, { agent })).data;
     },
   });
 }
