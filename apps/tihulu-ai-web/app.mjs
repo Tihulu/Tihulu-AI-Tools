@@ -94,7 +94,7 @@ function market() {
         chip(t("unknownCompatibility") + " · " + typedRead(UI_COMMANDS.COMPATIBILITY, { model_id: m.id, task_id: m.task, host_id: "local" }).verdict, "warning") +
         '<h3>' + esc(m.name) + '</h3><p>' + esc(m.owner) + '</p><div class="meta-grid"><span>' + esc(m.task) + '</span><span>' + esc(m.format) +
         '</span><span>' + t("connectionNotReady") + '</span></div></article>'
-      ).join("") : '<p class="hint">No matching demo candidates.</p>') + "</div>");
+      ).join("") : '<p class="hint">' + t("noMatchingModels") + '</p>') + "</div>");
 }
 function myModels() {
   return pageHeading(t("models"), t("modelNames")) +
@@ -106,7 +106,7 @@ function apps() {
     panel(t("apps"), t("none"),
       '<div class="table-scroll"><table><thead><tr><th>' + t("appName") + '</th><th>' + t("selection") + '</th><th>' + t("selectedHost") + '</th><th>' + t("permission") + "</th></tr></thead><tbody>" +
       applications.map((name, i) => '<tr><td><strong>' + esc(name) + '</strong><div class="resource-meta">' + t("connectionNotReady") + "</div></td><td>" +
-        '<select aria-label="' + esc(name + " model") + '" data-app-model="' + i + '"><option value="none">None / demo</option>' +
+        '<select aria-label="' + esc(name + " model") + '" data-app-model="' + i + '"><option value="none">' + t("noneDemo") + '</option>' +
         models.map((m) => '<option value="' + esc(m.id) + '"' + (state.appModel[i] === m.id ? ' selected' : '') + '>' + esc(m.name) + '</option>').join("") + '</select></td><td>' +
         '<select aria-label="' + esc(name + " host") + '" data-app-host="' + i + '"><option value="local"' + (state.appHost[i] !== "paired" ? ' selected' : '') + '>' + t("local") +
         '</option><option value="paired"' + (state.appHost[i] === "paired" ? ' selected' : '') + '>' + t("paired") + '</option></select></td><td>' +
@@ -248,10 +248,21 @@ root.addEventListener("click", (event) => {
     const action = button.dataset.shutdown;
     const preview = typedRead(UI_COMMANDS.PREVIEW_STOP, { action });
     const affected = preview.affected.map((id) => getResource(state, id).name);
-    showModal(preview.title + " — " + t("detailPanel"),
-      preview.description + (affected.length ? "" : " " + t("nothingActive")),
-      [t("affected") + ": " + (affected.join(", ") || "None"), t("preserved") + ": " +
-        (preview.preserved.map((id) => getResource(state, id).name).join(", ") || "None"), ...preview.warnings],
+    const names = {
+      [SHUTDOWN.STOP_AI]: ["stopAi", "stopAiDesc"],
+      [SHUTDOWN.APP_QUIT]: ["appQuit", "appQuitDesc"],
+      [SHUTDOWN.HARD_STOP]: ["hardStop", "hardStopDesc"],
+      [SHUTDOWN.QUIT_ALL]: ["quitAll", "quitAllDesc"],
+    };
+    const independentHostKept = preview.preserved.includes("host") && action !== SHUTDOWN.STOP_AI;
+    const clientWarning = action === SHUTDOWN.QUIT_ALL && preview.affected.includes("host");
+    showModal(t(names[action][0]) + " — " + t("detailPanel"),
+      t(names[action][1]) + (affected.length ? "" : " " + t("nothingActive")),
+      [t("affected") + ": " + (affected.join(", ") || t("noneDemo")),
+       t("preserved") + ": " + (preview.preserved.map((id) => getResource(state, id).name).join(", ") || t("noneDemo")),
+       ...(independentHostKept ? [t("hostSurvives")] : []),
+       ...(clientWarning ? [t("serviceClientWarning")] : []),
+       t("borrowedPreserved"), t("demoDetail")],
       () => { uiAdapter.request(uiRequest(UI_COMMANDS.EXECUTE_STOP, { action, confirmed: true })); state.activeTab = "overview"; render(); });
     return;
   }
@@ -267,7 +278,7 @@ root.addEventListener("click", (event) => {
   }
   if (button.dataset.closeChat) {
     const id = button.dataset.closeChat;
-    showModal(t("closeChat"), t("chatInfo"), [t("warning"), "DEMO ONLY: no actual model or client is released."],
+    showModal(t("closeChat"), t("chatInfo"), [t("warning"), t("demoDetail")],
       () => { uiAdapter.closeChat(id); render(); });
     return;
   }
