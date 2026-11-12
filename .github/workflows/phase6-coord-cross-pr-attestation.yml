@@ -1,0 +1,57 @@
+name: Phase 6 — COORD-CI-01 Pinned Cross-PR Synthetic Attestation
+
+on:
+  pull_request:
+    paths:
+      - 'qa/coord/**'
+      - 'docs/qa/COORD_CI_01.md'
+      - '.github/workflows/phase6-coord-cross-pr-attestation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-cross-pr-attestor:
+    name: Exact Git source/blob/mode proof + offline synthetic union
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Make fixed public source snapshots available to local Git
+        shell: bash
+        run: |
+          set -euo pipefail
+          for sha in \
+            283edc8a1101f63e08f12c172d6b2d6688b9a5ca \
+            ea6667b72d01fadf222c1c50363e4df7a2a3b7f3 \
+            c11d2bb38f04d0ac4c03529a70284c136e58c254 \
+            b28a4b1b1869289fd77392f8e1985f9b3b00f3b5 \
+            c817eed1a1088fa642102fefce6cc57b6ac981a6
+          do
+            if ! git cat-file -e "${sha}^{commit}" 2>/dev/null; then
+              git fetch --no-tags origin "$sha"
+            fi
+            git cat-file -e "${sha}^{commit}"
+          done
+      - name: Independent scope checker negative tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qa/coord -p 'test_*.py' -v
+      - name: Attest exact three source snapshots and run ephemeral union fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I qa/coord/cross_pr_attestor.py
+      - name: Evidence boundary
+        if: always()
+        run: |
+          echo 'Only pinned #39/#43/#40/#42 source+synthetic fixtures are tested.'
+          echo 'Original #34 frozen workflow remains unchanged, and required-check compatibility is NOT granted.'
+          echo 'No install, real inference, Jan/OpenCode, GPU/SDR, host changes, merge or release.'
+          echo 'COMPOSITE CI / RELEASE: HOLD pending independent review and required-check policy approval.'
