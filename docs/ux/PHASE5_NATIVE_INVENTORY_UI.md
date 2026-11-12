@@ -20,7 +20,7 @@ No native IPC calls, browser file picker, network requests, model loading, file 
 4. **Providers** — Jan, Ollama, GPU Host all `not_checked`. No fake connected state. Independent GPU host OFF by default; GUI Quit alone cannot stop it when later legitimately enabled.
 5. **Ownership/cleanup** — GUI, independent host and borrowed external service owners shown separately. Lease counts are `null`/unknown, owned cleanup `not_executed`, foreign processes `not_applicable` (never terminated). No simulated RAM/VRAM/SDR release is presented as verified.
 
-The workspace banner must remain prominent whenever source is `demo_fixture`. `native_inventory_status` on PR #19 currently proves only *Rust modules linked and empty in-memory Registry/Ledger*, **not** actual installed model discovery, Jan pairing, GPU connection or cleanup. Its actual command name is `ui_native_module_status`; do **not** reuse this as a model inventory API.
+The workspace banner must remain prominent whenever source is `demo_fixture`. The PR #19 command `ui_native_module_status` currently proves only *Rust modules linked and empty in-memory Registry/Ledger*, **not** actual installed model discovery, Jan pairing, GPU connection or cleanup. Do **not** reuse it as a model inventory API.
 
 ## Exact minimum backend contracts (NOT implemented)
 
@@ -56,3 +56,12 @@ npm --prefix apps/tihulu-ai-web test
 Tests are mocked only: responsive **source CSS** assertions and DOM-controller stubs, not real mobile browser screenshots, real Registry scans, GPU/NPU/SDR cleanup or live Jan/Ollama connections. Coordinator must separately test real installed source permissions, OS app paths and service leases, plus Tauri builds on supported OSes.
 
 **CI gate:** no shared CI configuration was modified by Agent 06. Report actual new Draft PR CI runs and missing checks separately; green Rust core CI on the base is not proof these new UI modules are wired or physically functional.
+
+
+## AI-06 execution evidence (2026-11-12)
+
+- GitHub-fetched **committed** module and test sources were evaluated in an in-process V8 test harness: **16/16 synchronous mock tests PASS**, plus 5 module/test syntax parses. This is **not** the Node `node --test` CLI or a real viewport/browser/device test.
+- In the available container: `node --version` = `v22.16.0`, `npm --version` = `10.9.2`, `cargo` = **not installed**. A local checkout of this private GitHub branch could not be fetched because `github.com` could not be resolved.
+- The attempted `npm --prefix apps/tihulu-ai-web test` failed with **exit 254 / ENOENT package.json** in an isolated empty workspace; therefore **no actual Node CLI tests ran**. The attempted `node --test ...` in that empty workspace discovered **0 tests** (not evidence of success). Both limitations are explicit.
+- At handoff GitHub commit status returned **no workflow runs and no status checks** for the branch head. CI must run from a proper checkout or on the PR, with no shared workflow modified by this agent.
+- No `app.mjs`, `native-bridge.mjs`, Tauri Rust commands or other agent-owned files were modified. Every change is a new Agent 06 UI file or docs/ux file. This PR remains Draft.
