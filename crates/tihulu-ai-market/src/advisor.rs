@@ -29,7 +29,9 @@ pub struct AdvisorPolicy {
 
 impl Default for AdvisorPolicy {
     fn default() -> Self {
-        Self { internet_opt_in: false }
+        Self {
+            internet_opt_in: false,
+        }
     }
 }
 
