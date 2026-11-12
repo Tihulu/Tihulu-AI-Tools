@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "fixture:wrong-format-claim",
+  "display_name": "Synthetic wrong-format catalog claim",
+  "source": {
+    "kind": "external",
+    "application": "Jan Desktop"
+  },
+  "availability": "external",
+  "format": "gguf",
+  "runtimes": [
+    "llama_cpp"
+  ],
+  "hardware_targets": [
+    "cpu",
+    "cuda"
+  ],
+  "tasks": [
+    "chat"
+  ],
+  "input": "text",
+  "output": "text",
+  "languages": [
+    "en",
+    "tr",
+    "de"
+  ],
+  "translation_pairs": [],
+  "quantization": "Q4_K_M",
+  "memory": {
+    "ram_mib": 4096,
+    "vram_mib": null,
+    "npu_mib": null
+  },
+  "license": {
+    "kind": "known",
+    "spdx": "Apache-2.0"
+  },
+  "integrity_verified": true,
+  "verified_runtimes": [
+    {
+      "runtime": "llama_cpp",
+      "hardware": "cpu",
+      "evidence_id": "synthetic-fixture-probe"
+    }
+  ],
+  "supports_tool_calling": false,
+  "internet_required": false
+}
