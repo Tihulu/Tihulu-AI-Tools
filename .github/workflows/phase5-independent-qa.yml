@@ -4,9 +4,9 @@ name: Phase 5 Independent QA - Mock Boundaries
 on:
   push:
     branches: [agent/08-phase5-independent-qa]
-    paths: ["qa/phase5/**", ".github/workflows/phase5-independent-qa.yml"]
+    paths: ["qa/phase5/**", "docs/qa/**", ".github/workflows/phase5-independent-qa.yml"]
   pull_request:
-    paths: ["qa/phase5/**", ".github/workflows/phase5-independent-qa.yml"]
+    paths: ["qa/phase5/**", "docs/qa/**", ".github/workflows/phase5-independent-qa.yml"]
   workflow_dispatch:
 
 permissions:
@@ -39,10 +39,18 @@ jobs:
         run: cargo clippy --manifest-path qa/phase5/Cargo.toml --all-targets -- -D warnings
       - name: Combined portable Rust modules (mock only)
         run: cargo test --workspace --all-targets
-      - name: QA UI/native negative tests
-        run: node --test qa/phase5/js/native-safety.test.mjs
       - name: Existing UI mock regressions
         run: npm --prefix apps/tihulu-ai-web test
+      - name: QA UI/native negative tests
+        id: independent_ui
+        continue-on-error: true
+        run: node --test qa/phase5/js/native-safety.test.mjs
+      - name: Enforce QA negative-test result (never mask failures)
+        if: always()
+        shell: bash
+        run: |
+          echo "Independent QA UI tests: ${{ steps.independent_ui.outcome }}"
+          test "${{ steps.independent_ui.outcome }}" = success
 
   native-tauri:
     name: Native Tauri compile (no launch)
