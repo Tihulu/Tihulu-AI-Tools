@@ -14,10 +14,17 @@ use std::path::{Path, PathBuf};
 pub enum DirectorySource {
     /// Caller supplies the current user-approved Jan data folder, not a
     /// guessed default or the application's private settings.
-    JanDesktop { data_root: PathBuf },
+    JanDesktop {
+        data_root: PathBuf,
+    },
     /// Caller supplies an explicitly selected HF cache root.
-    HuggingFaceCache { cache_root: PathBuf },
-    CustomFolder { root: PathBuf, owner_label: String },
+    HuggingFaceCache {
+        cache_root: PathBuf,
+    },
+    CustomFolder {
+        root: PathBuf,
+        owner_label: String,
+    },
 }
 
 impl DirectorySource {
@@ -262,16 +269,16 @@ pub fn observe_local_endpoint(request: EndpointRequest) -> io::Result<Vec<Endpoi
     };
     let mut models = Vec::new();
     for model_id in request.model_ids {
-        if model_id.is_empty()
-            || model_id.len() > 256
-            || model_id.chars().any(char::is_control)
-        {
+        if model_id.is_empty() || model_id.len() > 256 || model_id.chars().any(char::is_control) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "invalid model identifier",
             ));
         }
-        if models.iter().any(|model: &EndpointObservation| model.served_model_id == model_id) {
+        if models
+            .iter()
+            .any(|model: &EndpointObservation| model.served_model_id == model_id)
+        {
             continue;
         }
         models.push(EndpointObservation {
@@ -290,9 +297,18 @@ pub fn observe_local_endpoint(request: EndpointRequest) -> io::Result<Vec<Endpoi
 }
 
 fn validate_loopback_url(url: &str) -> io::Result<()> {
-    let invalid = || io::Error::new(io::ErrorKind::InvalidInput, "only literal local HTTP endpoints");
+    let invalid = || {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "only literal local HTTP endpoints",
+        )
+    };
     let rest = url.strip_prefix("http://").ok_or_else(invalid)?;
-    if rest.chars().any(|ch| matches!(ch, '@' | '?' | '#' | '%' | '\\')) || rest.contains("..") {
+    if rest
+        .chars()
+        .any(|ch| matches!(ch, '@' | '?' | '#' | '%' | '\\'))
+        || rest.contains("..")
+    {
         return Err(invalid());
     }
     let authority = rest.split('/').next().ok_or_else(invalid)?;
@@ -341,7 +357,10 @@ mod tests {
         }
 
         fn approval(&self) -> ReadApproval {
-            ReadApproval { approved: true, scope: self.0.clone() }
+            ReadApproval {
+                approved: true,
+                scope: self.0.clone(),
+            }
         }
 
         fn custom(&self) -> DirectorySource {
@@ -376,7 +395,9 @@ mod tests {
         fs::write(fixture.0.join("chat.gguf"), b"outside-model-tree").unwrap();
         fs::write(fixture.0.join("private-chat.txt"), b"secret").unwrap();
         let result = scan_approved_source(
-            &DirectorySource::JanDesktop { data_root: fixture.0.clone() },
+            &DirectorySource::JanDesktop {
+                data_root: fixture.0.clone(),
+            },
             &fixture.approval(),
             ScanLimits::default(),
         )
@@ -396,7 +417,10 @@ mod tests {
         let report = scan_approved_source(
             &fixture.custom(),
             &fixture.approval(),
-            ScanLimits { max_entries: 3, ..ScanLimits::default() },
+            ScanLimits {
+                max_entries: 3,
+                ..ScanLimits::default()
+            },
         )
         .unwrap();
         assert!(report.truncated);
@@ -411,11 +435,13 @@ mod tests {
         let result = scan_approved_source(&one.custom(), &two.approval(), ScanLimits::default());
         assert_eq!(result.unwrap_err().kind(), io::ErrorKind::PermissionDenied);
         let missing = DirectorySource::CustomFolder {
-            root: one.0.join("missing"), owner_label: "test".into()
+            root: one.0.join("missing"),
+            owner_label: "test".into(),
         };
         assert_eq!(
             scan_approved_source(&missing, &one.approval(), ScanLimits::default())
-                .unwrap_err().kind(),
+                .unwrap_err()
+                .kind(),
             io::ErrorKind::NotFound
         );
     }
@@ -435,7 +461,9 @@ mod tests {
         symlink(blobs.join("hash"), snap.join("model.safetensors")).unwrap();
         symlink(outside.0.join("secret.gguf"), snap.join("outside.gguf")).unwrap();
         let report = scan_approved_source(
-            &DirectorySource::HuggingFaceCache { cache_root: fixture.0.clone() },
+            &DirectorySource::HuggingFaceCache {
+                cache_root: fixture.0.clone(),
+            },
             &fixture.approval(),
             ScanLimits::default(),
         )
@@ -458,8 +486,10 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].state, EndpointState::Declared);
         let entries = observe_local_endpoint(EndpointRequest {
-            listing_confirmed: true, ..request
-        }).unwrap();
+            listing_confirmed: true,
+            ..request
+        })
+        .unwrap();
         assert_eq!(entries[0].state, EndpointState::ListedByAuthorizedClient);
     }
 
