@@ -5,10 +5,10 @@
 use std::path::PathBuf;
 
 use tihulu_ai_market::{
-    inspect_registered_model, registry_format_hint, ApplicationId, ApplicationTask,
-    HardwareTarget, HostId, InventoryInspection, License, MatchVerdict, ModelArchitecture,
-    ModelFormat, ModelManifest, ModelStatus, Modality, RegistryModelId, Runtime,
-    RuntimeTarget, TaskKind, TaskRequest, TrustedHardwareProbe,
+    inspect_registered_model, registry_format_hint, ApplicationId, ApplicationTask, HardwareTarget,
+    HostId, InventoryInspection, License, MatchVerdict, Modality, ModelArchitecture, ModelFormat,
+    ModelManifest, ModelStatus, RegistryModelId, Runtime, RuntimeTarget, TaskKind, TaskRequest,
+    TrustedHardwareProbe,
 };
 use tihulu_ai_registry::registry::{
     ArtifactObservation, ArtifactValidation, EndpointObservation, EndpointState, FileFormat,
@@ -154,7 +154,15 @@ fn inspect(
     environment: &TrustedHardwareProbe,
     app: &ApplicationTask,
 ) -> tihulu_ai_market::InventoryCompatibilityReport {
-    inspect_with_binding(model, record, id, target, environment, app, Some("mock-binding"))
+    inspect_with_binding(
+        model,
+        record,
+        id,
+        target,
+        environment,
+        app,
+        Some("mock-binding"),
+    )
 }
 
 fn inspect_with_binding(
@@ -240,7 +248,10 @@ fn installed_discovered_artifact_verified_runtime_verified_and_preflight_are_dis
     assert!(verified.readiness.artifact_verified);
     assert!(verified.readiness.target_runtime_verified);
     assert!(verified.readiness.runnable_preflight);
-    assert_eq!(verified.decision.compatibility.verdict, MatchVerdict::Recommended);
+    assert_eq!(
+        verified.decision.compatibility.verdict,
+        MatchVerdict::Recommended
+    );
     assert!(verified.decision.can_propose_assignment);
     assert!(verified.decision.read_only);
 
@@ -272,7 +283,14 @@ fn actual_registry_model_id_prevents_same_basename_false_identity() {
         "llama_cpp",
         "local",
     );
-    let report = inspect(&model, &record, &other.id, &target, &probe(&target), &application(&model));
+    let report = inspect(
+        &model,
+        &record,
+        &other.id,
+        &target,
+        &probe(&target),
+        &application(&model),
+    );
     assert_eq!(report.readiness.catalog_status, ModelStatus::External);
     assert_eq!(report.decision.compatibility.verdict, MatchVerdict::Unknown);
     assert!(!report.decision.can_propose_assignment);
@@ -294,7 +312,14 @@ fn borrowed_jan_reference_is_reusable_but_not_owned_or_auto_started() {
         "llama_cpp",
         "local",
     );
-    let ready = inspect(&model, &record, &record.id, &target, &probe(&target), &application(&model));
+    let ready = inspect(
+        &model,
+        &record,
+        &record.id,
+        &target,
+        &probe(&target),
+        &application(&model),
+    );
     assert_eq!(ready.readiness.catalog_status, ModelStatus::External);
     assert!(ready.readiness.runnable_preflight);
     assert!(ready.decision.read_only);
@@ -303,10 +328,34 @@ fn borrowed_jan_reference_is_reusable_but_not_owned_or_auto_started() {
 #[test]
 fn known_cpu_cuda_apple_pi_hailo_and_paired_host_mappings_are_target_specific() {
     let cases = [
-        ("owned", HardwareTarget::Cpu, Runtime::LlamaCpp, "local", FileFormat::Gguf),
-        ("cuda", HardwareTarget::Cuda, Runtime::LlamaCpp, "gpu-pc", FileFormat::Gguf),
-        ("pi", HardwareTarget::RaspberryPiCpu, Runtime::LlamaCpp, "pi", FileFormat::Gguf),
-        ("hailo", HardwareTarget::Hailo, Runtime::HailoRt, "pi-hailo", FileFormat::HailoHef),
+        (
+            "owned",
+            HardwareTarget::Cpu,
+            Runtime::LlamaCpp,
+            "local",
+            FileFormat::Gguf,
+        ),
+        (
+            "cuda",
+            HardwareTarget::Cuda,
+            Runtime::LlamaCpp,
+            "gpu-pc",
+            FileFormat::Gguf,
+        ),
+        (
+            "pi",
+            HardwareTarget::RaspberryPiCpu,
+            Runtime::LlamaCpp,
+            "pi",
+            FileFormat::Gguf,
+        ),
+        (
+            "hailo",
+            HardwareTarget::Hailo,
+            Runtime::HailoRt,
+            "pi-hailo",
+            FileFormat::HailoHef,
+        ),
     ];
     for (name, hardware, runtime, host, format) in cases {
         let mut model = catalog(name);
@@ -324,8 +373,19 @@ fn known_cpu_cuda_apple_pi_hailo_and_paired_host_mappings_are_target_specific() 
             },
             host,
         );
-        let result = inspect(&model, &record, &record.id, &target, &probe(&target), &application(&model));
-        assert_eq!(result.decision.compatibility.verdict, MatchVerdict::Recommended, "{name}");
+        let result = inspect(
+            &model,
+            &record,
+            &record.id,
+            &target,
+            &probe(&target),
+            &application(&model),
+        );
+        assert_eq!(
+            result.decision.compatibility.verdict,
+            MatchVerdict::Recommended,
+            "{name}"
+        );
         assert!(result.readiness.runnable_preflight, "{name}");
     }
 
@@ -363,8 +423,16 @@ fn known_cpu_cuda_apple_pi_hailo_and_paired_host_mappings_are_target_specific() 
 
     let mut served = catalog("paired");
     model_architecture(&mut served);
-    let remote_target = selected_target(HardwareTarget::PairedGpuHost, Runtime::OpenAiApi, "paired-pc");
-    let remote_record = endpoint_record(ModelOwner::UserNamed("Paired Host".into()), "open_ai_api", "paired-pc");
+    let remote_target = selected_target(
+        HardwareTarget::PairedGpuHost,
+        Runtime::OpenAiApi,
+        "paired-pc",
+    );
+    let remote_record = endpoint_record(
+        ModelOwner::UserNamed("Paired Host".into()),
+        "open_ai_api",
+        "paired-pc",
+    );
     let remote_result = inspect(
         &served,
         &remote_record,
@@ -384,7 +452,10 @@ fn known_cpu_cuda_apple_pi_hailo_and_paired_host_mappings_are_target_specific() 
         &unauthorized,
         &application(&served),
     );
-    assert_eq!(rejected.decision.compatibility.verdict, MatchVerdict::Incompatible);
+    assert_eq!(
+        rejected.decision.compatibility.verdict,
+        MatchVerdict::Incompatible
+    );
     assert!(!rejected.readiness.runnable_preflight);
 }
 
@@ -400,7 +471,14 @@ fn unknown_architecture_and_malformed_or_corrupt_metadata_fail_closed() {
         "llama_cpp",
         "local",
     );
-    let result = inspect(&model, &record, &record.id, &target, &probe(&target), &application(&model));
+    let result = inspect(
+        &model,
+        &record,
+        &record.id,
+        &target,
+        &probe(&target),
+        &application(&model),
+    );
     assert_eq!(result.declared_architecture, ModelArchitecture::Unknown);
     assert!(result.readiness.target_runtime_verified);
     assert!(!result.readiness.runnable_preflight);
@@ -410,8 +488,18 @@ fn unknown_architecture_and_malformed_or_corrupt_metadata_fail_closed() {
 
     let mut corrupt = model.clone();
     corrupt.architecture = ModelArchitecture::HailoCompiled;
-    let invalid = inspect(&corrupt, &record, &record.id, &target, &probe(&target), &application(&corrupt));
-    assert_eq!(invalid.decision.compatibility.verdict, MatchVerdict::Unknown);
+    let invalid = inspect(
+        &corrupt,
+        &record,
+        &record.id,
+        &target,
+        &probe(&target),
+        &application(&corrupt),
+    );
+    assert_eq!(
+        invalid.decision.compatibility.verdict,
+        MatchVerdict::Unknown
+    );
     assert!(!invalid.readiness.runnable_preflight);
 }
 
@@ -435,14 +523,34 @@ fn unsupported_tflite_or_wrong_format_cannot_pass_preflight() {
         "onnx_runtime",
         "local",
     );
-    let unknown = inspect(&model, &record, &record.id, &target, &probe(&target), &application(&model));
+    let unknown = inspect(
+        &model,
+        &record,
+        &record.id,
+        &target,
+        &probe(&target),
+        &application(&model),
+    );
     assert_eq!(unknown.observed_format, Some(ModelFormat::Tflite));
-    assert_eq!(unknown.decision.compatibility.verdict, MatchVerdict::Unknown);
+    assert_eq!(
+        unknown.decision.compatibility.verdict,
+        MatchVerdict::Unknown
+    );
     assert!(!unknown.readiness.runnable_preflight);
     let mut wrong = model;
     wrong.format = ModelFormat::Gguf;
-    let rejected = inspect(&wrong, &record, &record.id, &target, &probe(&target), &application(&wrong));
-    assert_eq!(rejected.decision.compatibility.verdict, MatchVerdict::Incompatible);
+    let rejected = inspect(
+        &wrong,
+        &record,
+        &record.id,
+        &target,
+        &probe(&target),
+        &application(&wrong),
+    );
+    assert_eq!(
+        rejected.decision.compatibility.verdict,
+        MatchVerdict::Incompatible
+    );
 }
 
 #[test]
@@ -458,7 +566,14 @@ fn bad_runtime_evidence_host_or_missing_trust_cannot_become_runnable() {
         "llama.cpp", // wrong token, must never be guessed
         "local",
     );
-    let unknown = inspect(&model, &record, &record.id, &target, &probe(&target), &application(&model));
+    let unknown = inspect(
+        &model,
+        &record,
+        &record.id,
+        &target,
+        &probe(&target),
+        &application(&model),
+    );
     assert!(!unknown.readiness.target_runtime_verified);
     assert!(!unknown.readiness.runnable_preflight);
     record.runtime_verification = RuntimeVerification::Verified {
@@ -466,7 +581,14 @@ fn bad_runtime_evidence_host_or_missing_trust_cannot_become_runnable() {
         host: "unapproved-host".into(),
         evidence: "synthetic-fixture-probe".into(),
     };
-    let wrong_host = inspect(&model, &record, &record.id, &target, &probe(&target), &application(&model));
+    let wrong_host = inspect(
+        &model,
+        &record,
+        &record.id,
+        &target,
+        &probe(&target),
+        &application(&model),
+    );
     assert!(!wrong_host.readiness.runnable_preflight);
     record.runtime_verification = RuntimeVerification::Verified {
         runtime: "llama_cpp".into(),
@@ -475,9 +597,18 @@ fn bad_runtime_evidence_host_or_missing_trust_cannot_become_runnable() {
     };
     let mut unverified_probe = probe(&target);
     unverified_probe.hardware_verified = false;
-    assert!(!inspect(&model, &record, &record.id, &target, &unverified_probe, &application(&model))
+    assert!(
+        !inspect(
+            &model,
+            &record,
+            &record.id,
+            &target,
+            &unverified_probe,
+            &application(&model)
+        )
         .readiness
-        .runnable_preflight);
+        .runnable_preflight
+    );
     let no_binding = inspect_with_binding(
         &model,
         &record,
@@ -522,7 +653,9 @@ fn unsupported_task_license_and_forged_record_ownership_fail_safely() {
             .verdict,
         MatchVerdict::Unknown
     );
-    model.license = License::Known { spdx: "GPL-3.0-only".into() };
+    model.license = License::Known {
+        spdx: "GPL-3.0-only".into(),
+    };
     assert_eq!(
         inspect(&model, &record, &record.id, &target, &probe(&target), &app)
             .decision
@@ -530,7 +663,9 @@ fn unsupported_task_license_and_forged_record_ownership_fail_safely() {
             .verdict,
         MatchVerdict::Incompatible
     );
-    model.license = License::Known { spdx: "Apache-2.0".into() };
+    model.license = License::Known {
+        spdx: "Apache-2.0".into(),
+    };
     record.owner = ModelOwner::AiTools; // record ID still refers to Jan
     assert_eq!(
         inspect(&model, &record, &record.id, &target, &probe(&target), &app)
@@ -546,7 +681,11 @@ fn missing_and_declared_endpoints_are_observations_not_runtime_execution() {
     let mut model = catalog("paired");
     model_architecture(&mut model);
     let target = selected_target(HardwareTarget::PairedGpuHost, Runtime::OpenAiApi, "remote");
-    let mut record = endpoint_record(ModelOwner::UserNamed("Paired Host".into()), "open_ai_api", "remote");
+    let mut record = endpoint_record(
+        ModelOwner::UserNamed("Paired Host".into()),
+        "open_ai_api",
+        "remote",
+    );
     if let ModelReference::Endpoint(endpoint) = &mut record.reference {
         endpoint.state = EndpointState::Declared;
     }
@@ -555,16 +694,26 @@ fn missing_and_declared_endpoints_are_observations_not_runtime_execution() {
         _ => unreachable!(),
     };
     record.id = new_id;
-    let declared = inspect(&model, &record, &record.id, &target, &probe(&target), &application(&model));
+    let declared = inspect(
+        &model,
+        &record,
+        &record.id,
+        &target,
+        &probe(&target),
+        &application(&model),
+    );
     assert!(!declared.readiness.discovered);
     assert!(!declared.readiness.runnable_preflight);
 }
 
 #[test]
 fn typed_offline_architecture_fixture_and_untrusted_json_are_bounded() {
-    let model = ModelManifest::from_json(include_str!("fixtures/phase5-offline-decoder.json"))
-        .unwrap();
-    assert_eq!(model.architecture, ModelArchitecture::DecoderOnlyTransformer);
+    let model =
+        ModelManifest::from_json(include_str!("fixtures/phase5-offline-decoder.json")).unwrap();
+    assert_eq!(
+        model.architecture,
+        ModelArchitecture::DecoderOnlyTransformer
+    );
     assert_eq!(model.tasks, vec![TaskKind::Chat]);
     let mut invalid = model.to_json_pretty().unwrap();
     invalid.push_str(" trailing-malformed-content");
