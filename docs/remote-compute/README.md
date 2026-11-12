@@ -45,7 +45,7 @@ The `ModelLocation` variants exist in Rust; **they do not transfer or verify rea
 - First-run pairing: host owner approves an on-screen fingerprint and selected client identity over an authenticated/out-of-band channel; store certificate keys/pins in platform secure storage. Pairing/credential generation, UI and persistent stores are **pending**.
 - The in-memory `PairingApproval`, `PeerEvidence`, pinned fingerprint and `NetworkRoute` contracts are **mock assertions**, NOT secure TLS verification or cryptographic authentication. A future Axum/rustls transport must construct `PeerEvidence` from its verified session; reject client-supplied identity, TLS flags or staging proofs.
 - Supported intended routes: direct PC↔Pi Ethernet, ordinary LAN and approved VPN; routing choice does not relax TLS. Refuse unapproved public-internet exposure. Host default bind disabled; approved firewall/bind/interface settings required.
-- Client token/app grants must be issued and signed/validated server-side; no secrets in `aipath.txt`, log output, model IDs or URL query strings. Borrowed Jan/Ollama endpoints are never assumed authenticated without an explicit secure adapter.
+- Client device authentication **and per-app credential attestation** are separate requirements: a valid Pi device certificate must not allow Advisor to impersonate Text Center. The mock `AppAuthentication::VerifiedScopedCredential` flag requires a future cryptographically verified app grant, not a client-provided boolean. No secrets in `aipath.txt`, logs, model IDs or URL query strings. Borrowed Jan/Ollama endpoints are never assumed authenticated without an explicit secure adapter.
 
 ## Shutdown and ownership — binding user requirement
 
