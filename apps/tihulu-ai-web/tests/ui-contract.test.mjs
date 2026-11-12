@@ -88,3 +88,23 @@ test("Advisor/Agent chat snapshots and messages are never real inference", () =>
   assert.match(transcript[1].text, /no model|No model/i);
   assert.equal(read(adapter, UI_COMMANDS.CHAT, { agent: "agent" }).data.messages.length, 0);
 });
+
+test("Jan wizard is typed and remains unconfigured through every mock stage", () => {
+  const { adapter } = fixture();
+  for (const step of [0, 1, 2, 3, -1]) {
+    const outcome = read(adapter, UI_COMMANDS.JAN_STEP, { step });
+    assert.equal(outcome.data.outcome, "simulated_only");
+    assert.equal(read(adapter, UI_COMMANDS.JAN).data.wizard_step, step);
+    assert.equal(read(adapter, UI_COMMANDS.JAN).data.verified_handshake, false);
+  }
+  assert.equal(isUiRequest({ schema_version: 1, request_id: "jan", kind: "set_jan_step", payload: { step: 99 } }), false);
+});
+
+test("Closed GUI denies new mock host changes, Jan writes and chat messages", () => {
+  const { adapter } = fixture(createDemoState({ independentHost: true }));
+  read(adapter, UI_COMMANDS.EXECUTE_STOP, { action: SHUTDOWN.APP_QUIT, confirmed: true });
+  assert.throws(() => read(adapter, UI_COMMANDS.SERVICE_MODE, { mode: "disabled", confirmed: true }), /GUI session closed/);
+  assert.throws(() => read(adapter, UI_COMMANDS.JAN_STEP, { step: 0 }), /GUI session closed/);
+  assert.throws(() => adapter.sendChat("advisor", "after quit"), /GUI session closed/);
+  assert.equal(read(adapter, UI_COMMANDS.HOST).data.service_phase, "active");
+});
