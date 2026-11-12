@@ -42,3 +42,10 @@ The proposed CI job should invoke `python3 -m unittest discover -s scripts/tests
 ## Coordinator-owned follow-ups (not modified here)
 
 The coordinator may add `scripts/**` tests to the existing Rust workflow's trigger and jobs. The current `.github/workflows/rust-core.yml` filters PR paths to Rust workspace files and therefore a docs/scripts-only PR **does not automatically run that workflow**. The coordinator must review any future root Cargo, Tauri, bundle, CI or core supervisor edits.
+
+## Phase 2 — executable validation workstream
+
+- [Standalone five-crate command matrix, test evidence and blockers](PHASE2_VALIDATION.md).
+- [Native Tauri/package prerequisites and Pi Hailo boundaries](INSTALLER_DEPENDENCIES.md).
+- The optional Python runner `scripts/validate_standalone_crates.py` operates on explicitly supplied disposable agent/integration checkouts; it never merges or installs code. `scripts/platform_dependency_preflight.py` is read-only.
+- See [CI proposal](CI_PROPOSAL.md) for coordinator-owned workflow changes only. Agent 01 does not edit shared `.github/workflows/**`.

@@ -21,3 +21,20 @@ Foundation `.github/workflows/rust-core.yml` uses `ubuntu-24.04`, `ubuntu-24.04-
 ## Pending test gate
 
 No CI check triggered for these proposed tests until the coordinator reviews and adds an allowed workflow. Run locally where Python is available, report that exact OS/interpreter and result; do not imply hosted CI passed.
+
+## Phase 2 standalone Rust crate matrix proposal (Issue #15)
+
+**Only coordinator may edit or add `.github/workflows/**`.** Root `cargo test --workspace` sees only the foundation core and CLI, not the five standalone manifests. For each of the five independent crates, perform `cargo fmt`, `cargo test --all-targets` and `cargo clippy --all-targets -- -D warnings` **with `--manifest-path`** on a review-pinned branch head or an integration checkout that contains all manifests. Test in native runners `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-15`, `windows-2025`, `windows-11-arm` when available; give each crate/OS an independent result, including `NOT RUN` when Tauri native dependencies are absent.
+
+Proposed coordinator runner invocations from a reviewed checkout:
+
+```sh
+python3 scripts/validate_standalone_crates.py                 # read-only plan
+python3 scripts/validate_standalone_crates.py --execute       # requires all five manifests
+python3 -m unittest discover -s scripts/tests -v
+python3 scripts/platform_lifecycle_smoke.py --owned-child-smoke
+```
+
+The runner supports `--repo-root PATH --only registry|market|transport|integrations|desktop --execute` for branch-specific checkouts and defaults Cargo to `--offline` (dependency download explicit with `--allow-network`). Don't use it as a source merge mechanism; no other repositories may be touched. Before a Tauri desktop job, provide OS-specific libraries as documented in [installer prerequisites](INSTALLER_DEPENDENCIES.md); do not infer Pi/Hailo/RTX/SDR or installer acceptance from a passed CI job. Python tests on all five runners are separate from Rust crate jobs. Include scripts/docs paths in future CI triggers if approved.
+
+Physical lifecycle tests for L-01/L-08/L-10/L-11/L-12/L-14 still require managed workers, native Windows Job Objects and verified OSX/Linux/Pi shutdown behavior. The Python harness only manages its own disposable dummy processes. See [Phase 2 guide](PHASE2_VALIDATION.md).
