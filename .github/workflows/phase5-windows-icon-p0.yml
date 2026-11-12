@@ -1,0 +1,48 @@
+name: QA-WIN-01 — Windows Tauri icon/resource validation
+
+# Isolated remedial workflow. No bundle, installer, release or GUI launch.
+on:
+  push:
+    branches: [agent/01-phase5-windows-icon-p0]
+    paths:
+      - "apps/tihulu-ai-desktop/src-tauri/icons/icon.ico"
+      - "scripts/tests/test_phase5_windows_icon.py"
+      - ".github/workflows/phase5-windows-icon-p0.yml"
+  pull_request:
+    branches: [coord/phase4-native-inventory]
+    paths:
+      - "apps/tihulu-ai-desktop/src-tauri/icons/icon.ico"
+      - "scripts/tests/test_phase5_windows_icon.py"
+      - ".github/workflows/phase5-windows-icon-p0.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-tauri-icon:
+    name: Windows x64 — resource, native compile, tests, strict Clippy
+    runs-on: windows-2025
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Validate original PNG, ICO structure and security configuration
+        run: python -m unittest discover -s scripts/tests -p "test_phase5_windows_icon.py" -v
+      - name: Rust formatting
+        run: cargo fmt --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml --all -- --check
+      - name: Native Tauri Windows binary compilation without bundling
+        run: cargo build --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml
+      - name: Native Tauri Rust tests
+        run: cargo test --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml --all-targets
+      - name: Strict native Tauri Clippy
+        run: cargo clippy --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
