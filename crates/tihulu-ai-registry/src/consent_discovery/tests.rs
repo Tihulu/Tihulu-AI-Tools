@@ -165,18 +165,15 @@ fn jan_scans_only_explicitly_granted_engine_model_folders() {
         .models
         .iter()
         .all(|m| m.evidence == FileEvidence::FormatHeaderVerified));
-    assert!(inventory
-        .models
-        .iter()
-        .all(|m| !m.location.to_string_lossy().contains("private")));
+    let approved_jan = grant.approved_root();
+    assert!(inventory.models.iter().all(|model| {
+        model.location.starts_with(approved_jan.join("llamacpp/models"))
+            || model.location.starts_with(approved_jan.join("mlx/models"))
+    }));
     assert!(inventory
         .models
         .iter()
         .any(|m| m.metadata.get("model_type") == Some(&"llama".into())));
-    assert!(!fixture
-        .path("jan-data/private/chat-history.gguf")
-        .to_string_lossy()
-        .is_empty());
 }
 
 #[test]
