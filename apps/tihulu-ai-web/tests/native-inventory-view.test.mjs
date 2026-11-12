@@ -131,3 +131,28 @@ test("responsive CSS and isolation: no WebUSB, browser picker, fetch or native c
   assert.doesNotMatch(source, /\bfetch\s*\(|\binvoke\s*\(|navigator\.usb|showDirectoryPicker|__TAURI__/);
   assert.doesNotMatch(source, /from ["']\.\/app\.mjs|from ["']\.\/native-bridge\.mjs/);
 });
+
+test("mount degrades to demo rather than rendering injected native verification", () => {
+  const hooks = new Map();
+  const root = {
+    innerHTML: "",
+    addEventListener(event, fn) { hooks.set(event, fn); },
+    removeEventListener(event) { hooks.delete(event); },
+  };
+  const input = createInventoryFixture();
+  input.source = "backend_verified";
+  input.native_grants = 99;
+  input.providers[0].state = "connected";
+  const view = mountNativeInventoryWorkspace(root, input);
+  assert.match(root.innerHTML, /DEMO \/ NO NATIVE DISCOVERY/);
+  assert.match(root.innerHTML, /Unavailable/);
+  assert.doesNotMatch(root.innerHTML, /Connected \(verified\)/);
+  view.dispose();
+  assert.equal(hooks.size, 0);
+});
+
+test("hosted panel does not create a nested main landmark inside an existing app", () => {
+  const result = html("models");
+  assert.match(result, /<section class="inv-main"/);
+  assert.doesNotMatch(result, /<main\b/);
+});
