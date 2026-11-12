@@ -1,8 +1,9 @@
 # Agent 02 Phase 2 — single authority / typed identity handoff
 
-**Status:** proposed integration contract, backed by synthetic registry
-unit tests only. The real coordinator core ResourceLedger is present
-on sibling Draft PR #12, not in the base of Agent 02 Draft PR #9.
+**Status:** feature-gated real-core forwarding is implemented and tests are
+authored, but remain unexecuted in this authoring container. The coordinator
+core ResourceLedger lives on sibling Draft PR #12 and sandbox PR #17,
+not in Agent 02 PR #9's foundation base.
 References: Issue #15, Issue #3, Resource Lifecycle v0.9 and PR #12.
 
 ## Decision: ONE runtime/model resource ledger
