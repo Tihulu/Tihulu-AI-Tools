@@ -1,0 +1,55 @@
+name: Rust Core — Multi-OS
+
+on:
+  push:
+    branches: [main, feat/rust-foundation]
+    paths:
+      - "Cargo.toml"
+      - "crates/**"
+      - "apps/tihulu-ai-cli/**"
+      - ".github/workflows/rust-core.yml"
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "crates/**"
+      - "apps/tihulu-ai-cli/**"
+      - ".github/workflows/rust-core.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            os: ubuntu-24.04
+          - target: linux-aarch64
+            os: ubuntu-24.04-arm
+          - target: windows-x86_64
+            os: windows-2025
+          - target: windows-aarch64
+            os: windows-11-arm
+          - target: macos-aarch64
+            os: macos-15
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Rust format
+        run: cargo fmt --all -- --check
+      - name: Rust tests
+        run: cargo test --workspace --all-targets
+      - name: Rust lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  # Deliberately NOT claiming hardware acceptance:
+  # - Raspberry Pi 5 GPIO/PCIe, Hailo-10H, CUDA RTX 5080 and packaging require
+  #   actual hardware and target-specific installation tests.
+  # - Debian native desktop and Tauri bundles are future workstreams.
