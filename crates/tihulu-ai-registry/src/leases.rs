@@ -197,6 +197,27 @@ pub fn stop_app<L: ResourceLedgerPort>(
     ledger.stop_owner(owner)
 }
 
+/// Serialized app-wide STOP with caller-owned task receipts.
+///
+/// Delegates exactly one Stop to the coordinator ledger. On success, only
+/// receipts belonging to this owner are retired. No local lease counter or
+/// unload decision is introduced, and other consumers' receipts stay live.
+/// The caller must serialize task attach/release and this operation around
+/// the SAME authoritative ledger; a plain receipt is not a cross-thread lock.
+pub fn stop_app_with_receipts<L: ResourceLedgerPort>(
+    ledger: &mut L,
+    owner: LedgerOwnerRef,
+    receipts: &mut [TaskLeaseReceipt],
+) -> Result<Vec<LedgerCleanupRequest>, L::Error> {
+    let cleanup = ledger.stop_owner(owner)?;
+    for receipt in receipts {
+        if receipt.owner == owner {
+            receipt.released = true;
+        }
+    }
+    Ok(cleanup)
+}
+
 fn receipt(
     binding: &ModelRuntimeBinding,
     owner: LedgerOwnerRef,
@@ -493,6 +514,78 @@ mod tests {
             attach_task(&mut ledger, &model, owner, consumer("app", "late")).err(),
             Some(FakeError::UnknownOrStoppedOwner)
         );
+    }
+
+    #[test]
+    fn stop_first_then_start_is_denied_and_same_owner_receipts_retired() {
+        let mut ledger = MockResourceLedger::default();
+        let owner = LedgerOwnerRef(80);
+        let other = LedgerOwnerRef(81);
+        ledger.open_owner(owner);
+        ledger.open_owner(other);
+        let binding = binding(180, ModelOwner::JanDesktop, ContextAuthority::ManagedShared);
+        let mut one = register_initial_task(
+            &mut ledger,
+            &binding,
+            owner,
+            consumer("app-80", "task-a"),
+        )
+        .unwrap();
+        let mut two = attach_task(
+            &mut ledger,
+            &binding,
+            other,
+            consumer("app-81", "task-b"),
+        )
+        .unwrap();
+        let results = stop_app_with_receipts(
+            &mut ledger,
+            owner,
+            std::slice::from_mut(&mut one),
+        )
+        .unwrap();
+        assert!(results.is_empty());
+        assert_eq!(one.release(&mut ledger).unwrap(), TaskRelease::AlreadyReleased);
+        assert_eq!(ledger.active_lease_count(binding.resource), Some(1));
+        assert_eq!(
+            attach_task(&mut ledger, &binding, owner, consumer("app-80", "late")).err(),
+            Some(FakeError::UnknownOrStoppedOwner),
+        );
+        assert_eq!(
+            two.release(&mut ledger).unwrap(),
+            TaskRelease::Delegated(Some(LedgerCleanupRequest {
+                resource: binding.resource,
+                kind: LedgerResourceKind::ModelContext,
+            })),
+        );
+    }
+
+    #[test]
+    fn duplicate_app_stop_does_not_create_new_cleanup() {
+        let mut ledger = MockResourceLedger::default();
+        let owner = LedgerOwnerRef(82);
+        ledger.open_owner(owner);
+        let binding = binding(182, ModelOwner::AiTools, ContextAuthority::ManagedShared);
+        let mut receipt = register_initial_task(
+            &mut ledger,
+            &binding,
+            owner,
+            consumer("app-82", "task-a"),
+        )
+        .unwrap();
+        assert_eq!(
+            stop_app_with_receipts(
+                &mut ledger,
+                owner,
+                std::slice::from_mut(&mut receipt)
+            )
+            .unwrap()
+            .len(),
+            1
+        );
+        assert!(stop_app(&mut ledger, owner).unwrap().is_empty());
+        assert_eq!(receipt.release(&mut ledger).unwrap(), TaskRelease::AlreadyReleased);
+        assert_eq!(ledger.active_lease_count(binding.resource), Some(0));
     }
 
     #[test]
