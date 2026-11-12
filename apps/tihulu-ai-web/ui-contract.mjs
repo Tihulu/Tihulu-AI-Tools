@@ -178,10 +178,12 @@ export function createMockUiAdapter({ readState, writeState }) {
     },
     /** Synthetic chat event; no remote or native provider is invoked. */
     sendChat(agent, message) {
-      return this.request(uiRequest(UI_COMMANDS.SEND_CHAT, { agent, message })).data;
+      const response = this.request(uiRequest(UI_COMMANDS.SEND_CHAT, { agent, message }));
+      return { ...response.data, source: response.source };
     },
     closeChat(agent) {
-      return this.request(uiRequest(UI_COMMANDS.CLOSE_CHAT, { agent })).data;
+      const response = this.request(uiRequest(UI_COMMANDS.CLOSE_CHAT, { agent }));
+      return { ...response.data, source: response.source };
     },
   });
 }
