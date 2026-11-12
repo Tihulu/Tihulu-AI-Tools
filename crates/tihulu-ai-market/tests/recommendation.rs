@@ -3,8 +3,8 @@
 
 use tihulu_ai_market::{
     recommend_registered_models, ApplicationId, ApplicationTask, ArtifactEvidence,
-    CatalogIdentityBinding, HardwareTarget, HostId, MatchVerdict, ModelFormat, ModelManifest,
-    ModelSource, ModelStatus, Modality, RegistryCandidate, RegistryModelId,
+    CatalogIdentityBinding, HardwareTarget, HostId, MatchVerdict, Modality, ModelFormat,
+    ModelManifest, ModelSource, ModelStatus, RegistryCandidate, RegistryModelId,
     RegistryModelSnapshot, RegistryOwner, RegistryPresence, RegistryRuntimeEvidence, Runtime,
     RuntimeTarget, TaskKind, TaskRequest, TrustedHardwareProbe,
 };
@@ -115,21 +115,20 @@ fn app_task_prefers_verified_installed_then_verified_external_before_unknowns() 
         .zip(&targets)
         .map(|(model, target)| snapshot(model, target))
         .collect();
-    let probes: Vec<_> = targets
-        .iter()
-        .map(|target| probe(target, 1024))
-        .collect();
+    let probes: Vec<_> = targets.iter().map(|target| probe(target, 1024)).collect();
     let options: Vec<_> = models
         .iter()
         .zip(&snapshots)
         .zip(&targets)
         .zip(&probes)
-        .map(|(((manifest, registry), target), probe)| RegistryCandidate {
-            manifest,
-            registry,
-            target,
-            probe,
-        })
+        .map(
+            |(((manifest, registry), target), probe)| RegistryCandidate {
+                manifest,
+                registry,
+                target,
+                probe,
+            },
+        )
         .collect();
 
     let results = recommend_registered_models(&chat_task(), &options);
