@@ -7,6 +7,7 @@ const files = {
   css: readFileSync(new URL("../styles.css", import.meta.url), "utf8"),
   html: readFileSync(new URL("../index.html", import.meta.url), "utf8"),
   app: readFileSync(new URL("../app.mjs", import.meta.url), "utf8"),
+  rust: readFileSync(new URL("../../tihulu-ai-desktop/src-tauri/src/ui_contract.rs", import.meta.url), "utf8"),
 };
 const controls = [
   "overview", "market", "models", "apps", "devices", "host", "settings",
@@ -15,6 +16,7 @@ const controls = [
   "setupJan", "howJan", "serviceMode", "enableService", "disableService",
   "serviceModeDemo", "serviceClientWarning", "serviceOptInWarning",
   "stopAiDesc", "appQuitDesc", "hardStopDesc", "quitAllDesc", "hostSurvives",
+  "modelIdentity", "modelFormat", "modelAvailability", "modelReadiness",
 ];
 
 test("English default, Turkish and German supply all critical controls without fallback", () => {
@@ -51,6 +53,15 @@ test("Web UI has no mandatory WebUSB, native calls, embedded remote fetch or ser
   assert.match(files.html, /src="\.\/app\.mjs"/);
 });
 
+test("Rust and JS use the same v1 command names without enabling native calls", () => {
+  const rustNames = ["ReadOverview", "ReadModels", "ReadCompatibility", "ReadGpuHost",
+    "ReadChat", "SendChat", "CloseChat", "ReadJan", "SetJanStep",
+    "PreviewStop", "ExecuteStop", "SetServiceMode"];
+  for (const name of rustNames) assert.match(files.rust, new RegExp("\\b" + name + "\\("));
+  assert.match(files.rust, /UI_SCHEMA_VERSION: u8 = 1/);
+  assert.doesNotMatch(files.app, /__TAURI__|invoke\s*\(/);
+});
+
 test("Rendered mock navigation contains all workspaces and localized shutdown & host controls", async () => {
   const listeners = new Map();
   const root = { innerHTML: "", addEventListener: (event, fn) => { listeners.set(event, fn); } };
@@ -85,6 +96,20 @@ test("Rendered mock navigation contains all workspaces and localized shutdown & 
     assert.ok(root.innerHTML.includes(translations.de.serviceDisabled));
     assert.ok(root.innerHTML.includes('data-service-mode="independent"'));
     assert.ok(root.innerHTML.includes(translations.de.serviceModeDemo));
+    listeners.get("click")({ target: { closest: () => ({ dataset: { go: "models" } }) } });
+    assert.ok(root.innerHTML.includes("demo:external-gguf"));
+    assert.ok(root.innerHTML.includes(translations.de.modelReadiness));
+    assert.ok(root.innerHTML.includes(translations.de.unknownCompatibility));
+    listeners.get("click")({ target: { closest: () => ({ dataset: { go: "market" } }) } });
+    assert.ok(root.innerHTML.includes("Hailo artifact candidate"));
+    assert.ok(root.innerHTML.includes(translations.de.unknownCompatibility));
+    listeners.get("click")({ target: { closest: () => ({ dataset: { go: "jan" } }) } });
+    assert.ok(root.innerHTML.includes(translations.de.disconnected));
+    assert.ok(root.innerHTML.includes(translations.de.setupJan));
+    for (const tab of ["overview", "apps", "devices", "advisor", "agent", "settings"]) {
+      listeners.get("click")({ target: { closest: () => ({ dataset: { go: tab } }) } });
+      assert.ok(root.innerHTML.includes("DEMO /") || root.innerHTML.includes(translations.de.demo));
+    }
   } finally {
     globalThis.document = original;
   }
