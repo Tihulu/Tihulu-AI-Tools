@@ -221,13 +221,26 @@ impl ModelManifest {
         if matches!(self.availability, ModelStatus::Incompatible) {
             return Err("incompatible is a computed matching result, not inventory".into());
         }
+        // Registry's independently-owned app IDs are lowercase slug identities,
+        // not display names, user labels or arbitrary paths. Validate even
+        // candidate/unknown statuses so malformed identity cannot be laundered.
+        if let ModelSource::TihuluApp { app_id } = &self.source {
+            if app_id.len() > 64
+                || !app_id
+                    .bytes()
+                    .next()
+                    .is_some_and(|first| first.is_ascii_lowercase())
+                || !app_id
+                    .bytes()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
+            {
+                return Err("invalid independent TIHULU application owner ID".into());
+            }
+        }
         match (&self.source, self.availability) {
             (ModelSource::External { application }, ModelStatus::External)
                 if !application.trim().is_empty() => {}
-            (ModelSource::TihuluApp { app_id }, ModelStatus::External)
-                if app_id.len() <= 64
-                    && app_id.bytes().next().is_some_and(|first| first.is_ascii_lowercase())
-                    && app_id.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-') => {}
+            (ModelSource::TihuluApp { .. }, ModelStatus::External) => {}
             (ModelSource::Tihulu, ModelStatus::Installed)
             | (ModelSource::Market, ModelStatus::Downloadable)
             | (_, ModelStatus::Candidate | ModelStatus::Unknown | ModelStatus::Unverified) => {}
