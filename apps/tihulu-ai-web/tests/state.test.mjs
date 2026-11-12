@@ -73,5 +73,6 @@ test("demo chat never exposes fake assistant inference and refuses after App Qui
   const state = sendMockMessage(createDemoState(), "agent", "<script>alert(1)</script>");
   assert.equal(state.chat.agent.length, 2);
   assert.match(state.chat.agent[1].text, /No model, tool or inference/);
-  assert.equal(sendMockMessage(applyShutdown(state, SHUTDOWN.APP_QUIT), "agent", "another"), applyShutdown(state, SHUTDOWN.APP_QUIT).chat.agent.length === 2 ? state : null);
+  const afterQuit = applyShutdown(state, SHUTDOWN.APP_QUIT);
+  assert.strictEqual(sendMockMessage(afterQuit, "agent", "another"), afterQuit);
 });
