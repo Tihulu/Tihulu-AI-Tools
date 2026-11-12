@@ -6,6 +6,7 @@ use serde::Serialize;
 // confused with model execution, Jan, GPU-host connectivity or RAM/VRAM cleanup.
 #[allow(dead_code)]
 mod ui_contract;
+mod native_inventory;
 
 #[derive(Debug, Serialize)]
 struct UiBackendStatus {
@@ -33,7 +34,11 @@ fn ui_backend_status() -> UiBackendStatus {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![ui_backend_status])
+        .manage(native_inventory::NativeBackend::new())
+        .invoke_handler(tauri::generate_handler![
+            ui_backend_status,
+            native_inventory::ui_native_module_status
+        ])
         .run(tauri::generate_context!())
         .expect("failed to launch the TIHULU AI Tools UI demo");
 }
