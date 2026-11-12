@@ -46,3 +46,10 @@ The `AGENTS.md` policy on this branch permits **independent AI Tools implementat
 - Source files committed to GitHub; Rust toolchain **not installed in the current authoring container**, so no local `cargo test` can be claimed.
 - **Verified:** [GitHub Actions run #7](https://github.com/Tihulu/Tihulu-AI-Tools/actions/runs/43148925278) completed **successfully** on 2026-11-12: 5/5 native runner jobs passed (Linux x86_64, Linux aarch64, macOS Apple Silicon, Windows x86_64 and Windows aarch64), including `cargo fmt --check`, `cargo test --workspace --all-targets` and `cargo clippy -- -D warnings`. Earlier formatting-only failures were corrected, not ignored.
 - No physical Raspberry Pi / AI HAT+ 2, macOS M-series or Windows hardware runs have been conducted.
+
+
+## Mandatory clean shutdown extension — v0.9
+
+The user additionally requires that every app **frees all its own RAM/VRAM model resources, owned AI subprocesses and SDR handles when closed**, while never taking down an independently owned shared service. This is the acceptance contract in [RESOURCE_LIFECYCLE.md](RESOURCE_LIFECYCLE.md) and is distributed across Issues #2–#7. Default on-demand / background OFF / no keep-warm remains binding.
+
+The initial core only has candidate scanning and pure routing: **real resource teardown is not yet implemented**. No hardware or memory-release claim should be made until tests of the eventual backend plus independent Pi/Hailo/RTX/SDR hardware demonstrate it. Subsequent core-owned work should model resource ownership and lease state without giving an agent blanket OS process-kill permission.
