@@ -1,6 +1,6 @@
 # TIHULU AI Tools
 
-**Status: Planning only — Draft v0.6 (12 November 2026)**
+**Status: Planning only — Draft v0.7 (12 November 2026)**
 
 TIHULU AI Tools is a planned **Rust-first**, cross-platform AI model management and optional inference-hosting application. The current repository contains **product plans, contracts and interface mockups**, not a functioning installer, AI runtime, marketplace, server, or agent.
 
@@ -55,6 +55,13 @@ The **Model Market** and **TIHULU Apps** screens will explain which pre-installe
 - [Jan Desktop MCP and Jan Agent Plugin Proposal](docs/JAN_INTEGRATION.md)
 - [Model reference / aipath contract](docs/AIPATH_CONTRACT.md)
 - [Updated interactive HTML concept](ui/index.html)
+
+## v0.7: Jan one-click guided setup
+
+**Confirmed requirement:** An in-app **How to Connect Jan** guide and **Set Up Jan Integration** button in **External Apps → Jan**. The future Rust wizard will detect Jan, review permissions, register the TIHULU MCP bridge through supported Jan MCP settings/CLI, verify the connection and allow a reversible disconnect. If automation is unsupported, it will show manual instructions. The updated HTML prototype provides an interactive **simulation only**; no Jan files or settings are altered.
+
+- [Jan Setup Wizard product/design guide](docs/JAN_SETUP_WIZARD.md)
+- [Existing optional Jan MCP and plugin architecture](docs/JAN_INTEGRATION.md)
 
 ## Planning workflow
 
