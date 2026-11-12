@@ -165,6 +165,9 @@ impl MockComputeHost {
         if peer.host != self.id || peer.server_cert_sha256 != self.server_cert_sha256 {
             return Err(Error::IdentityMismatch);
         }
+        if peer.app_authentication != AppAuthentication::VerifiedScopedCredential {
+            return Err(Error::UnverifiedApplication);
+        }
         let pair = self.paired.get(&peer.client).ok_or(Error::PairingRequired)?;
         if pair.cert_sha256 != peer.client_cert_sha256 {
             return Err(Error::IdentityMismatch);
@@ -364,8 +367,10 @@ impl MockComputeHost {
         Ok(())
     }
 
-    /// Trusted transport callback on a closed socket, or client Quit. The host is preserved.
-    /// Abrupt process death without a close callback is recovered by lease TTL.
+    /// Trusted *device-level* shutdown/revocation callback only. This releases all
+    /// apps on that device; a single app/socket close MUST call close_app/close_lease
+    /// or allow its own lease TTL to expire, to preserve another app on the same Pi.
+    /// Abrupt process death without a verified callback is recovered by lease TTL.
     pub fn close_client(&mut self, client: &ClientId, now_ms: u64) {
         let ids: Vec<_> = self.leases.iter().filter(|(_, lease)| &lease.client == client)
             .map(|(id, _)| id.clone()).collect();
