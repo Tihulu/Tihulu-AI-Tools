@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { NATIVE_BRIDGE_PHASE, probeNativeBridge } from "../native-bridge.mjs";
+import { getGlobalNativeInvoke, NATIVE_BRIDGE_PHASE, probeNativeBridge } from "../native-bridge.mjs";
 
 const safeFixture = Object.freeze({
   schema_version: 1,
@@ -10,6 +10,10 @@ const safeFixture = Object.freeze({
   backend_verified: false,
   hardware_active: false,
   cleanup_verified: false,
+});
+
+test("Browser host never enables native IPC unless explicitly injected by Tauri", () => {
+  assert.equal(getGlobalNativeInvoke(), undefined);
 });
 
 test("Standalone web preview never probes a native process", async () => {

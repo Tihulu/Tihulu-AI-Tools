@@ -404,7 +404,17 @@ mod tests {
         .unwrap();
         assert_eq!(result.artifacts.len(), 1);
         assert_eq!(result.missing_model_directories, 1);
-        assert!(result.artifacts[0].source_path.starts_with(models));
+        // The scanner stores canonical paths; macOS /var→/private/var and
+        // Windows drive aliases may differ from the test fixture's raw path.
+        // Compare against the approved canonical model subtree only.
+        let approved_models = models.canonicalize().unwrap();
+        assert!(result.artifacts[0]
+            .source_path
+            .starts_with(&approved_models));
+        assert_eq!(
+            result.artifacts[0].source_path,
+            approved_models.join("chat.gguf")
+        );
     }
 
     #[test]

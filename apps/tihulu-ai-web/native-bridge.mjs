@@ -31,6 +31,12 @@ const isSafeDemoStatus = (value) =>
  * @param {undefined | ((command:string)=>Promise<unknown>)} invoke
  * @returns {Promise<{phase:string, backend_verified:false}>}
  */
+// Resolve the Tauri global only inside the isolated probe module. Web UI logic
+// is still a browser-safe mock and never invokes effectful native commands.
+export function getGlobalNativeInvoke() {
+  return globalThis.window?.__TAURI__?.core?.invoke;
+}
+
 export async function probeNativeBridge(invoke) {
   if (typeof invoke !== "function") {
     return { phase: NATIVE_BRIDGE_PHASE.WEB_PREVIEW, backend_verified: false };

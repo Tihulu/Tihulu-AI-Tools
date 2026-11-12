@@ -1,7 +1,7 @@
 import { SHUTDOWN, createDemoState, getResource } from "./state.mjs";
 import { createMockUiAdapter, uiRequest, UI_COMMANDS, SERVICE_MODES, MODEL_FIXTURES } from "./ui-contract.mjs";
 import { translate } from "./i18n.mjs";
-import { probeNativeBridge, NATIVE_BRIDGE_PHASE } from "./native-bridge.mjs";
+import { getGlobalNativeInvoke, probeNativeBridge, NATIVE_BRIDGE_PHASE } from "./native-bridge.mjs";
 
 // No fetch, WebUSB, Tauri invoke, localStorage, process calls or backend adapters.
 let state = createDemoState();
@@ -337,7 +337,7 @@ modal.addEventListener("close", () => { pendingAction = null; });
 render();
 
 // Native capability check is read-only and does not change the simulator.
-const nativeInvoke = globalThis.window?.__TAURI__?.core?.invoke;
+const nativeInvoke = getGlobalNativeInvoke();
 void probeNativeBridge(nativeInvoke).then((result) => {
   nativeBridge = result;
   render();
