@@ -1,8 +1,11 @@
-import { SHUTDOWN, applyShutdown, closeChat, createDemoState, getResource, getTotals, previewShutdown, sendMockMessage } from "./state.mjs";
+import { SHUTDOWN, createDemoState, getResource, getTotals } from "./state.mjs";
+import { createMockUiAdapter, uiRequest, UI_COMMANDS, SERVICE_MODES, MODEL_FIXTURES } from "./ui-contract.mjs";
 import { translate } from "./i18n.mjs";
 
 // No fetch, WebUSB, Tauri invoke, localStorage, process calls or backend adapters.
 let state = createDemoState();
+const uiAdapter = createMockUiAdapter({ readState: () => state, writeState: (next) => { state = next; } });
+const typedRead = (kind, payload = {}) => uiAdapter.request(uiRequest(kind, payload)).data;
 let pendingAction = null;
 const root = document.querySelector("#app");
 const modal = document.querySelector("#confirmation");
@@ -20,12 +23,11 @@ const profiles = [
   ["auto", "autodetect"], ["regular", "regular"], ["performance", "performance"],
   ["pi", "pi"], ["hailo", "hailo"], ["custom", "custom"],
 ];
-const models = [
-  { id: "sample-local", name: "Local speech model (illustration)", task: "Speech / translation", format: "GGML", owner: "Example only", state: "unverified" },
-  { id: "sample-external", name: "External GGUF candidate (illustration)", task: "Text assistant", format: "GGUF", owner: "Existing app · mock", state: "external" },
-  { id: "sample-hailo", name: "Hailo HEF candidate (illustration)", task: "Vision / Hailo", format: "HEF", owner: "Example only", state: "unverified" },
-  { id: "sample-onnx", name: "ONNX candidate (illustration)", task: "Classification", format: "ONNX", owner: "Example only", state: "unverified" },
-];
+const models = MODEL_FIXTURES.map((model) => ({
+  id: model.model_id, name: model.name, task: model.modality,
+  format: model.format.toUpperCase(), owner: model.owner_type,
+  state: model.availability === "external" ? "external" : "unverified",
+}));
 
 function chip(label, tone = "neutral") { return '<span class="chip ' + tone + '">' + esc(label) + "</span>"; }
 function panel(title, subtitle, body) {
@@ -58,7 +60,7 @@ function shutdownControls() {
   ).join("") + '</div><p class="hint">' + esc(t("shutdownNote")) + "</p>";
 }
 function overview() {
-  const totals = getTotals(state);
+  const totals = typedRead(UI_COMMANDS.OVERVIEW).synthetic_totals;
   const stats = [
     [t("uiState"), t(state.lifecycle === "running" ? "running" : "stopped"), t("source")],
     [t("modelsActive"), String(totals.activeOwned), t("source")],
@@ -81,7 +83,8 @@ function overview() {
     '<button type="button" class="btn ghost" data-reset>' + t("reset") + "</button></div></div>";
 }
 function market() {
-  const matching = models.filter((m) => (m.name + " " + m.task + " " + m.format).toLowerCase().includes(state.marketQuery.toLowerCase()));
+  const available = typedRead(UI_COMMANDS.MODELS).models;
+  const matching = available.map((model) => ({ id: model.model_id, name: model.name, task: model.modality, format: model.format.toUpperCase(), owner: model.owner_type, state: model.availability === "external" ? "external" : "unverified" })).filter((m) => (m.name + " " + m.task + " " + m.format).toLowerCase().includes(state.marketQuery.toLowerCase()));
   return pageHeading(t("browse"), t("marketHint")) +
     panel(t("market"), t("modelNames"), '<label class="field">' + t("search") +
       '<input id="market-query" type="search" maxlength="80" value="' + esc(state.marketQuery) + '" placeholder="' + esc(t("search")) +
@@ -120,22 +123,25 @@ function devices() {
     "</div></div>";
 }
 function gpuHost() {
-  const host = getResource(state, "host");
+  const host = typedRead(UI_COMMANDS.HOST);
   return pageHeading(t("hostHeading"), t("hostHint")) +
     '<div class="two-col"><div>' +
     panel(t("hostIndependent"), t("connectionNotReady"),
       '<div class="cards"><div class="card"><div class="micro">' + t("status") +
-      '</div><div class="value">' + t(host.status === "active" ? "active" : "released") +
+      '</div><div class="value">' + t(host.service_phase === "active" ? "active" : "released") +
       '</div></div><div class="card"><div class="micro">' + t("hostClients") + '</div><div class="value">' +
-      Number(host.clients || 0) + '</div></div></div><button type="button" class="btn secondary" data-explain="pairing">' +
-      t("pairing") + "</button>") + '</div><div>' +
+      Number(host.active_other_clients || 0) + '</div></div></div><button type="button" class="btn secondary" data-explain="pairing">' +
+      t("pairing") + "</button>" +
+      '<div class="actions"><span class="chip neutral">' + esc(t("serviceMode")) + ": " + esc(t(host.service_mode === SERVICE_MODES.INDEPENDENT ? "serviceIndependent" : "serviceDisabled")) + '</span></div>' +
+      '<button type="button" class="btn ghost" data-service-mode="' + (host.service_mode === SERVICE_MODES.INDEPENDENT ? "disabled" : "independent") + '">' + t(host.service_mode === SERVICE_MODES.INDEPENDENT ? "disableService" : "enableService") + '</button>' +
+      '<p class="hint">' + esc(t("serviceModeDemo")) + '</p>') + '</div><div>' +
     panel(t("permission"), t("readOnly"), '<p>' + t("approve") + '</p>' + chip(t("unsupported"), "warning")) +
     "</div></div>";
 }
 function chat(type) {
   const isAdvisor = type === "advisor";
   const title = t(isAdvisor ? "advisorHeading" : "agentHeading");
-  const transcript = state.chat[type];
+  const transcript = typedRead(UI_COMMANDS.CHAT, { agent: type }).messages;
   const enabled = state.lifecycle === "running" && getResource(state, type).status === "active";
   return pageHeading(title, t("chatInfo")) +
     '<div class="two-col"><div>' +
@@ -158,12 +164,13 @@ function chat(type) {
 }
 function jan() {
   const stages = ["janStage1", "janStage2", "janStage3", "janStage4"];
+  const janStatus = typedRead(UI_COMMANDS.JAN);
   return pageHeading(t("janHeading"), t("janHint")) +
     '<div class="two-col"><div>' +
     panel(t("howJan"), t("connectionNotReady"),
       '<ol class="steps">' + [1, 2, 3, 4].map((i) => '<li>' + esc(t("janGuide" + i)) + '</li>').join("") + '</ol>') +
     '</div><div>' +
-    panel(t("setupJan"), t("janHint"), chip(t("disconnected"), "warning") + '<p class="hint">MCP / STDIO: ' +
+    panel(t("setupJan"), t("janHint"), chip(janStatus.verified_handshake ? t("connected") : t("disconnected"), "warning") + '<p class="hint">MCP / STDIO: ' +
       t("connectionNotReady") + '</p>' +
       (state.janStep < 0 ? '<button type="button" class="btn" data-jan-start>' + t("setupJan") + '</button>' :
       '<div><h3>' + t("wizard") + ' · ' + (state.janStep + 1) + '/4</h3><p>' + esc(t(stages[state.janStep])) + '</p><div class="actions">' +
@@ -238,19 +245,29 @@ root.addEventListener("click", (event) => {
   if (button.dataset.reset !== undefined) { state = createDemoState(); render(); return; }
   if (button.dataset.shutdown) {
     const action = button.dataset.shutdown;
-    const preview = previewShutdown(state, action);
+    const preview = typedRead(UI_COMMANDS.PREVIEW_STOP, { action });
     const affected = preview.affected.map((id) => getResource(state, id).name);
     showModal(preview.title + " — " + t("detailPanel"),
       preview.description + (affected.length ? "" : " " + t("nothingActive")),
       [t("affected") + ": " + (affected.join(", ") || "None"), t("preserved") + ": " +
         (preview.preserved.map((id) => getResource(state, id).name).join(", ") || "None"), ...preview.warnings],
-      () => { state = applyShutdown(state, action); state.activeTab = "overview"; render(); });
+      () => { uiAdapter.request(uiRequest(UI_COMMANDS.EXECUTE_STOP, { action, confirmed: true })); state.activeTab = "overview"; render(); });
+    return;
+  }
+  if (button.dataset.serviceMode) {
+    const mode = button.dataset.serviceMode;
+    const shuttingDown = mode === SERVICE_MODES.DISABLED;
+    const host = typedRead(UI_COMMANDS.HOST);
+    showModal(t("serviceMode"), t("serviceModeDemo"),
+      [t("demoDetail"), shuttingDown ? t("serviceClientWarning") + " (" + host.active_other_clients + ")" : t("serviceOptInWarning"),
+       t("borrowedPreserved")],
+      () => { uiAdapter.request(uiRequest(UI_COMMANDS.SERVICE_MODE, { mode, confirmed: true })); render(); });
     return;
   }
   if (button.dataset.closeChat) {
     const id = button.dataset.closeChat;
     showModal(t("closeChat"), t("chatInfo"), [t("warning"), "DEMO ONLY: no actual model or client is released."],
-      () => { state = closeChat(state, id); render(); });
+      () => { uiAdapter.closeChat(id); render(); });
     return;
   }
   if (button.dataset.explain) {
@@ -269,7 +286,7 @@ root.addEventListener("submit", (event) => {
   const form = event.target.closest("form[data-chat]");
   if (!form) return;
   event.preventDefault();
-  state = sendMockMessage(state, form.dataset.chat, new FormData(form).get("message"));
+  uiAdapter.sendChat(form.dataset.chat, new FormData(form).get("message"));
   render();
 });
 root.addEventListener("change", (event) => {
