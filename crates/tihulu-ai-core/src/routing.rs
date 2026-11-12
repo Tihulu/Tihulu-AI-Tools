@@ -102,27 +102,45 @@ mod tests {
 
     #[test]
     fn defaults_local_when_both_are_ready() {
-        assert_eq!(choose_route(ComputePreference::Auto, READY, READY), Route::Local);
+        assert_eq!(
+            choose_route(ComputePreference::Auto, READY, READY),
+            Route::Local
+        );
     }
 
     #[test]
     fn remote_first_uses_host_when_verified() {
-        assert_eq!(choose_route(ComputePreference::RemoteFirst, READY, READY), Route::PairedHost);
+        assert_eq!(
+            choose_route(ComputePreference::RemoteFirst, READY, READY),
+            Route::PairedHost
+        );
     }
 
     #[test]
     fn remote_only_never_falls_back_to_local() {
-        assert_eq!(choose_route(ComputePreference::RemoteOnly, READY, DENIED), Route::Unavailable);
+        assert_eq!(
+            choose_route(ComputePreference::RemoteOnly, READY, DENIED),
+            Route::Unavailable
+        );
     }
 
     #[test]
     fn unverified_or_unauthorized_remote_is_not_selected() {
-        assert_eq!(choose_route(ComputePreference::RemoteFirst, READY, UNVERIFIED), Route::Local);
-        assert_eq!(choose_route(ComputePreference::RemoteFirst, READY, DENIED), Route::Local);
+        assert_eq!(
+            choose_route(ComputePreference::RemoteFirst, READY, UNVERIFIED),
+            Route::Local
+        );
+        assert_eq!(
+            choose_route(ComputePreference::RemoteFirst, READY, DENIED),
+            Route::Local
+        );
     }
 
     #[test]
     fn local_only_is_not_secret_remote_fallback() {
-        assert_eq!(choose_route(ComputePreference::LocalOnly, UNVERIFIED, READY), Route::Unavailable);
+        assert_eq!(
+            choose_route(ComputePreference::LocalOnly, UNVERIFIED, READY),
+            Route::Unavailable
+        );
     }
 }
