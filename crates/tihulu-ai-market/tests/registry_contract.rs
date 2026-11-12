@@ -22,6 +22,7 @@ fn fixture(name: &str) -> ModelManifest {
         "hailo" => include_str!("fixtures/hailo-vision.json"),
         "paired" => include_str!("fixtures/paired-gpu-endpoint.json"),
         "license" => include_str!("fixtures/unknown-license.json"),
+        "wrong-format" => include_str!("fixtures/wrong-format.json"),
         "online" => include_str!("fixtures/untrusted-online.json"),
         _ => panic!("unknown test fixture"),
     };
@@ -188,7 +189,7 @@ fn catalog_reference_binding_and_ownership_must_be_consistent() {
 
 #[test]
 fn wrong_format_and_missing_or_unlisted_reference_are_never_recommended() {
-    let model = fixture("jan");
+    let model = fixture("wrong-format");
     let (mut record, request, probe) =
         setup(&model, RegistryOwner::JanDesktop, target(R::LlamaCpp, H::Cpu, "local"));
     record.presence = RegistryPresence::FileObserved { format_hint: F::Onnx };
@@ -197,10 +198,11 @@ fn wrong_format_and_missing_or_unlisted_reference_are_never_recommended() {
         ModelStatus::Incompatible,
     );
     record.presence = RegistryPresence::Missing;
-    assert_eq!(
-        match_registry_model(&model, &record, &request, &probe).compatibility.status,
-        ModelStatus::Unknown,
-    );
+    let missing = match_registry_model(&model, &record, &request, &probe);
+    assert_eq!(missing.compatibility.status, ModelStatus::Unknown);
+    assert_eq!(missing.inventory_status, ModelStatus::External);
+    assert_eq!(missing.observed_presence, RegistryPresence::Missing);
+    assert!(!missing.can_propose_assignment);
     record.presence = RegistryPresence::EndpointDeclared;
     assert_eq!(
         match_registry_model(&model, &record, &request, &probe).compatibility.status,
