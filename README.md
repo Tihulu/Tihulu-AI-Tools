@@ -1,6 +1,6 @@
 # TIHULU AI Tools
 
-**Status: Independent Rust foundation development — v0.8 work-in-progress (12 November 2026)**
+**Status: Independent Rust foundation development — v0.9 work-in-progress (12 November 2026)**
 
 TIHULU AI Tools is a planned **Rust-first**, cross-platform AI model management and optional inference-hosting application. The `main` branch retains product plans and non-functional UI mockups. On `feat/rust-foundation`, an early **Rust core and read-only CLI** are under development. No installer, AI runtime, marketplace backend, GPU server or agent has been implemented.
 
@@ -79,6 +79,15 @@ The **Model Market** and **TIHULU Apps** screens will explain which pre-installe
 
 - [Jan Setup Wizard product/design guide](docs/JAN_SETUP_WIZARD.md)
 - [Existing optional Jan MCP and plugin architecture](docs/JAN_INTEGRATION.md)
+
+## v0.9: Clean exit, RAM/VRAM and SDR ownership
+
+**Confirmed requirement:** Quit/Hard Stop must cancel **app-owned** AI jobs, unload its model RAM/VRAM allocations, stop its own inference workers, and release its SDR/USB/network handles. Borrowed Jan/Ollama/readsb/tar1090 or another app's shared inference process must stay alive. A separate intentionally enabled GPU host may continue serving other clients after a GUI closes; last-client model lease is unloaded by default. No hidden default background workers.
+
+- [Resource ownership and complete shutdown contract](docs/RESOURCE_LIFECYCLE.md)
+- [Six-agent cleanup tasks](docs/AGENT_WORKSTREAMS.md)
+
+This is a **required implementation behavior**, not yet hardware-verified.
 
 ## Planning and engineering workflow
 
