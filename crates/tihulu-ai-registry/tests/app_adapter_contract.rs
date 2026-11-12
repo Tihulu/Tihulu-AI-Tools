@@ -313,7 +313,8 @@ fn wrong_app_scope_unreadable_and_foreign_owned_folders_are_blocked() {
 fn relative_traversal_and_unbounded_legacy_inputs_fail_closed() {
     let app = SupportedApp::RfGeolocation;
     let mut fake = adapter(app);
-    fake.record.as_mut().unwrap().active_model_root = Some(native_path("/home/u/models/../secrets"));
+    fake.record.as_mut().unwrap().active_model_root =
+        Some(native_path("/home/u/models/../secrets"));
     fake.record.as_mut().unwrap().legacy_model_roots = vec!["relative/root".into()];
     let inventory = inventory_from_adapter(&fake, &base_probe(), &grants(app)).unwrap();
     assert_eq!(inventory.model_directories.len(), 1);
@@ -342,7 +343,8 @@ fn relative_traversal_and_unbounded_legacy_inputs_fail_closed() {
 fn custom_external_ssd_model_root_requires_its_own_scope() {
     let app = SupportedApp::MediaCenter;
     let mut fake = adapter(app);
-    fake.record.as_mut().unwrap().user_model_override = Some(native_path("/mnt/ssd/tihulu/weights"));
+    fake.record.as_mut().unwrap().user_model_override =
+        Some(native_path("/mnt/ssd/tihulu/weights"));
     let mut probe = base_probe();
     probe.directory("/mnt/ssd/tihulu");
     probe.directory("/mnt/ssd/tihulu/weights");
