@@ -94,7 +94,7 @@ fn chat_task() -> ApplicationTask {
 
 #[test]
 fn app_task_prefers_verified_installed_then_verified_external_before_unknowns() {
-    let models = vec![
+    let models = [
         fixture("online"),
         fixture("cuda"),
         fixture("jan"),
