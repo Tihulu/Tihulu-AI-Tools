@@ -170,7 +170,7 @@ impl LeaseRegistry {
     /// A borrowed runtime can never be acknowledged as ours.
     pub fn acknowledge_owned_unloaded(&mut self, runtime_id: &str) -> bool {
         let ready = self.runtimes.get(runtime_id).is_some_and(|state| {
-            matches!(state.owner, RuntimeOwner::AiTools { .. })
+            matches!(&state.owner, RuntimeOwner::AiTools { .. })
                 && !state.accepting
                 && state.leases.is_empty()
         });
