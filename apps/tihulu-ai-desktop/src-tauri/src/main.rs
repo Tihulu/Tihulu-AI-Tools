@@ -4,6 +4,7 @@ use serde::Serialize;
 
 // The only native command is a read-only IPC health check. It MUST NOT be
 // confused with model execution, Jan, GPU-host connectivity or RAM/VRAM cleanup.
+mod native_inventory;
 #[allow(dead_code)]
 mod ui_contract;
 
@@ -33,7 +34,11 @@ fn ui_backend_status() -> UiBackendStatus {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![ui_backend_status])
+        .manage(native_inventory::NativeBackend::new())
+        .invoke_handler(tauri::generate_handler![
+            ui_backend_status,
+            native_inventory::ui_native_module_status
+        ])
         .run(tauri::generate_context!())
         .expect("failed to launch the TIHULU AI Tools UI demo");
 }

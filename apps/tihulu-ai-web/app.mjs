@@ -1,11 +1,13 @@
 import { SHUTDOWN, createDemoState, getResource } from "./state.mjs";
 import { createMockUiAdapter, uiRequest, UI_COMMANDS, SERVICE_MODES, MODEL_FIXTURES } from "./ui-contract.mjs";
 import { translate } from "./i18n.mjs";
-import { getGlobalNativeInvoke, probeNativeBridge, NATIVE_BRIDGE_PHASE } from "./native-bridge.mjs";
+import { getGlobalNativeInvoke, probeNativeBridge, NATIVE_BRIDGE_PHASE,
+  NATIVE_MODULE_PHASE, probeNativeModules } from "./native-bridge.mjs";
 
 // No fetch, WebUSB, Tauri invoke, localStorage, process calls or backend adapters.
 let state = createDemoState();
 let nativeBridge = { phase: NATIVE_BRIDGE_PHASE.WEB_PREVIEW, backend_verified: false };
+let nativeModules = { phase: NATIVE_MODULE_PHASE.WEB_PREVIEW, backend_verified: false };
 const uiAdapter = createMockUiAdapter({ readState: () => state, writeState: (next) => { state = next; } });
 const typedRead = (kind, payload = {}) => uiAdapter.request(uiRequest(kind, payload)).data;
 let pendingAction = null;
@@ -232,6 +234,8 @@ function render() {
     esc(t("backgroundOff")) + '<div class="micro">' + esc(t("connectionNotReady")) + "</div></div></aside>" +
     '<main class="content"><header class="topbar"><div class="top-actions">' + chip(t("demo"), "warning") +
     chip(t("connection") + ": " + t("disconnected")) +
+    (nativeModules.phase === NATIVE_MODULE_PHASE.LINKED ?
+      chip(t("nativeContractsLinked") + " · " + nativeModules.records + " " + t("unscannedRecords")) : "") +
     chip(t("rustIpc") + ": " + t(nativeBridge.phase === NATIVE_BRIDGE_PHASE.TAURI_DEMO ? "rustIpcDemo" :
       nativeBridge.phase === NATIVE_BRIDGE_PHASE.WEB_PREVIEW ? "rustIpcUnavailable" : "rustIpcError")) +
     '</div><div class="top-actions">' +
@@ -341,4 +345,9 @@ const nativeInvoke = getGlobalNativeInvoke();
 void probeNativeBridge(nativeInvoke).then((result) => {
   nativeBridge = result;
   render();
+  if (result.phase !== NATIVE_BRIDGE_PHASE.TAURI_DEMO) return;
+  void probeNativeModules(nativeInvoke).then((snapshot) => {
+    nativeModules = snapshot;
+    render();
+  });
 });

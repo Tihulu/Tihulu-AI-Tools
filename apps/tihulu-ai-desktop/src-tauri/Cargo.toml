@@ -15,6 +15,13 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
+# Coordinator Phase 4: compile the five real in-repo Rust contracts into the
+# native Tauri shell. All of them remain side-effect-free without adapters.
+tihulu-ai-core = { path = "../../../crates/tihulu-ai-core" }
+tihulu-ai-registry = { path = "../../../crates/tihulu-ai-registry", features = ["core-ledger"] }
+tihulu-ai-market = { path = "../../../crates/tihulu-ai-market" }
+tihulu-ai-transport = { path = "../../../crates/tihulu-ai-transport" }
+tihulu-ai-integrations = { path = "../../../crates/tihulu-ai-integrations" }
 
 [dev-dependencies]
 serde_json = "1"

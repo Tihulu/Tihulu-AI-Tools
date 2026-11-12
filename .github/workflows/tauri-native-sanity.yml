@@ -4,7 +4,7 @@ name: Tauri 2 Desktop — Native IPC Smoke (Ubuntu only)
 # physical GPU/SDR devices, model inference, network pairing, or Jan MCP.
 on:
   push:
-    branches: [coord/phase2-integration-sandbox]
+    branches: [coord/phase2-integration-sandbox, coord/phase4-native-inventory]
     paths:
       - "apps/tihulu-ai-desktop/**"
       - "apps/tihulu-ai-web/**"
