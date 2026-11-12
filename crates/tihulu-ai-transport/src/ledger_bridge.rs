@@ -12,8 +12,8 @@ use crate::protocol::{
 };
 use std::collections::{HashMap, HashSet};
 use tihulu_ai_core::resource_lifecycle::{
-    CleanupRequest, LifecycleError, OwnerId, Provenance, ResourceId, ResourceKind,
-    ResourceLedger, ResourcePhase,
+    CleanupRequest, LifecycleError, OwnerId, Provenance, ResourceId, ResourceKind, ResourceLedger,
+    ResourcePhase,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -311,7 +311,8 @@ impl AuthoritativeMockLedgerBridge {
                     )?;
                     self.registered_resources.insert(event.resource);
                 }
-                self.active_lease_correlations.insert(event.lease.clone(), correlation);
+                self.active_lease_correlations
+                    .insert(event.lease.clone(), correlation);
             }
             LedgerLeaseAction::Released => {
                 if self.active_lease_correlations.get(&event.lease) != Some(&correlation) {
@@ -319,8 +320,10 @@ impl AuthoritativeMockLedgerBridge {
                 }
                 let cleanup = self.ledger.release_one(owner, resource)?;
                 self.active_lease_correlations.remove(&event.lease);
-                if let Some(CleanupRequest { resource, kind: ResourceKind::ModelContext }) =
-                    cleanup
+                if let Some(CleanupRequest {
+                    resource,
+                    kind: ResourceKind::ModelContext,
+                }) = cleanup
                 {
                     if definition.provenance == Provenance::BorrowedExternal {
                         return Err(BridgeError::BorrowedCannotUnload);
@@ -336,7 +339,10 @@ impl AuthoritativeMockLedgerBridge {
                     if self.pending.insert(event.resource, ticket).is_some() {
                         return Err(BridgeError::DuplicateReceipt);
                     }
-                    *self.cleanup_request_counts.entry(event.resource).or_default() += 1;
+                    *self
+                        .cleanup_request_counts
+                        .entry(event.resource)
+                        .or_default() += 1;
                     // The request is core-authoritative and must be completed
                     // by a future trusted backend, never by this host counter.
                     debug_assert_eq!(resource, ResourceId(event.resource.0));
@@ -349,7 +355,10 @@ impl AuthoritativeMockLedgerBridge {
     }
 
     pub fn cleanup_request_count(&self, resource: LedgerResourceId) -> u64 {
-        self.cleanup_request_counts.get(&resource).copied().unwrap_or(0)
+        self.cleanup_request_counts
+            .get(&resource)
+            .copied()
+            .unwrap_or(0)
     }
 
     pub fn pending_cleanup(&self, resource: LedgerResourceId) -> Option<&CleanupTicket> {
@@ -386,13 +395,7 @@ impl AuthoritativeMockLedgerBridge {
         let failures = observation.failures();
         let ok = failures.is_empty();
         self.ledger.complete_cleanup(ResourceId(resource.0), ok)?;
-        host.acknowledge_ledger_unload(
-            &ticket.model,
-            resource,
-            ticket.generation,
-            ok,
-            now_ms,
-        )?;
+        host.acknowledge_ledger_unload(&ticket.model, resource, ticket.generation, ok, now_ms)?;
         let report = MockCleanupReport {
             resource,
             model: ticket.model.clone(),
