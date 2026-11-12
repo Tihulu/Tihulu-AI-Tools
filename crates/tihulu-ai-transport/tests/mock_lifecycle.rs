@@ -372,7 +372,11 @@ fn phase2_two_pi_apps_share_pc_gpu_ledger_is_only_unload_authority() {
     assert!(host.awaiting_ledger_unload(&model("llm")));
     assert_eq!(host.total_owned_vram_mib(), 3000);
     assert_eq!(host.model_load_counts(&model("llm")), Some((1, 0)));
-    assert_eq!(host.open_lease(&second, lease("new"), model("llm"), 5),
+    let mut fresh_launch = second.clone();
+    fresh_launch.app_session = AppSessionId::new("launch-new").unwrap();
+    host.bind_ledger_owner(client("pi-2"), app("text"),
+        fresh_launch.app_session.clone(), LedgerOwnerId(105)).unwrap();
+    assert_eq!(host.open_lease(&fresh_launch, lease("new"), model("llm"), 5),
         Err(Error::LedgerCleanupPending));
     let gen = host.model_generation(&model("llm")).unwrap();
     let releases: Vec<_> = host.pending_ledger_events().iter()
@@ -621,4 +625,68 @@ fn phase2_ledger_fixture_replayed_events_result_in_one_last_client_cleanup_reque
     host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
         1, true, 4).unwrap();
     assert_eq!(host.model_load_counts(&model("llm")), Some((1, 1)));
+}
+
+
+#[test]
+fn phase2_resource_id_must_rotate_after_owned_unload_before_relaunch() {
+    let mut host = ledger_host();
+    let old = evidence("pi", "advisor");
+    host.open_lease(&old, lease("first"), model("llm"), 0).unwrap();
+    host.close_app(&old, 1).unwrap();
+    let pending: Vec<_> = host.pending_ledger_events().iter()
+        .map(|e| e.sequence).collect();
+    for seq in pending { assert!(host.acknowledge_ledger_event(seq, 2)); }
+    host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
+        1, true, 3).unwrap();
+    let mut fresh = old.clone();
+    fresh.app_session = AppSessionId::new("launch-2").unwrap();
+    fresh.task = TaskId::new("task-2").unwrap();
+    host.bind_ledger_owner(client("pi"), app("advisor"),
+        fresh.app_session.clone(), LedgerOwnerId(200)).unwrap();
+    assert_eq!(host.open_lease(&old, lease("stale"), model("llm"), 4),
+        Err(Error::LeaseExpired));
+    assert_eq!(host.open_lease(&fresh, lease("second"), model("llm"), 4),
+        Err(Error::LedgerBindingRequired));
+    assert_eq!(host.rotate_ledger_runtime(LedgerRuntimeBinding {
+        model: model("llm"), runtime: RuntimeId::new("pc-cuda-ctx-2").unwrap(),
+        resource: LedgerResourceId(500),
+    }), Err(Error::IdentifierConflict)); // Recycled core ResourceId.
+    host.rotate_ledger_runtime(LedgerRuntimeBinding {
+        model: model("llm"), runtime: RuntimeId::new("pc-cuda-ctx-2").unwrap(),
+        resource: LedgerResourceId(600),
+    }).unwrap();
+    host.open_lease(&fresh, lease("second"), model("llm"), 5).unwrap();
+    assert_eq!(host.model_load_counts(&model("llm")), Some((2, 1)));
+    assert_eq!(host.model_generation(&model("llm")), Some(2));
+    assert_eq!(host.acknowledge_ledger_unload(&model("llm"),
+        LedgerResourceId(500), 1, true, 6), Err(Error::LedgerAckRejected));
+    let latest = host.pending_ledger_events().back().unwrap();
+    assert_eq!(latest.resource, LedgerResourceId(600));
+    assert_eq!(latest.owner, LedgerOwnerId(200));
+}
+
+#[test]
+fn phase2_borrowed_provider_reference_uses_new_ledger_id_not_new_process() {
+    let mut host = ledger_host();
+    let first = evidence("pi-2", "text");
+    host.open_lease(&first, lease("borrow-1"), model("external"), 0).unwrap();
+    host.close_app(&first, 1).unwrap();
+    let pending: Vec<_> = host.pending_ledger_events().iter()
+        .map(|e| e.sequence).collect();
+    for seq in pending { assert!(host.acknowledge_ledger_event(seq, 2)); }
+    assert_eq!(host.model_load_counts(&model("external")), Some((0, 0)));
+    let mut second = first.clone();
+    second.app_session = AppSessionId::new("fresh-external").unwrap();
+    host.bind_ledger_owner(client("pi-2"), app("text"),
+        second.app_session.clone(), LedgerOwnerId(201)).unwrap();
+    assert_eq!(host.open_lease(&second, lease("borrow-2"), model("external"), 3),
+        Err(Error::LedgerBindingRequired));
+    host.rotate_ledger_runtime(LedgerRuntimeBinding {
+        model: model("external"), runtime: RuntimeId::new("borrowed-jan-1").unwrap(),
+        resource: LedgerResourceId(601),
+    }).unwrap();
+    host.open_lease(&second, lease("borrow-2"), model("external"), 4).unwrap();
+    assert_eq!(host.model_load_counts(&model("external")), Some((0, 0)));
+    assert_eq!(host.pending_ledger_events().back().unwrap().resource, LedgerResourceId(601));
 }
