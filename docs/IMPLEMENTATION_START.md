@@ -44,5 +44,5 @@ The `AGENTS.md` policy on this branch permits **independent AI Tools implementat
 ## Validation status
 
 - Source files committed to GitHub; Rust toolchain **not installed in the current authoring container**, so no local `cargo test` can be claimed.
-- Multi-OS workflow is added for CI validation when GitHub Actions executes it. Report actual run results separately.
+- **Verified:** [GitHub Actions run #7](https://github.com/Tihulu/Tihulu-AI-Tools/actions/runs/43148925278) completed **successfully** on 2026-11-12: 5/5 native runner jobs passed (Linux x86_64, Linux aarch64, macOS Apple Silicon, Windows x86_64 and Windows aarch64), including `cargo fmt --check`, `cargo test --workspace --all-targets` and `cargo clippy -- -D warnings`. Earlier formatting-only failures were corrected, not ignored.
 - No physical Raspberry Pi / AI HAT+ 2, macOS M-series or Windows hardware runs have been conducted.
