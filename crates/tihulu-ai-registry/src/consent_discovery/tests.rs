@@ -167,7 +167,9 @@ fn jan_scans_only_explicitly_granted_engine_model_folders() {
         .all(|m| m.evidence == FileEvidence::FormatHeaderVerified));
     let approved_jan = grant.approved_root();
     assert!(inventory.models.iter().all(|model| {
-        model.location.starts_with(approved_jan.join("llamacpp/models"))
+        model
+            .location
+            .starts_with(approved_jan.join("llamacpp/models"))
             || model.location.starts_with(approved_jan.join("mlx/models"))
     }));
     assert!(inventory
