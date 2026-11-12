@@ -652,7 +652,7 @@ mod tests {
                 canonical_path,
                 ..
             } => {
-                assert_eq!(*owner, ModelOwner::JanDesktop);
+                assert_eq!(owner, &ModelOwner::JanDesktop);
                 assert_eq!(source_path, canonical_path);
                 source_path.clone()
             }
