@@ -59,6 +59,9 @@ pub struct MockComputeHost {
     lifecycle_authority: LifecycleAuthority,
     /// Host-local mapping supplied by the authoritative coordinator/registry adapter.
     ledger_models: HashMap<ModelId, LedgerRuntimeBinding>,
+    /// Core PR #12 forbids numeric ResourceId reuse for this ledger lifetime.
+    used_ledger_resources: HashSet<LedgerResourceId>,
+    used_owned_runtime_ids: HashSet<RuntimeId>,
     ledger_owners: HashMap<(ClientId, AppId, AppSessionId), LedgerOwnerId>,
     /// At-least-once delivery: retain events until the trusted adapter acks them.
     ledger_events: VecDeque<LedgerLeaseEvent>,
@@ -92,7 +95,9 @@ impl MockComputeHost {
             id, server_cert_sha256, lease_ttl_ms, grace_ms, max_pending_jobs,
             status: HostStatus::Accepting,
             lifecycle_authority: LifecycleAuthority::MockLocal,
-            ledger_models: HashMap::new(), ledger_owners: HashMap::new(),
+            ledger_models: HashMap::new(),
+            used_ledger_resources: HashSet::new(), used_owned_runtime_ids: HashSet::new(),
+            ledger_owners: HashMap::new(),
             ledger_events: VecDeque::new(), next_event_sequence: 0,
             used_lease_ids: HashMap::new(),
             stopped_app_sessions: HashSet::new(), stopped_tasks: HashSet::new(),
@@ -137,11 +142,19 @@ impl MockComputeHost {
         }
         if self.models.get(&binding.model).is_some_and(|m| m.loaded_by_us)
             || self.ledger_models.contains_key(&binding.model)
-            || self.ledger_models.values().any(|b| {
-                b.resource == binding.resource || b.runtime == binding.runtime
-            })
+            || self.used_ledger_resources.contains(&binding.resource)
+            || (self.models.get(&binding.model).is_some_and(|m| {
+                m.registration.ownership == RuntimeOwnership::HostOwned
+            }) && self.used_owned_runtime_ids.contains(&binding.runtime))
+            || self.ledger_models.values().any(|b| b.runtime == binding.runtime)
         {
             return Err(Error::IdentifierConflict);
+        }
+        self.used_ledger_resources.insert(binding.resource);
+        if self.models.get(&binding.model).is_some_and(|m| {
+            m.registration.ownership == RuntimeOwnership::HostOwned
+        }) {
+            self.used_owned_runtime_ids.insert(binding.runtime.clone());
         }
         self.ledger_models.insert(binding.model.clone(), binding);
         Ok(())
@@ -166,15 +179,18 @@ impl MockComputeHost {
             return Err(Error::LedgerCleanupPending);
         }
         let old = self.ledger_models.get(model).ok_or(Error::LedgerBindingRequired)?;
-        if new_binding.resource == old.resource
+        if self.used_ledger_resources.contains(&new_binding.resource)
             || (state.registration.ownership == RuntimeOwnership::HostOwned
-                && new_binding.runtime == old.runtime)
+                && self.used_owned_runtime_ids.contains(&new_binding.runtime))
             || self.ledger_models.iter().any(|(other_model, binding)| {
-                other_model != model && (binding.resource == new_binding.resource
-                    || binding.runtime == new_binding.runtime)
+                other_model != model && binding.runtime == new_binding.runtime
             })
         {
             return Err(Error::IdentifierConflict);
+        }
+        self.used_ledger_resources.insert(new_binding.resource);
+        if state.registration.ownership == RuntimeOwnership::HostOwned {
+            self.used_owned_runtime_ids.insert(new_binding.runtime.clone());
         }
         self.ledger_models.insert(model.clone(), new_binding);
         if let Some(state) = self.models.get_mut(model) {
