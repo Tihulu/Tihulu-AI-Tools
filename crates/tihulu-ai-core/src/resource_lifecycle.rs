@@ -166,11 +166,7 @@ impl ResourceLedger {
 
     /// Acquire a single additional reference to a shared or own resource.
     /// An exclusive resource cannot be leased to another owner.
-    pub fn attach(
-        &mut self,
-        owner: OwnerId,
-        resource: ResourceId,
-    ) -> Result<(), LifecycleError> {
+    pub fn attach(&mut self, owner: OwnerId, resource: ResourceId) -> Result<(), LifecycleError> {
         self.require_running(owner)?;
         let entry = self
             .resources
@@ -183,7 +179,9 @@ impl ResourceLedger {
             return Err(LifecycleError::ExclusiveResource);
         }
         let count = entry.holders.entry(owner).or_default();
-        *count = count.checked_add(1).ok_or(LifecycleError::CounterOverflow)?;
+        *count = count
+            .checked_add(1)
+            .ok_or(LifecycleError::CounterOverflow)?;
         Ok(())
     }
 
@@ -204,7 +202,10 @@ impl ResourceLedger {
         if entry.phase != ResourcePhase::Active {
             return Err(LifecycleError::UnavailableResource);
         }
-        let count = entry.holders.get_mut(&owner).ok_or(LifecycleError::NotHeld)?;
+        let count = entry
+            .holders
+            .get_mut(&owner)
+            .ok_or(LifecycleError::NotHeld)?;
         *count -= 1;
         if *count == 0 {
             entry.holders.remove(&owner);
@@ -218,11 +219,11 @@ impl ResourceLedger {
     /// The caller must execute cleanup requests with its backend, then report
     /// success/failure with `complete_cleanup`. Physical memory release cannot
     /// be asserted just because this method returned.
-    pub fn stop_owner(
-        &mut self,
-        owner: OwnerId,
-    ) -> Result<Vec<CleanupRequest>, LifecycleError> {
-        let phase = self.owners.get_mut(&owner).ok_or(LifecycleError::UnknownOwner)?;
+    pub fn stop_owner(&mut self, owner: OwnerId) -> Result<Vec<CleanupRequest>, LifecycleError> {
+        let phase = self
+            .owners
+            .get_mut(&owner)
+            .ok_or(LifecycleError::UnknownOwner)?;
         if *phase != OwnerPhase::Running {
             return Ok(Vec::new());
         }
@@ -356,7 +357,12 @@ mod tests {
     fn shared_model_unloads_only_on_last_lease() {
         let mut ledger = ledger_with_two_owners();
         ledger
-            .register(A, MODEL, ResourceKind::ModelContext, Provenance::SharedManaged)
+            .register(
+                A,
+                MODEL,
+                ResourceKind::ModelContext,
+                Provenance::SharedManaged,
+            )
             .unwrap();
         ledger.attach(B, MODEL).unwrap();
 
@@ -419,7 +425,12 @@ mod tests {
     fn borrowed_jan_or_readsb_is_never_terminated() {
         let mut ledger = ledger_with_two_owners();
         ledger
-            .register(A, SDR, ResourceKind::SdrHandle, Provenance::BorrowedExternal)
+            .register(
+                A,
+                SDR,
+                ResourceKind::SdrHandle,
+                Provenance::BorrowedExternal,
+            )
             .unwrap();
         ledger.attach(B, SDR).unwrap();
         assert!(ledger.stop_owner(A).unwrap().is_empty());
@@ -433,7 +444,12 @@ mod tests {
     fn exclusive_sdr_cannot_be_taken_by_second_app() {
         let mut ledger = ledger_with_two_owners();
         ledger
-            .register(A, SDR, ResourceKind::SdrHandle, Provenance::Exclusive(A))
+            .register(
+                A,
+                SDR,
+                ResourceKind::SdrHandle,
+                Provenance::Exclusive(A),
+            )
             .unwrap();
         assert_eq!(
             ledger.attach(B, SDR),
@@ -446,7 +462,12 @@ mod tests {
     fn stop_is_idempotent_and_blocks_new_jobs() {
         let mut ledger = ledger_with_two_owners();
         ledger
-            .register(A, MODEL, ResourceKind::ModelContext, Provenance::Exclusive(A))
+            .register(
+                A,
+                MODEL,
+                ResourceKind::ModelContext,
+                Provenance::Exclusive(A),
+            )
             .unwrap();
         assert_eq!(ledger.stop_owner(A).unwrap().len(), 1);
         assert!(ledger.stop_owner(A).unwrap().is_empty());
