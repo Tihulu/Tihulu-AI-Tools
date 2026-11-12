@@ -1,0 +1,59 @@
+name: AI-10 — Synthetic Provider Sessions and CPU Fallback (Offline QA)
+
+on:
+  pull_request:
+    paths:
+      - 'qa/phase6/runtime/ai10_synthetic_sessions.py'
+      - 'qa/phase6/runtime/test_ai10_synthetic_sessions.py'
+      - 'docs/qa/model-runtime/AI10_PROVIDER_SESSION_ACCEPTANCE.md'
+      - '.github/workflows/phase6-ai10-provider-sessions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  strict-synthetic-sessions:
+    name: Pinned frozen ancestry, 4-file isolation, offline provider negatives
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONNOUSERSITE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate exact #34 ancestry and four additive paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=283edc8a1101f63e08f12c172d6b2d6688b9a5ca
+          git cat-file -e "${base}^{commit}"
+          git merge-base --is-ancestor "$base" HEAD
+          paths="$(git diff --name-only "$base" HEAD)"
+          count=0
+          while IFS= read -r path; do
+            [ -n "$path" ] || continue
+            count=$((count+1))
+            case "$path" in
+              qa/phase6/runtime/ai10_synthetic_sessions.py|\
+              qa/phase6/runtime/test_ai10_synthetic_sessions.py|\
+              docs/qa/model-runtime/AI10_PROVIDER_SESSION_ACCEPTANCE.md|\
+              .github/workflows/phase6-ai10-provider-sessions.yml) ;;
+              *) echo "::error::Unexpected path outside AI-10 isolated scope: $path"; exit 1 ;;
+            esac
+          done <<< "$paths"
+          test "$count" -eq 4
+          echo "Exactly four additive QA-only files; frozen source unchanged"
+      - name: Execute deterministic offline synthetic acceptance
+        run: |
+          set -euo pipefail
+          python3 -B -m unittest discover -s qa/phase6/runtime -p 'test_ai10_synthetic_sessions.py' -v
+      - name: Print explicit evidence limits
+        run: |
+          echo 'PASS applies ONLY to synthetic user-grants/session/CPU fallback fixture.'
+          echo 'Real inference: HOLD | Real Jan/Ollama/OpenCode: HOLD'
+          echo 'Real CPU/GPU/Hailo/VRAM cleanup: HOLD | Installed app and release: HOLD'
