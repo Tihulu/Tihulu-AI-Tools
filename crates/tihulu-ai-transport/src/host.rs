@@ -5,6 +5,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 const MAX_JOB_RECORDS: usize = 10_000;
 const MAX_AUDIT_EVENTS: usize = 1_024;
+const MAX_LEDGER_EVENTS: usize = 10_000;
+const MAX_LEASE_IDENTITIES: usize = 10_000;
 
 #[derive(Clone, Debug)]
 struct PairedClient {
@@ -16,12 +18,17 @@ struct ModelState {
     loaded_by_us: bool,
     load_count: u64,
     unload_count: u64,
+    generation: u64,
+    awaiting_ledger_ack: bool,
 }
 #[derive(Clone, Debug)]
 struct LeaseRecord {
     client: ClientId,
     app: AppId,
+    app_session: AppSessionId,
+    task: TaskId,
     model: ModelId,
+    ledger_owner: Option<LedgerOwnerId>,
     status: LeaseStatus,
     expires_at_ms: u64,
     close_started_ms: Option<u64>,
@@ -30,6 +37,8 @@ struct LeaseRecord {
 struct JobRecord {
     client: ClientId,
     app: AppId,
+    app_session: AppSessionId,
+    task: TaskId,
     spec: RequestSpec,
     status: JobStatus,
     cancellation_at_ms: Option<u64>,
@@ -45,6 +54,15 @@ pub struct MockComputeHost {
     grace_ms: u64,
     max_pending_jobs: usize,
     status: HostStatus,
+    lifecycle_authority: LifecycleAuthority,
+    /// Host-local mapping supplied by the authoritative coordinator/registry adapter.
+    ledger_models: HashMap<ModelId, LedgerRuntimeBinding>,
+    ledger_owners: HashMap<(ClientId, AppId, AppSessionId), LedgerOwnerId>,
+    /// At-least-once delivery: retain events until the trusted adapter acks them.
+    ledger_events: VecDeque<LedgerLeaseEvent>,
+    next_event_sequence: u64,
+    /// Immutable tombstones prevent lease-ID reuse and cross-client replay after close.
+    used_lease_ids: HashMap<LeaseId, (ClientId, AppId, AppSessionId, TaskId)>,
     paired: HashMap<ClientId, PairedClient>,
     grants: HashMap<(ClientId, AppId), AppGrant>,
     models: HashMap<ModelId, ModelState>,
@@ -69,6 +87,10 @@ impl MockComputeHost {
         Ok(Self {
             id, server_cert_sha256, lease_ttl_ms, grace_ms, max_pending_jobs,
             status: HostStatus::Accepting,
+            lifecycle_authority: LifecycleAuthority::MockLocal,
+            ledger_models: HashMap::new(), ledger_owners: HashMap::new(),
+            ledger_events: VecDeque::new(), next_event_sequence: 0,
+            used_lease_ids: HashMap::new(),
             paired: HashMap::new(), grants: HashMap::new(), models: HashMap::new(),
             leases: HashMap::new(), jobs: HashMap::new(), audit: VecDeque::new(),
         })
@@ -86,6 +108,125 @@ impl MockComputeHost {
     }
 
     pub fn audit(&self) -> &VecDeque<AuditEvent> { &self.audit }
+    pub fn lifecycle_authority(&self) -> LifecycleAuthority { self.lifecycle_authority }
+    /// Switch only before any lease/model load; coordinator mode forbids local unloading.
+    pub fn set_lifecycle_authority(&mut self, authority: LifecycleAuthority)
+        -> Result<(), Error>
+    {
+        if !self.used_lease_ids.is_empty()
+            || self.models.values().any(|state| state.loaded_by_us)
+        {
+            return Err(Error::InvalidConfiguration);
+        }
+        self.lifecycle_authority = authority;
+        Ok(())
+    }
+
+    /// Host-trusted mapping to the registry's stable model reference and core
+    /// ResourceLedger's numeric ResourceId. Two models cannot alias one resource.
+    pub fn bind_ledger_runtime(&mut self, binding: LedgerRuntimeBinding)
+        -> Result<(), Error>
+    {
+        if !self.models.contains_key(&binding.model) {
+            return Err(Error::UnknownModel);
+        }
+        if self.models.get(&binding.model).is_some_and(|m| m.loaded_by_us)
+            || self.ledger_models.contains_key(&binding.model)
+            || self.ledger_models.values().any(|b| {
+                b.resource == binding.resource || b.runtime == binding.runtime
+            })
+        {
+            return Err(Error::IdentifierConflict);
+        }
+        self.ledger_models.insert(binding.model.clone(), binding);
+        Ok(())
+    }
+
+    /// The coordinator alone assigns per-app-launch OwnerId from its ledger.
+    /// Device identity, app identity and app-session ID together are the key.
+    pub fn bind_ledger_owner(
+        &mut self, client: ClientId, app: AppId, session: AppSessionId,
+        owner: LedgerOwnerId,
+    ) -> Result<(), Error> {
+        if !self.paired.contains_key(&client)
+            || !self.grants.contains_key(&(client.clone(), app.clone()))
+        {
+            return Err(Error::PermissionDenied);
+        }
+        let key = (client, app, session);
+        if self.ledger_owners.get(&key) == Some(&owner) { return Ok(()); }
+        if self.ledger_owners.contains_key(&key)
+            || self.ledger_owners.iter().any(|(k, id)| *id == owner && *k != key)
+        {
+            return Err(Error::IdentifierConflict);
+        }
+        self.ledger_owners.insert(key, owner);
+        Ok(())
+    }
+
+    pub fn pending_ledger_events(&self) -> &VecDeque<LedgerLeaseEvent> {
+        &self.ledger_events
+    }
+    /// Acknowledges one *delivered* event, not runtime cleanup. Coordinator
+    /// must deduplicate by host+sequence in a durable authoritative adapter.
+    pub fn acknowledge_ledger_event(&mut self, sequence: u64) -> bool {
+        if let Some(index) = self.ledger_events.iter().position(|e| e.sequence == sequence) {
+            self.ledger_events.remove(index);
+            return true;
+        }
+        false
+    }
+    /// Invoked only after core ResourceLedger issued CleanupRequest, the owned
+    /// backend verified unload, and complete_cleanup(resource, true) succeeded.
+    /// The generation fences stale late acknowledgements against a reload.
+    pub fn acknowledge_ledger_unload(
+        &mut self, model: &ModelId, resource: LedgerResourceId,
+        generation: u64, succeeded: bool, now_ms: u64,
+    ) -> Result<(), Error> {
+        if self.lifecycle_authority != LifecycleAuthority::CoordinatorLedger {
+            return Err(Error::LedgerAckRejected);
+        }
+        let binding = self.ledger_models.get(model).ok_or(Error::LedgerBindingRequired)?;
+        if binding.resource != resource || self.model_lease_count(model) != 0 {
+            return Err(Error::LedgerAckRejected);
+        }
+        let state = self.models.get_mut(model).ok_or(Error::UnknownModel)?;
+        if !state.awaiting_ledger_ack || state.generation != generation {
+            return Err(Error::LedgerAckRejected);
+        }
+        if succeeded {
+            state.awaiting_ledger_ack = false;
+            if state.loaded_by_us {
+                state.loaded_by_us = false;
+                state.unload_count += 1;
+                self.log(now_ms, AuditAction::ModelUnloaded, None, None, Some(model.clone()),
+                    None, None, "mock received authoritative ledger/backend unload ack");
+            }
+        }
+        Ok(())
+    }
+    pub fn model_generation(&self, model: &ModelId) -> Option<u64> {
+        self.models.get(model).map(|state| state.generation)
+    }
+    pub fn awaiting_ledger_unload(&self, model: &ModelId) -> bool {
+        self.models.get(model).is_some_and(|state| state.awaiting_ledger_ack)
+    }
+
+    fn emit_ledger_event(&mut self, action: LedgerLeaseAction, id: &LeaseId, lease: &LeaseRecord) {
+        if self.lifecycle_authority != LifecycleAuthority::CoordinatorLedger { return; }
+        let binding = self.ledger_models.get(&lease.model)
+            .expect("ledger binding required before opening a lease");
+        let owner = lease.ledger_owner.expect("ledger owner required before opening a lease");
+        // Admission reserves two event slots and fences u64 sequence exhaustion.
+        self.next_event_sequence += 1;
+        self.ledger_events.push_back(LedgerLeaseEvent {
+            sequence: self.next_event_sequence, action, host: self.id.clone(),
+            client: lease.client.clone(), app: lease.app.clone(),
+            app_session: lease.app_session.clone(), task: lease.task.clone(),
+            model: lease.model.clone(), runtime: binding.runtime.clone(),
+            owner, resource: binding.resource, lease: id.clone(),
+        });
+    }
     pub fn status(&self) -> HostStatus { self.status }
     pub fn lease_count(&self) -> usize { self.leases.len() }
     pub fn total_owned_vram_mib(&self) -> u64 {
@@ -152,6 +293,7 @@ impl MockComputeHost {
         }
         self.models.insert(registration.id.clone(), ModelState {
             registration, loaded_by_us: false, load_count: 0, unload_count: 0,
+            generation: 0, awaiting_ledger_ack: false,
         });
         Ok(())
     }
