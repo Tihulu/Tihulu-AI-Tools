@@ -1,6 +1,6 @@
 # Decision register and project gates
 
-**Baseline:** v0.5, 2026-11-12. This is a planning repository, not an implementation repository yet.
+**Baseline:** v0.6, 2026-11-12. This is a planning repository, not an implementation repository yet.
 
 ## Confirmed product requirements
 
@@ -20,6 +20,12 @@
 | AI Tools own remote inference | The Pi's Advisor, Agent and compatible features may use the paired PC GPU host |
 | Shared host assignment | The same paired host can be granted per TIHULU app and AI task, without a second model installation on Pi |
 | Chat UX | Advisor and Agent use chat timelines/composers with active model, runtime host and permission states |
+| External AI app inventory | Search by app name, installation/data folder, custom model path or approved local API; scan read-only by consent |
+| No-duplication reuse | Recognize compatible externally managed Jan/other models as installed references without moving or downloading them |
+| Task-level matching | Suggest and bind existing models to TIHULU app AI tasks using verified task/runtime/hardware compatibility and approved adapter |
+| Safe paths | Link in place by default; optional staged copy/relocation/consumer repoint with backups and rollback |
+| AI-assisted matching (experimental) | Internet research OFF by default; cited candidate recommendations; apply only after deterministic Rust-side checks and explicit approval |
+| Jan optional integration | Jan Desktop via optional TIHULU Rust MCP server; Jan Agent plugin candidate is separate from Jan Desktop MCP connector |
 | Policy | Default offline/on-demand; no hidden model downloads, service takeover, or user-data movement; UI EN/TR/DE |
 
 ## Proposed design — not final or proven
@@ -47,6 +53,9 @@
 8. `aipath.txt` must contain no API keys, bearer tokens or secrets.
 9. A remote LLM's text is **not** permission to execute tools. Every action stays behind Rust-side scoped authorization.
 10. AI Tools GUI and remote host service have independent lifecycles; app launch does not require GUI, while remote inference requires a reachable service.
+11. External app model registries remain foreign-owned and are accessed read-only by default; a model's path is never changed merely because it is registered.
+12. LLM-generated app matches must pass deterministic compatibility, tool/app adapter checks, diff review, and user permission before config writes.
+13. Jan MCP tools have bounded capabilities and per-action user approval; AI Tools must not change Jan's global auto-approval setting.
 
 ## Rollout gates
 
