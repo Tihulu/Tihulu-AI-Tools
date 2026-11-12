@@ -1,6 +1,6 @@
 # TIHULU AI Tools — Architecture & Product Plan
 
-> **Status:** DRAFT v0.4 — requirements captured; technical choices still subject to review  
+> **GitHub migration note (2026-11-12):** The original v0.4 planning text is preserved in this repository. Its legacy downloadable ZIP also contained standalone PNG/SVG/DOT files; those binary assets have not been migrated. References below point to [GitHub-native, editable Mermaid diagrams](ARCHITECTURE.md) or the [interactive HTML mockup](../ui/index.html) instead. These represent design concepts, not tested software.\n\n> **Status:** DRAFT v0.4 — requirements captured; technical choices still subject to review  
 > **Date:** 2026-11-12  
 > **Language:** Technical documentation in English; planned product UI in English, Turkish, and German  
 > **Change policy:** Planning only. **No existing applications, branches, repositories, installers, or models are modified.**  
@@ -95,7 +95,7 @@ This document separates explicit **confirmed requirements** from **proposed desi
 
 ## 3. System architecture (proposed)
 
-![Cross-platform architecture](assets/architecture.svg)
+**Cross-platform architecture** — [See the GitHub-rendered Mermaid architecture diagrams](ARCHITECTURE.md).
 
 The diagram is an editable SVG; the following Mermaid block is the text-source fallback for Markdown viewers supporting Mermaid.
 
@@ -182,7 +182,7 @@ Code references: [compute.py](https://github.com/Tihulu/TIHULU-TEXT-CENTER/blob/
 
 ## 6. Hardware-aware recommendations and safe model lifecycle
 
-![Model selection flow](assets/model_flow.svg)
+**Model selection flow** — [See the GitHub-rendered Mermaid architecture diagrams](ARCHITECTURE.md).
 
 ```mermaid
 flowchart LR
@@ -294,9 +294,9 @@ When a design item is agreed, move it into the **confirmed** decision register w
 
 ## 13. Model Market and private custom model library — **confirmed user requirements**
 
-![Model Market interactive mockup screenshot](assets/ui_market.png)
+**Model Market interactive mockup screenshot (archived preview image)** — [Open the interactive UI mockup](../ui/index.html).
 
-**Interactive concept:** [Open the single-file HTML preview](ui/index.html). The example uses synthetic inventory/model status: it does not scan hardware, download models, expose an API or modify a computer.
+**Interactive concept:** [Open the single-file HTML preview](../ui/index.html). The example uses synthetic inventory/model status: it does not scan hardware, download models, expose an API or modify a computer.
 
 ### Market entry channels
 
@@ -319,7 +319,7 @@ Example card metadata: model name, source, publisher, pinned revision, task, lic
 
 ## 14. Model reuse and discovery outside TIHULU — **confirmed user requirements**
 
-![Proposed shared storage and client connectivity](assets/shared_model_architecture.svg)
+**Proposed shared storage and client connectivity** — [See the GitHub-rendered Mermaid architecture diagrams](ARCHITECTURE.md).
 
 ```mermaid
 flowchart TB
@@ -392,9 +392,9 @@ Proposed compatibility discovery endpoint response (schematic, **not implemented
 
 ## 16. UX screen map and interaction model — **v0.2 concept; expanded by v0.3 §23 and v0.4 §32**
 
-![Overview design concept](assets/ui_overview.png)
+**Overview design concept (archived preview image)** — [Open the interactive UI mockup](../ui/index.html).
 
-![GPU Server and device preview v0.3](assets/ui_gpu_server.png)
+**GPU Server and device preview v0.3 (archived preview image)** — [Open the interactive UI mockup](../ui/index.html).
 
 | Tab | Initial design |
 |---|---|
@@ -418,10 +418,10 @@ Proposed compatibility discovery endpoint response (schematic, **not implemented
 
 ### Preview files
 
-- [Interactive HTML mock](ui/index.html) — nine sections, model/device filters, simulated import, simulated market add, initial UI language selector.
-- [Market screenshot](assets/ui_market.png) and [Overview screenshot](assets/ui_overview.png) — static documentation images.
-- [Shared model architecture diagram](assets/shared_model_architecture.svg) + [editable Graphviz source](assets/shared_model_architecture.dot).
-- Earlier [system architecture](assets/architecture.svg) and [selection workflow](assets/model_flow.svg) retained from v0.1.
+- [Interactive HTML mock](../ui/index.html) — nine sections, model/device filters, simulated import, simulated market add, initial UI language selector.
+- [Market screenshot (Mermaid documentation)](ARCHITECTURE.md) and [Overview screenshot (Mermaid documentation)](ARCHITECTURE.md) — static documentation images.
+- [Shared model architecture diagram (Mermaid documentation)](ARCHITECTURE.md) + [editable Graphviz source (Mermaid documentation)](ARCHITECTURE.md).
+- Earlier [system architecture (Mermaid documentation)](ARCHITECTURE.md) and [selection workflow (Mermaid documentation)](ARCHITECTURE.md) retained from v0.1.
 
 ## 17. Extended acceptance tests and change ledger
 
@@ -475,7 +475,7 @@ A custom profile shall not be allowed to override a failed physical/runtime veri
 
 ## 19. GPU Server / Remote Compute — **user-confirmed product modes**
 
-![Distributed compute & model ownership](assets/remote_gpu_architecture.svg)
+**Distributed compute & model ownership** — [See the GitHub-rendered Mermaid architecture diagrams](ARCHITECTURE.md).
 
 The **control plane** (Rust UI, pairing, settings, registry) is distinct from the **data plane** (models, requests, outputs, processing engines). The browser on the phone is a *remote control and client*; it is not inherently able to serve the device's GPU. A phone *compute host* is a future native-agent target only after Android/iOS OS background/runtime limits, driver support, memory and power have been tested.
 
@@ -527,7 +527,7 @@ With validated Hailo-10H artifacts and current vendor runtime (or ARM CPU models
 
 ## 21. Installer, common Rust agent, locations, and **`aipath.txt`** — user-confirmed goals
 
-![Future TIHULU applications and shared path resolution](assets/aipath_integration.svg)
+**Future TIHULU applications and shared path resolution** — [See the GitHub-rendered Mermaid architecture diagrams](ARCHITECTURE.md).
 
 ### Shared install contract
 
@@ -605,11 +605,11 @@ The updated preview must contain **nine top-level areas**: Overview, Model Marke
 
 GPU Server tab has: host enable/disable simulation, **Mode A / Mode B** selector, local vs remote model-location explanation, wired Ethernet / LAN / VPN choice, paired device examples (Pi / phone / PC), per-client grants and visible session status, topology illustration, warning that raw llama.cpp RPC is excluded. TIHULU Apps has a per-app **`aipath.txt` preview generator** and path selection, with explicit **no disk writes** in the prototype. Settings shows global storage relocation and install ownership concepts. Examples are labeled, with no real service, model download, pairing or config update.
 
-![GPU Server tab preview](assets/ui_gpu_server.png)
+**GPU Server tab preview (archived preview image)** — [Open the interactive UI mockup](../ui/index.html).
 
-- [Updated interactive HTML mock](ui/index.html)
-- [Architecture image](assets/remote_gpu_architecture.svg) and [Graphviz source](assets/remote_gpu_architecture.dot)
-- [`aipath.txt` integration image](assets/aipath_integration.svg) and [Graphviz source](assets/aipath_integration.dot)
+- [Updated interactive HTML mock](../ui/index.html)
+- [Architecture image (Mermaid documentation)](ARCHITECTURE.md) and [Graphviz source (Mermaid documentation)](ARCHITECTURE.md)
+- [`aipath.txt` integration image (Mermaid documentation)](ARCHITECTURE.md) and [Graphviz source (Mermaid documentation)](ARCHITECTURE.md)
 
 ## 24. Test and safety acceptance checklist (unimplemented)
 
@@ -807,11 +807,11 @@ The GUI/web mock now has **eleven** areas: Overview, Model Market, My Models, TI
 - **Agent**: choose target app, model, task, plan steps and per-action permission toggles; STOP simulated run; no actual app/network/system actions.
 - EN/TR/DE **navigation** labels updated; full translation of all prose, error messages and accessible controls remains a **future implementation requirement**, not a claim that this HTML mock is fully localized.
 
-![Combined shared library and experimental AI agents](assets/model_library_agents.png)
+**Combined shared library and experimental AI agents (archived preview image)** — [Open the interactive UI mockup](../ui/index.html).
 
-- [Interactive HTML concept](ui/index.html) (no live model/provider discovery, browser Internet call or tokens).
-- [Model discovery mock screenshot](assets/ui_model_discovery_v04.png), [AI Advisor mock screenshot](assets/ui_ai_advisor_v04.png), [Agent mock screenshot](assets/ui_app_agent_v04.png), [mobile Advisor screenshot](assets/ui_advisor_mobile_v04.png).
-- [Editable Graphviz diagram](assets/model_library_agents.dot) and [vector diagram](assets/model_library_agents.svg).
+- [Interactive HTML concept](../ui/index.html) (no live model/provider discovery, browser Internet call or tokens).
+- [Model discovery mock screenshot (Mermaid documentation)](ARCHITECTURE.md), [AI Advisor mock screenshot (Mermaid documentation)](ARCHITECTURE.md), [Agent mock screenshot (Mermaid documentation)](ARCHITECTURE.md), [mobile Advisor screenshot (Mermaid documentation)](ARCHITECTURE.md).
+- [Editable Graphviz diagram (Mermaid documentation)](ARCHITECTURE.md) and [vector diagram (Mermaid documentation)](ARCHITECTURE.md).
 
 ## 33. v0.4 — future acceptance tests (not executed)
 
