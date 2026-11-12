@@ -169,11 +169,12 @@ impl MockComputeHost {
     }
     /// Acknowledges one *delivered* event, not runtime cleanup. Coordinator
     /// must deduplicate by host+sequence in a durable authoritative adapter.
-    pub fn acknowledge_ledger_event(&mut self, sequence: u64) -> bool {
+    pub fn acknowledge_ledger_event(&mut self, sequence: u64, now_ms: u64) -> bool {
         // No out-of-order acknowledgements: acquire must be applied before
         // release in the coordinator ResourceLedger. Retried ACK is idempotent.
         if self.ledger_events.front().is_some_and(|e| e.sequence == sequence) {
             self.ledger_events.pop_front();
+            self.update_drained(now_ms);
             return true;
         }
         false
@@ -208,6 +209,7 @@ impl MockComputeHost {
                 self.log(now_ms, AuditAction::ModelUnloaded, None, None, Some(model.clone()),
                     None, None, "mock received authoritative ledger/backend unload ack");
             }
+            self.update_drained(now_ms);
         }
         Ok(())
     }
