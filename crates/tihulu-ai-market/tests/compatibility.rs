@@ -393,7 +393,7 @@ fn proposed_high_confidence_ai_match_never_overrides_rust_gate() {
         validate_advisor_proposal(
             &suggestion,
             &AdvisorPolicy::default(),
-            &[model.clone()],
+            std::slice::from_ref(&model),
             &request,
             &environment
         ),
