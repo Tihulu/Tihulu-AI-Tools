@@ -48,28 +48,42 @@ A model from Jan may have an external on-disk owner while being served by an
 independently created **AI Tools-owned** inference context. These owner
 identities must never be collapsed.
 
-## Runtime lifecycle handoff
+## Phase 2 ResourceLedger handoff
 
-The pure LeaseRegistry records:
-- RuntimeOwner::AiTools: an existing tracked TIHULU-owned loaded runtime.
-- RuntimeOwner::BorrowedExternal: a pre-existing Jan/Ollama/other app runtime.
-- Per-app and per-task leases, with separate owners across shared models.
-- ReleaseAction::KeepLoaded while another client holds a lease.
-- ReleaseAction::UnloadOwned after the last AI Tools-owned lease; the
-  backend must cancel requests, unload the model, free RAM/VRAM and then
-  acknowledge the unload. No keep-warm by default.
-- ReleaseAction::DisconnectBorrowedClient on last borrowed-client release:
-  disconnect the client only. Do not unload or kill the external provider.
+The coordinator-owned core **ResourceLedger in Draft PR #12** is the ONE
+authority for loaded model/runtime reference counts, owner phases,
+last-lease unload requests and cleanup acknowledgements.
 
-**Important:** The registry generates expected lifecycle actions, not process
-control. It does not allocate models, prove successful unload, reclaim VRAM
-or supervise dead clients. Runtime/host workers must implement bounded
-shutdown, owner-handle identity checks, cancellation and stale lease expiry.
-All external Jan/Ollama services and model files remain untouched.
+The previous Phase 1 production **LeaseRegistry has been removed**:
+if kept alongside core, its independent counters could create duplicate
+unload decisions. The Registry now stores private typed ModelId provenance
+and a non-authoritative TaskLeaseReceipt only. The ResourceLedgerPort
+interface forwards registration, attach, individual task release, app
+stop and completion acknowledgement to the authoritative core ledger.
+No production port implementation exists until the coordinator reconciles
+the unmerged sibling PR #12.
 
-Mock acceptance coverage: L-02 (advisor/agent), L-03 (two apps), L-04 (last
-host lease), L-07 (borrowed Jan), L-11 (relaunch) and L-15 (separate
-models). No L-01/L-08/L-09/L-10/L-14 hardware or process behavior is claimed.
+- ModelId::Artifact / ModelId::Endpoint: typed, complete, stable private
+  source reference, NOT a runtime ID or content hash.
+- ModelOwner: Jan/Ollama/HF/TIHULU on-disk provenance, separate from the
+  authority over a loaded runtime.
+- RuntimeInstanceId: the backend runtime context label.
+- LedgerOwnerRef / LedgerResourceRef: exact proposed core OwnerId /
+  ResourceId numeric bridge types; only core may allocate/reuse policies.
+- ContextAuthority: one-to-one core Exclusive, SharedManaged or
+  BorrowedExternal provenance.
+- ConsumerTask: app and task references for attribution; all actual
+  lease reference counts remain in core.
+- LedgerCleanupRequest: forwarded only from core, never invented in
+  this registry. Owned backend must execute actual cleanup and acknowledge.
+
+**Exact phase-2 mapping, conflict explanation, tests and remaining blockers:
+see [LEDGER_HANDOFF.md](LEDGER_HANDOFF.md).**
+
+Synthetic model-task tests cover L-03 (two apps share), L-04 (last
+owned lease), L-07 (borrowed Jan/Ollama), L-15 (separate runtime
+instances) and duplicate app Stop. These do not prove GPU/NPU/SDR
+cleanup, core PR #12 cross-branch integration or real provider behavior.
 
 ## Security limitations / integration gates
 
