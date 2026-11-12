@@ -10,9 +10,7 @@ use tihulu_ai_registry::registry::{
     ModelOwner, ModelRecord, ModelReference, RuntimeVerification as RegistryVerification,
 };
 
-use crate::manifest::{
-    ModelArchitecture, ModelFormat, ModelManifest, ModelStatus, TaskKind,
-};
+use crate::manifest::{ModelArchitecture, ModelFormat, ModelManifest, ModelStatus, TaskKind};
 use crate::matching::{MatchResult, MatchVerdict};
 use crate::registry_contract::{
     match_registry_model, ApplicationTask, ArtifactEvidence, CatalogIdentityBinding,
@@ -89,7 +87,10 @@ fn format_presence(record: &ModelRecord) -> (RegistryPresence, Option<ModelForma
     match &record.reference {
         ModelReference::File(artifact) => {
             let hint = registry_format_hint(artifact.format_hint);
-            (RegistryPresence::FileObserved { format_hint: hint }, Some(hint))
+            (
+                RegistryPresence::FileObserved { format_hint: hint },
+                Some(hint),
+            )
         }
         ModelReference::Endpoint(endpoint) => {
             let presence = match endpoint.state {
@@ -171,7 +172,10 @@ fn unavailable(
     InventoryCompatibilityReport {
         readiness: InventoryReadiness {
             catalog_status: input.catalog.availability,
-            discovered: !matches!(presence, RegistryPresence::Missing | RegistryPresence::EndpointDeclared),
+            discovered: !matches!(
+                presence,
+                RegistryPresence::Missing | RegistryPresence::EndpointDeclared
+            ),
             artifact_verified: false,
             target_runtime_verified: false,
             runnable_preflight: false,
@@ -219,9 +223,10 @@ pub fn inspect_registered_model(input: &InventoryInspection<'_>) -> InventoryCom
         });
 
     let artifact = match &input.registry.artifact_validation {
-        RegistryArtifactValidation::Validated { validator, evidence }
-            if !validator.trim().is_empty() && !evidence.trim().is_empty() =>
-        {
+        RegistryArtifactValidation::Validated {
+            validator,
+            evidence,
+        } if !validator.trim().is_empty() && !evidence.trim().is_empty() => {
             ArtifactEvidence::Validated {
                 evidence_id: evidence.clone(),
             }
@@ -248,11 +253,9 @@ pub fn inspect_registered_model(input: &InventoryInspection<'_>) -> InventoryCom
                 evidence_id: evidence.clone(),
             }
         }
-        RegistryVerification::Incompatible { reason } => {
-            RegistryRuntimeEvidence::Incompatible {
-                reason: reason.clone(),
-            }
-        }
+        RegistryVerification::Incompatible { reason } => RegistryRuntimeEvidence::Incompatible {
+            reason: reason.clone(),
+        },
         _ => RegistryRuntimeEvidence::Unchecked,
     };
 
@@ -285,8 +288,10 @@ pub fn inspect_registered_model(input: &InventoryInspection<'_>) -> InventoryCom
                 .reasons
                 .push("Model architecture was not declared or independently inspected".into());
             decision.can_propose_assignment = false;
-        } else if task_architecture_conflict(input.catalog.architecture, input.application.request.task)
-        {
+        } else if task_architecture_conflict(
+            input.catalog.architecture,
+            input.application.request.task,
+        ) {
             decision.compatibility.verdict = MatchVerdict::Incompatible;
             decision.compatibility.status = ModelStatus::Incompatible;
             decision
@@ -300,7 +305,9 @@ pub fn inspect_registered_model(input: &InventoryInspection<'_>) -> InventoryCom
         presence,
         RegistryPresence::Missing | RegistryPresence::EndpointDeclared
     );
-    let runnable_preflight = discovered && artifact_verified && target_runtime_verified
+    let runnable_preflight = discovered
+        && artifact_verified
+        && target_runtime_verified
         && decision.can_propose_assignment;
     InventoryCompatibilityReport {
         readiness: InventoryReadiness {
