@@ -20,6 +20,16 @@ pub struct TaskRequest {
     pub license_allowlist: Vec<String>,
 }
 
+/// An observation produced by a trusted local validation adapter, not by an
+/// imported model card or AI suggestion.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TrustedRuntimeProbe {
+    pub model_id: String,
+    pub runtime: Runtime,
+    pub hardware: HardwareTarget,
+    pub evidence_id: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompatibilityContext {
     pub hardware: HardwareTarget,
@@ -32,6 +42,9 @@ pub struct CompatibilityContext {
     pub runtime_ready: bool,
     pub consumer_adapter_verified: bool,
     pub paired_host_authorized: bool,
+    /// Independent, trusted model-specific probes supplied by an authorized
+    /// runtime adapter. Untrusted manifest claims cannot populate this field.
+    pub trusted_probes: Vec<TrustedRuntimeProbe>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -235,8 +248,15 @@ pub fn match_model(
         (MatchVerdict::Unknown, ModelStatus::Unknown, unknown)
     } else {
         let has_matching_test = model.verified_runtimes.iter().any(|record| {
-            record.runtime == ctx.runtime && record.hardware == ctx.hardware
+            record.runtime == ctx.runtime
+                && record.hardware == ctx.hardware
                 && !record.evidence_id.trim().is_empty()
+                && ctx.trusted_probes.iter().any(|probe| {
+                    probe.model_id == model.id
+                        && probe.runtime == ctx.runtime
+                        && probe.hardware == ctx.hardware
+                        && probe.evidence_id == record.evidence_id
+                })
         });
         if !model.integrity_verified || !has_matching_test
             || model.availability == ModelStatus::Unverified
