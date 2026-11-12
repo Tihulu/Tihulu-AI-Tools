@@ -178,7 +178,7 @@ impl MockComputeHost {
         {
             return Err(Error::LedgerCleanupPending);
         }
-        let old = self.ledger_models.get(model).ok_or(Error::LedgerBindingRequired)?;
+        self.ledger_models.get(model).ok_or(Error::LedgerBindingRequired)?;
         if self.used_ledger_resources.contains(&new_binding.resource)
             || (state.registration.ownership == RuntimeOwnership::HostOwned
                 && self.used_owned_runtime_ids.contains(&new_binding.runtime))
