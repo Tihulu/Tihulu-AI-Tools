@@ -1,0 +1,11 @@
+[package]
+name = "tihulu-ai-core"
+version = "0.1.0"
+description = "Cross-platform model metadata and compute routing primitives for TIHULU AI Tools"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "tihulu_ai_core"
+path = "src/lib.rs"
