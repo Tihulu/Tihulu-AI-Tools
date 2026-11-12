@@ -105,15 +105,79 @@ context or after approved external provider connection setup.
   that context. The registry never deletes, moves, chmods or alters
   the Jan-owned model file.
 
+## Phase 3: concrete feature-gated core adapter (PR #17)
+
+Added optional Cargo feature **core-ledger** with a path dependency on
+coordinator-owned tihulu-ai-core. This does not change the root workspace or
+core, and the default standalone Registry build stays feature-free.
+
+When core contains the PR #12 ResourceLedger API (as copied into sandbox
+PR #17), src/core_adapter.rs implements ResourceLedgerPort *directly for*
+core ResourceLedger. It uses zero additional runtime counters, and maps:
+
+| Registry port operation | Exact core call |
+| --- | --- |
+| register_model_context(owner, binding) | ResourceLedger::register(OwnerId(owner.0), ResourceId(binding.resource.0), ResourceKind::ModelContext, mapped Provenance) |
+| attach(owner, resource) | ResourceLedger::attach(OwnerId(owner.0), ResourceId(resource.0)) |
+| release_one(owner, resource) | ResourceLedger::release_one(...) -> optional mapped CleanupRequest |
+| stop_owner(owner) | ResourceLedger::stop_owner(OwnerId(owner.0)) -> all mapped cleanup requests, including NON-model kinds |
+| active_lease_count(resource) | ResourceLedger::active_lease_count(ResourceId(resource.0)) |
+| complete_cleanup(resource, success) | ResourceLedger::complete_cleanup(ResourceId(resource.0), success) |
+
+All core ResourceKind variants are mapped exhaustively: ModelContext,
+GpuAllocation, AudioRamBuffer, AiWorker, SdrHandle, NetworkSession,
+RemoteInferenceLease, TemporaryFile. ManagedShared => SharedManaged,
+ManagedExclusive(OwnerId) => Exclusive(OwnerId), BorrowedExternal =>
+BorrowedExternal. A borrowed provider is never escalated into owned cleanup.
+ModelId remains a private registry key, never converted to ResourceId or
+OwnerId. External Jan/Ollama paths are never changed.
+
+**Receipt handling:** stop_app_with_receipts calls core stop_owner once and,
+only after core confirms success, retires receipts for the stopped owner.
+Receipts for unrelated owners remain usable. This avoids a double
+release_one after app-wide Stop, without maintaining another lease count.
+The outer supervisor must serialize register/attach/release/stop around
+the same ledger, and must still cancel actual owned backend work.
+
+**Start/Quit ordering:** tests cover stop-first (attach/register denied),
+start-first (one cleanup request after the last owner stops), duplicate Stop,
+and a real-core Arc<Mutex<ResourceLedger>> concurrent attach/stop test.
+The concurrent test intentionally accepts either permitted lock ordering,
+but checks identical final resource state: other clients survive and core
+emits at most one last-lease cleanup. These are synthetic invariants,
+not a demonstration of physical RAM/VRAM/SDR release.
+
+**Exact commands on an authorized PR #17-type sandbox**, after overlaying
+the current Agent 02 crate and removing the crate-local workspace marker
+ONLY in coordinator-owned sandbox code:
+
+    cargo fmt --all -- --check
+    cargo test -p tihulu-ai-registry --all-targets
+    cargo clippy -p tihulu-ai-registry --all-targets -- -D warnings
+    cargo test -p tihulu-ai-registry --features core-ledger --all-targets
+    cargo clippy -p tihulu-ai-registry --features core-ledger --all-targets -- -D warnings
+
+**On current Agent 02 branch (without the PR #12 core source)**:
+
+    cargo fmt --manifest-path crates/tihulu-ai-registry/Cargo.toml -- --check
+    cargo test --manifest-path crates/tihulu-ai-registry/Cargo.toml
+    cargo clippy --manifest-path crates/tihulu-ai-registry/Cargo.toml --all-targets -- -D warnings
+
+The core-ledger feature is intentionally NOT enabled on this current
+branch because core ResourceLedger has not been merged into the base
+branch. Running the feature there should give an unresolved core
+resource_lifecycle import, not be misreported as a backend bug. On the
+sandbox the feature uses the real coordinator core API.
+
 ## Integration blockers and explicit next steps for coordinator
 
 1. PR #12 is an unmerged sibling PR, not an available API on PR #9's
    current base feat/rust-foundation. This branch intentionally does NOT
    import non-existent resource_lifecycle symbols from core.
-2. After approved coordinator integration, implement ResourceLedgerPort
-   in a permitted integration-owned adapter using exact core types and
-   one-to-one forwarding. The adapter must not introduce a second
-   reference count, unload policy, or process-name termination.
+2. The opt-in direct ResourceLedgerPort implementation is implemented in
+   Agent 02's core_adapter.rs. The coordinator must verify it against real
+   PR #12 core in the authorized sandbox, explicitly enable core-ledger
+   and run full crate tests; no second reference count is allowed.
 3. Core uses OwnerId-based lease counts but does not identify TaskSessionId.
    The trusted app supervisor must maintain task receipt ownership and
    enforce authorization. A single global ledger on the runtime-owning
