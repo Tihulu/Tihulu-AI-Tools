@@ -105,6 +105,29 @@ fn only_registered_available_scoped_adapters_advertise_tools() {
 }
 
 #[test]
+fn mcp_tool_names_are_unique_for_multiple_authorized_app_adapters() {
+    let mut bridge = IntegrationBridge::new();
+    for id in ["satellite", "media"] {
+        bridge
+            .register_adapter(Box::new(MockAdapter {
+                id,
+                ready: true,
+                capabilities: vec![Capability::GetAppStatus],
+                calls: Arc::new(AtomicUsize::new(0)),
+            }))
+            .unwrap();
+        bridge
+            .permissions_mut()
+            .grant("jan", id, Capability::GetAppStatus)
+            .unwrap();
+    }
+    let tools = bridge.list_tools("jan");
+    assert_eq!(tools.len(), 1);
+    assert_eq!(tools[0].name, "tihulu.get_app_status");
+    assert_eq!(tools[0].allowed_app_ids, vec!["media".to_owned(), "satellite".to_owned()]);
+}
+
+#[test]
 fn unavailable_adapter_and_stopped_session_are_not_callable() {
     let mut bridge = IntegrationBridge::new();
     bridge

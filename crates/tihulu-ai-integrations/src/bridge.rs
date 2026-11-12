@@ -89,9 +89,10 @@ pub enum BridgeError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ToolDescription {
-    pub app_id: String,
     pub name: &'static str,
     pub access: Access,
+    /// A single MCP tool name may serve several independently granted apps.
+    pub allowed_app_ids: Vec<String>,
 }
 
 /// In production, only a verified application adapter should be registered.
@@ -231,7 +232,7 @@ impl IntegrationBridge {
 
     /// Advertise only actually available, registered and scoped app tools.
     pub fn list_tools(&self, client: &str) -> Vec<ToolDescription> {
-        let mut tools = Vec::new();
+        let mut visible: BTreeMap<Capability, Vec<String>> = BTreeMap::new();
         for (app_id, adapter) in &self.adapters {
             if !adapter.is_available() {
                 continue;
@@ -239,15 +240,18 @@ impl IntegrationBridge {
             let capabilities: BTreeSet<_> = adapter.capabilities().into_iter().collect();
             for capability in capabilities {
                 if self.permissions.has_grant(client, app_id, capability) {
-                    tools.push(ToolDescription {
-                        app_id: app_id.clone(),
-                        name: capability.name(),
-                        access: capability.access(),
-                    });
+                    visible.entry(capability).or_default().push(app_id.clone());
                 }
             }
         }
-        tools
+        visible
+            .into_iter()
+            .map(|(capability, allowed_app_ids)| ToolDescription {
+                name: capability.name(),
+                access: capability.access(),
+                allowed_app_ids,
+            })
+            .collect()
     }
 
     pub fn invoke(
