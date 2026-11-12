@@ -145,7 +145,7 @@ flowchart TD
 
 ## G. Raspberry Pi AI Tools uses the paired PC GPU
 
-\`\`\`mermaid
+```mermaid
 flowchart TB
   subgraph PI["Raspberry Pi 5 · Rust AI Tools client"]
     CHAT["AI Advisor / Agent chats"]
@@ -165,13 +165,13 @@ flowchart TB
   end
   ROUTE <-->|"TLS: Ethernet, LAN or VPN"| HOST
   ROUTE -->|"Independent approval gate"| ACTION["Local permitted app tools"]
-\`\`\`
+```
 
 The Pi can use the same paired PC host for AI Tools' **own** chat inference and for individually authorized applications. Model weights may remain on PC. The GUI is not required at application startup; remote jobs require a reachable host service.
 
 ## H. Feature-level inference routing
 
-\`\`\`mermaid
+```mermaid
 flowchart TD
   R["AI Tools feature or app AI request"] --> PREF["Auto / This device / Paired GPU"]
   PREF --> L{"Compatible local runtime?"}
@@ -182,11 +182,11 @@ flowchart TD
   LOCAL --> OUTPUT["Return result with origin"]
   HOST --> OUTPUT
   HOST --> POLICY["Quota, cancellation, and audit"]
-\`\`\`
+```
 
 ## I. Chat agents share routing, not tool privileges
 
-\`\`\`mermaid
+```mermaid
 flowchart LR
   ADVISOR["Advisor conversation"] --> ROUTER["Rust inference router"]
   AGENT["App Agent conversation"] --> ROUTER
@@ -195,7 +195,7 @@ flowchart LR
   AGENT --> GATE{"Scoped tool permission and user approval"}
   GATE -->|Yes| APP["Approved app adapter"]
   GATE -->|No| DENY["No app action"]
-\`\`\`
+```
 
 ## Related specifications
 
