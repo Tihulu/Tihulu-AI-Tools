@@ -10,26 +10,23 @@ pub mod matching;
 pub mod registry_contract;
 
 pub use advisor::{
-    validate_advisor_proposal, AdvisorPolicy, AdvisorProposal, AdvisorValidation,
-    Citation, ProposalError,
+    validate_advisor_proposal, AdvisorPolicy, AdvisorProposal, AdvisorValidation, Citation,
+    ProposalError,
 };
-pub use lifecycle::{
-    CleanupAction, MarketPreviewSupervisor, PreviewResource, SupervisorError,
-};
+pub use lifecycle::{CleanupAction, MarketPreviewSupervisor, PreviewResource, SupervisorError};
 pub use manifest::{
-    HardwareTarget, LanguagePair, License, MemoryRequirements, ModelFormat,
-    ModelManifest, ModelSource, ModelStatus, Modality, Runtime, RuntimeVerification,
-    TaskKind,
+    HardwareTarget, LanguagePair, License, MemoryRequirements, Modality, ModelFormat,
+    ModelManifest, ModelSource, ModelStatus, Runtime, RuntimeVerification, TaskKind,
 };
 pub use matching::{
-    match_model, rank_models, CompatibilityContext, MatchResult, MatchVerdict,
-    TaskRequest, TrustedRuntimeProbe,
+    match_model, rank_models, CompatibilityContext, MatchResult, MatchVerdict, TaskRequest,
+    TrustedRuntimeProbe,
 };
 
 // Phase 2 Market-to-Registry preflight types; no runtime/lease authority.
 pub use registry_contract::{
-    match_registry_model, ApplicationId, ApplicationTask, ArtifactEvidence,
-    CatalogIdentityBinding, ContractError, HostId, RegistryMatchDecision,
-    RegistryMatchRequest, RegistryModelId, RegistryModelSnapshot, RegistryOwner,
-    RegistryPresence, RegistryRuntimeEvidence, RuntimeTarget, TrustedHardwareProbe,
+    match_registry_model, ApplicationId, ApplicationTask, ArtifactEvidence, CatalogIdentityBinding,
+    ContractError, HostId, RegistryMatchDecision, RegistryMatchRequest, RegistryModelId,
+    RegistryModelSnapshot, RegistryOwner, RegistryPresence, RegistryRuntimeEvidence, RuntimeTarget,
+    TrustedHardwareProbe,
 };
