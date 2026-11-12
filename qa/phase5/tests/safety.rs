@@ -156,7 +156,7 @@ fn qa_independent_app_paths_are_plans_not_migrations() {
         "tihulu-text-center",
         "tihulu-satellite-center",
         "tihulu-flight-radar",
-        "tihulu-rf-geolocation-center",
+        "tihulu-rf-geolocation",
         "tihulu-survival-kit",
     ] {
         let suggested = app_default_model_root(root.path(), app).unwrap();
