@@ -174,6 +174,8 @@ pub struct RegistryMatchDecision {
     pub target: RuntimeTarget,
     /// Inventory is independent from whether this task can run.
     pub inventory_status: ModelStatus,
+    /// A discovered/declared source is not necessarily reachable or usable.
+    pub observed_presence: RegistryPresence,
     pub compatibility: MatchResult,
     /// A preflight verdict ONLY; not a grant to load a runtime or download.
     pub can_propose_assignment: bool,
@@ -202,6 +204,7 @@ fn owner_agrees(manifest: &ModelManifest, observed: &RegistryOwner) -> bool {
 
 fn decision(
     request: &RegistryMatchRequest,
+    registry: &RegistryModelSnapshot,
     manifest: &ModelManifest,
     compatibility: MatchResult,
 ) -> RegistryMatchDecision {
@@ -213,6 +216,7 @@ fn decision(
         application_id: request.application_task.application_id.clone(),
         target: request.target.clone(),
         inventory_status: manifest.availability,
+        observed_presence: registry.presence.clone(),
         compatibility,
         can_propose_assignment,
         read_only: true,
@@ -221,6 +225,7 @@ fn decision(
 
 fn reject(
     request: &RegistryMatchRequest,
+    registry: &RegistryModelSnapshot,
     manifest: &ModelManifest,
     verdict: MatchVerdict,
     status: ModelStatus,
@@ -228,6 +233,7 @@ fn reject(
 ) -> RegistryMatchDecision {
     decision(
         request,
+        registry,
         manifest,
         MatchResult {
             model_id: manifest.id.clone(),
@@ -251,6 +257,7 @@ pub fn match_registry_model(
     if manifest.id != request.catalog_model_id || registry.id != request.registry_model_id {
         return reject(
             request,
+            registry,
             manifest,
             MatchVerdict::Unknown,
             ModelStatus::Unknown,
@@ -265,6 +272,7 @@ pub fn match_registry_model(
     ) {
         return reject(
             request,
+            registry,
             manifest,
             MatchVerdict::Unknown,
             ModelStatus::Unknown,
@@ -274,6 +282,7 @@ pub fn match_registry_model(
     if manifest.validate().is_err() {
         return reject(
             request,
+            registry,
             manifest,
             MatchVerdict::Unknown,
             ModelStatus::Unknown,
@@ -283,6 +292,7 @@ pub fn match_registry_model(
     if !owner_agrees(manifest, &registry.owner) {
         return reject(
             request,
+            registry,
             manifest,
             MatchVerdict::Incompatible,
             ModelStatus::Incompatible,
@@ -292,6 +302,7 @@ pub fn match_registry_model(
     if manifest.availability == ModelStatus::Downloadable {
         return reject(
             request,
+            registry,
             manifest,
             MatchVerdict::Unknown,
             ModelStatus::Unknown,
@@ -302,6 +313,7 @@ pub fn match_registry_model(
         RegistryPresence::Missing => {
             return reject(
                 request,
+                registry,
                 manifest,
                 MatchVerdict::Unknown,
                 ModelStatus::Unknown,
@@ -311,6 +323,7 @@ pub fn match_registry_model(
         RegistryPresence::EndpointDeclared => {
             return reject(
                 request,
+                registry,
                 manifest,
                 MatchVerdict::Unknown,
                 ModelStatus::Unknown,
@@ -321,6 +334,7 @@ pub fn match_registry_model(
             if manifest.format == ModelFormat::Endpoint {
                 return reject(
                     request,
+                    registry,
                     manifest,
                     MatchVerdict::Incompatible,
                     ModelStatus::Incompatible,
@@ -330,6 +344,7 @@ pub fn match_registry_model(
             if *format_hint == ModelFormat::Unknown {
                 return reject(
                     request,
+                    registry,
                     manifest,
                     MatchVerdict::Unknown,
                     ModelStatus::Unknown,
@@ -339,6 +354,7 @@ pub fn match_registry_model(
             if *format_hint != manifest.format {
                 return reject(
                     request,
+                    registry,
                     manifest,
                     MatchVerdict::Incompatible,
                     ModelStatus::Incompatible,
@@ -350,6 +366,7 @@ pub fn match_registry_model(
             if manifest.format != ModelFormat::Endpoint {
                 return reject(
                     request,
+                    registry,
                     manifest,
                     MatchVerdict::Incompatible,
                     ModelStatus::Incompatible,
@@ -361,6 +378,7 @@ pub fn match_registry_model(
     if request.target != probe.target {
         return reject(
             request,
+            registry,
             manifest,
             MatchVerdict::Unknown,
             ModelStatus::Unknown,
@@ -391,6 +409,7 @@ pub fn match_registry_model(
         RegistryRuntimeEvidence::Incompatible { reason } => {
             return reject(
                 request,
+                registry,
                 manifest,
                 MatchVerdict::Incompatible,
                 ModelStatus::Incompatible,
@@ -433,5 +452,5 @@ pub fn match_registry_model(
     {
         result.reasons.push("Registry validation or target runtime evidence is incomplete".into());
     }
-    decision(request, manifest, result)
+    decision(request, registry, manifest, result)
 }
