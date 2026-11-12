@@ -4,6 +4,7 @@ import os
 import sys
 import threading
 from pathlib import Path
+from unittest.mock import patch
 import subprocess
 import unittest
 
@@ -143,6 +144,33 @@ class SyntheticLifecycleTests(unittest.TestCase):
             except subprocess.TimeoutExpired:
                 foreign_test_dummy.kill()
                 foreign_test_dummy.wait(timeout=2)
+
+    @unittest.skipIf(os.name == "nt", "POSIX process group signals only")
+    def test_posix_grace_signals_only_owned_group_not_borrowed_service_names(self):
+        s = SpySupervisor(FakeChild())
+        # Use actual supervisor signal method, but mock OS signal delivery.
+        s._graceful = MODULE.OwnedDummySupervisor._graceful.__get__(s)
+        for label in ("Jan", "Ollama", "readsb", "tar1090"):
+            s.record_borrowed_label(label)
+        with patch.object(MODULE.os, "killpg") as signal_spy:
+            r = s.stop()
+        self.assertTrue(r["owned_reaped"])
+        signal_spy.assert_called_once_with(424242, MODULE.signal.SIGTERM)
+        self.assertEqual(r["borrowed_labels_untouched"],
+                         ("Jan", "Ollama", "readsb", "tar1090"))
+
+    @unittest.skipIf(os.name == "nt", "POSIX process group signals only")
+    def test_posix_force_targets_only_same_owned_group(self):
+        s = SpySupervisor(FakeChild(stubborn=True))
+        s._graceful = MODULE.OwnedDummySupervisor._graceful.__get__(s)
+        s._force = MODULE.OwnedDummySupervisor._force.__get__(s)
+        with patch.object(MODULE.os, "killpg") as signal_spy:
+            result = s.stop(grace_seconds=0)
+        self.assertTrue(result["escalated"])
+        self.assertTrue(result["owned_reaped"])
+        self.assertEqual([call.args for call in signal_spy.call_args_list],
+                         [(424242, MODULE.signal.SIGTERM),
+                          (424242, MODULE.signal.SIGKILL)])
 
     def test_l14_os_owned_dummy_reaped(self):
         s = MODULE.OwnedDummySupervisor()
