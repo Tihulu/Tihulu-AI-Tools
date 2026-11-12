@@ -1,0 +1,88 @@
+name: Phase 6 — COORD-CI-03 External Parent (Fixed Pinned QA Only)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/phase6-coord-ci03-supervisor.yml'
+      - 'docs/qa/COORD_CI_03.md'
+      - 'qa/coord/ci03_supervisor.py'
+      - 'qa/coord/test_ci03_supervisor.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parent-boundary-negatives:
+    name: Parent security counterexamples + frozen source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Retrieve exact immutable commits from first-party repo
+        shell: bash
+        run: |
+          set -euo pipefail
+          for sha in \
+            61708417c7573e3dbacdcd61e947b76f69214a74 \
+            ea6667b72d01fadf222c1c50363e4df7a2a3b7f3 \
+            c11d2bb38f04d0ac4c03529a70284c136e58c254 \
+            b28a4b1b1869289fd77392f8e1985f9b3b00f3b5 \
+            c817eed1a1088fa642102fefce6cc57b6ac981a6
+          do
+            git cat-file -e "${sha}^{commit}" 2>/dev/null || git fetch --no-tags origin "$sha"
+            git cat-file -e "${sha}^{commit}"
+          done
+      - name: Verify unchanged #45 and four additive QA-only source files
+        run: python3 -I -B qa/coord/ci03_supervisor.py attest
+      - name: Run negative tests in trusted caller against disposable children
+        run: python3 -B -m unittest discover -s qa/coord -p 'test_ci03_supervisor.py' -v
+      - name: Explicit boundary notice
+        if: always()
+        run: |
+          echo 'Independent parent checks tested; not a sandbox for malicious arbitrary Python.'
+          echo 'Frozen #34/#44/#45 workflow required checks remain in force; no waiver.'
+          echo 'NO REAL INSTALL / MODEL INFERENCE / HARDWARE / RELEASE.'
+
+  pinned-suite:
+    name: ${{ matrix.suite }} — externally supervised fixed fixture
+    needs: parent-boundary-negatives
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [ai09_preflight, ai09_transaction, ai10_policy, ai10_sessions]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch fixed first-party Git objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          for sha in \
+            61708417c7573e3dbacdcd61e947b76f69214a74 \
+            ea6667b72d01fadf222c1c50363e4df7a2a3b7f3 \
+            c11d2bb38f04d0ac4c03529a70284c136e58c254 \
+            b28a4b1b1869289fd77392f8e1985f9b3b00f3b5 \
+            c817eed1a1088fa642102fefce6cc57b6ac981a6
+          do
+            git cat-file -e "${sha}^{commit}" 2>/dev/null || git fetch --no-tags origin "$sha"
+            git cat-file -e "${sha}^{commit}"
+          done
+      - name: Execute reviewed fixed case inventory in child process
+        run: python3 -I -B qa/coord/ci03_supervisor.py suite ${{ matrix.suite }}
+      - name: No automatic release or required-check waiver
+        if: always()
+        run: |
+          echo 'Only frozen reviewed mock fixture inputs executed in an isolated hosted job.'
+          echo 'Child self-receipt is not strong proof against arbitrary malicious code.'
+          echo 'Original CI-01/CI-02 and Phase 6 guards NOT modified or waived.'
+          echo 'FULL SECURITY / MERGE / RELEASE: HOLD.'
