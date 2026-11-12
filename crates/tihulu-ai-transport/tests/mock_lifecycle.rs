@@ -18,8 +18,10 @@ fn fingerprint(n: &str) -> String { n.repeat(64) }
 fn evidence(client_id: &str, app_id: &str) -> PeerEvidence {
     PeerEvidence {
         host: host_id(), client: client(client_id), app: app(app_id),
+        app_session: AppSessionId::new("launch-1").unwrap(),
+        task: TaskId::new("task-1").unwrap(),
         app_authentication: AppAuthentication::VerifiedScopedCredential,
-        client_cert_sha256: fingerprint(if client_id == "pi" { "b" } else { "c" }),
+        client_cert_sha256: fingerprint(if client_id == "pi" { "b" } else if client_id == "pi-2" { "d" } else { "c" }),
         server_cert_sha256: fingerprint("a"),
         security: ChannelSecurity::VerifiedMutualTls,
         route: NetworkRoute::DirectEthernet,
@@ -49,7 +51,7 @@ fn setup() -> MockComputeHost {
         ownership: RuntimeOwnership::BorrowedExternal,
         estimated_vram_mib: 7777,
     }).unwrap();
-    for (device, hash) in [("pi", "b"), ("laptop", "c")] {
+    for (device, hash) in [("pi", "b"), ("pi-2", "d"), ("laptop", "c")] {
         host.pair_client(PairingApproval {
             client: client(device), client_cert_sha256: fingerprint(hash),
             user_approved: true,
@@ -313,4 +315,171 @@ fn force_cancel_cannot_be_reversed_by_late_backend_callback() {
     assert_eq!(host.lease_count(), 0);
     assert_eq!(host.total_owned_vram_mib(), 0);
     assert!(host.audit().iter().any(|e| e.action == AuditAction::ForceCancelled));
+}
+
+
+fn ledger_host() -> MockComputeHost {
+    let mut host = setup();
+    host.set_lifecycle_authority(LifecycleAuthority::CoordinatorLedger).unwrap();
+    host.bind_ledger_runtime(LedgerRuntimeBinding {
+        model: model("llm"), runtime: RuntimeId::new("pc-cuda-ctx-1").unwrap(),
+        resource: LedgerResourceId(500),
+    }).unwrap();
+    host.bind_ledger_runtime(LedgerRuntimeBinding {
+        model: model("asr"), runtime: RuntimeId::new("pc-asr-ctx-2").unwrap(),
+        resource: LedgerResourceId(501),
+    }).unwrap();
+    host.bind_ledger_runtime(LedgerRuntimeBinding {
+        model: model("external"), runtime: RuntimeId::new("borrowed-jan-1").unwrap(),
+        resource: LedgerResourceId(502),
+    }).unwrap();
+    for (device, app_name, owner) in [
+        ("pi", "advisor", 101), ("pi-2", "text", 102),
+        ("pi", "agent", 103), ("laptop", "text", 104),
+    ] {
+        host.bind_ledger_owner(client(device), app(app_name),
+            AppSessionId::new("launch-1").unwrap(), LedgerOwnerId(owner)).unwrap();
+    }
+    host
+}
+
+#[test]
+fn phase2_two_pi_apps_share_pc_gpu_ledger_is_only_unload_authority() {
+    let mut host = ledger_host();
+    let first = evidence("pi", "advisor");
+    let second = evidence("pi-2", "text");
+    host.open_lease(&first, lease("a"), model("llm"), 0).unwrap();
+    host.open_lease(&second, lease("b"), model("llm"), 1).unwrap();
+    assert_eq!(host.model_load_counts(&model("llm")), Some((1, 0)));
+    assert_eq!(host.model_lease_count(&model("llm")), 2);
+    assert_eq!(host.total_owned_vram_mib(), 3000);
+    let acquired: Vec<_> = host.pending_ledger_events().iter().cloned().collect();
+    assert_eq!(acquired.len(), 2);
+    assert!(acquired.iter().all(|event| event.action == LedgerLeaseAction::Acquired
+        && event.model == model("llm") && event.resource == LedgerResourceId(500)));
+    assert_ne!(acquired[0].owner, acquired[1].owner);
+    // At-least-once delivery must be deduplicated by host+sequence at the ledger adapter.
+    assert!(host.acknowledge_ledger_event(acquired[0].sequence));
+    assert!(!host.acknowledge_ledger_event(acquired[0].sequence));
+    host.close_app(&first, 2).unwrap();
+    assert_eq!(host.model_lease_count(&model("llm")), 1);
+    assert!(!host.awaiting_ledger_unload(&model("llm")));
+    assert_eq!(host.model_load_counts(&model("llm")), Some((1, 0)));
+    host.submit(&second, request("safe-client-b", "b"), 3).unwrap();
+    host.close_app(&second, 4).unwrap();
+    assert_eq!(host.model_lease_count(&model("llm")), 0);
+    assert!(host.awaiting_ledger_unload(&model("llm")));
+    assert_eq!(host.total_owned_vram_mib(), 3000);
+    assert_eq!(host.model_load_counts(&model("llm")), Some((1, 0)));
+    assert_eq!(host.open_lease(&second, lease("new"), model("llm"), 5),
+        Err(Error::LedgerCleanupPending));
+    let gen = host.model_generation(&model("llm")).unwrap();
+    assert_eq!(host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(999),
+        gen, true, 6), Err(Error::LedgerAckRejected));
+    assert_eq!(host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
+        gen + 1, true, 6), Err(Error::LedgerAckRejected));
+    host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
+        gen, false, 6).unwrap();
+    assert_eq!(host.total_owned_vram_mib(), 3000);
+    host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
+        gen, true, 7).unwrap();
+    assert_eq!(host.total_owned_vram_mib(), 0);
+    assert_eq!(host.model_load_counts(&model("llm")), Some((1, 1)));
+    assert_eq!(host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
+        gen, true, 8), Err(Error::LedgerAckRejected));
+    assert_eq!(host.status(), HostStatus::Accepting);
+    let releases = host.pending_ledger_events().iter().filter(|e| {
+        e.action == LedgerLeaseAction::Released && e.model == model("llm")
+    }).count();
+    assert_eq!(releases, 2);
+}
+
+#[test]
+fn phase2_ledger_ttl_disconnect_and_borrowed_runtime_no_unload() {
+    let mut host = ledger_host();
+    host.open_lease(&evidence("pi", "advisor"), lease("a"), model("llm"), 0).unwrap();
+    host.open_lease(&evidence("pi-2", "text"), lease("b"), model("external"), 0).unwrap();
+    host.heartbeat(&evidence("pi-2", "text"), &lease("b"), 20).unwrap();
+    // Pi-1 is disconnected and no longer sends heartbeat.
+    host.tick(30);
+    assert_eq!(host.model_lease_count(&model("llm")), 0);
+    assert!(host.awaiting_ledger_unload(&model("llm")));
+    assert_eq!(host.model_lease_count(&model("external")), 1);
+    assert_eq!(host.model_load_counts(&model("external")), Some((0, 0)));
+    host.acknowledge_ledger_unload(&model("llm"), LedgerResourceId(500),
+        1, true, 31).unwrap();
+    assert_eq!(host.total_owned_vram_mib(), 0);
+    host.close_app(&evidence("pi-2", "text"), 40).unwrap();
+    assert!(!host.awaiting_ledger_unload(&model("external")));
+    assert_eq!(host.model_load_counts(&model("external")), Some((0, 0)));
+}
+
+#[test]
+fn phase2_app_launch_and_task_scope_prevent_cross_session_cancel() {
+    let mut host = setup();
+    let first = evidence("pi", "advisor");
+    let mut second = evidence("pi", "advisor");
+    second.app_session = AppSessionId::new("launch-2").unwrap();
+    second.task = TaskId::new("task-2").unwrap();
+    host.open_lease(&first, lease("a"), model("llm"), 0).unwrap();
+    host.open_lease(&second, lease("b"), model("llm"), 0).unwrap();
+    host.submit(&first, request("request-a", "a"), 1).unwrap();
+    host.submit(&second, request("request-b", "b"), 1).unwrap();
+    assert_eq!(host.cancel_request(&second, &RequestId::new("request-a").unwrap(), 2),
+        Err(Error::NotOwner));
+    assert_eq!(host.heartbeat(&second, &lease("a"), 2), Err(Error::NotOwner));
+    assert_eq!(host.close_lease(&second, &lease("a"), 2), Err(Error::NotOwner));
+    host.close_task(&first, 3).unwrap();
+    assert_eq!(host.model_lease_count(&model("llm")), 1);
+    assert_eq!(host.job_status(&RequestId::new("request-b").unwrap()), Some(JobStatus::Queued));
+    host.close_app(&first, 4).unwrap();
+    assert_eq!(host.model_lease_count(&model("llm")), 1);
+    host.close_app(&second, 5).unwrap();
+    assert_eq!(host.model_load_counts(&model("llm")), Some((1, 1)));
+}
+
+#[test]
+fn phase2_retry_same_lease_does_not_double_count_reuse_denied() {
+    let mut host = ledger_host();
+    let peer = evidence("pi", "advisor");
+    host.open_lease(&peer, lease("stable"), model("llm"), 0).unwrap();
+    host.open_lease(&peer, lease("stable"), model("llm"), 1).unwrap();
+    assert_eq!(host.model_lease_count(&model("llm")), 1);
+    assert_eq!(host.pending_ledger_events().len(), 1);
+    assert_eq!(host.open_lease(&evidence("pi-2", "text"), lease("stable"),
+        model("llm"), 2), Err(Error::NotOwner));
+    host.close_lease(&peer, &lease("stable"), 3).unwrap();
+    host.close_lease(&peer, &lease("stable"), 4).unwrap();
+    assert_eq!(host.open_lease(&peer, lease("stable"), model("llm"), 4),
+        Err(Error::LeaseExpired));
+    assert_eq!(host.close_lease(&evidence("pi-2", "text"), &lease("stable"), 5),
+        Err(Error::NotOwner));
+    assert_eq!(host.pending_ledger_events().len(), 2);
+}
+
+#[test]
+fn phase2_missing_or_conflicting_coordinator_mapping_fails_closed() {
+    let mut host = setup();
+    host.set_lifecycle_authority(LifecycleAuthority::CoordinatorLedger).unwrap();
+    let peer = evidence("pi", "advisor");
+    assert_eq!(host.open_lease(&peer, lease("a"), model("llm"), 0),
+        Err(Error::LedgerBindingRequired));
+    host.bind_ledger_runtime(LedgerRuntimeBinding {
+        model: model("llm"), runtime: RuntimeId::new("runtime-1").unwrap(),
+        resource: LedgerResourceId(500),
+    }).unwrap();
+    assert_eq!(host.open_lease(&peer, lease("a"), model("llm"), 0),
+        Err(Error::LedgerBindingRequired));
+    assert_eq!(host.bind_ledger_runtime(LedgerRuntimeBinding {
+        model: model("asr"), runtime: RuntimeId::new("runtime-2").unwrap(),
+        resource: LedgerResourceId(500),
+    }), Err(Error::IdentifierConflict));
+    host.bind_ledger_owner(client("pi"), app("advisor"),
+        AppSessionId::new("launch-1").unwrap(), LedgerOwnerId(2)).unwrap();
+    assert_eq!(host.bind_ledger_owner(client("pi-2"), app("text"),
+        AppSessionId::new("launch-1").unwrap(), LedgerOwnerId(2)),
+        Err(Error::IdentifierConflict));
+    host.open_lease(&peer, lease("a"), model("llm"), 0).unwrap();
+    assert_eq!(host.set_lifecycle_authority(LifecycleAuthority::MockLocal),
+        Err(Error::InvalidConfiguration));
 }
