@@ -112,3 +112,57 @@ test("Native module summary fails closed in browser and on exceptions", async ()
   const failed = await probeNativeModules(async () => { throw Error("private host path"); });
   assert.deepEqual(failed, { phase: NATIVE_MODULE_PHASE.FAILED, backend_verified: false });
 });
+
+
+test("QA-UI-01: Phase 4 empty-registry contract rejects every positive record count", async () => {
+  for (const count of [1, 2, 100, Number.MAX_SAFE_INTEGER]) {
+    const report = await probeNativeModules(async (command) => {
+      assert.equal(command, "ui_native_module_status");
+      return { ...nativeInventoryFixture, registry_records: count, approved_source_scans: 0 };
+    });
+    assert.deepEqual(report, {
+      phase: NATIVE_MODULE_PHASE.INVALID, backend_verified: false,
+    }, `forged record count ${count} must fail closed`);
+  }
+  const empty = await probeNativeModules(async () => ({ ...nativeInventoryFixture, registry_records: 0 }));
+  assert.deepEqual(empty, { phase: NATIVE_MODULE_PHASE.LINKED, records: 0, backend_verified: false });
+});
+
+test("Phase 4 native status rejects inference/provider claims, scans and schema expansion", async () => {
+  for (const mutation of [
+    { inference_connected: true },
+    { inference_running: true },
+    { model_loaded: true },
+    { hardware_active: true },
+    { gpu_connected: true },
+    { jan_connected: true },
+    { backend_verified: true },
+    { cleanup_verified: true },
+    { approved_source_scans: 1 },
+    { gui_owner_registered: true },
+    { registry_records: "0" },
+    { registry_records: 0.5 },
+    { registry_records: null },
+    { registry_records: -1 },
+    { source: "backend_verified" },
+    { schema_version: 2 },
+    { linked_modules: [...nativeInventoryFixture.linked_modules, "inference_runtime"] },
+  ]) {
+    const status = await probeNativeModules(async () => ({ ...nativeInventoryFixture, ...mutation }));
+    assert.deepEqual(status, { phase: NATIVE_MODULE_PHASE.INVALID, backend_verified: false },
+      JSON.stringify(mutation));
+  }
+});
+
+test("Browser-only fallback does not invoke native commands and never reports models", async () => {
+  let calls = 0;
+  const noNative = await probeNativeModules(undefined);
+  assert.deepEqual(noNative, { phase: NATIVE_MODULE_PHASE.WEB_PREVIEW, backend_verified: false });
+  assert.equal(calls, 0);
+  const unexpectedFailure = await probeNativeModules(async () => {
+    calls++;
+    throw Error("No native command on this platform");
+  });
+  assert.equal(calls, 1);
+  assert.deepEqual(unexpectedFailure, { phase: NATIVE_MODULE_PHASE.FAILED, backend_verified: false });
+});

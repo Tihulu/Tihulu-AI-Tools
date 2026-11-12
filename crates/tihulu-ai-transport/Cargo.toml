@@ -11,3 +11,8 @@ path = "src/lib.rs"
 
 # The coordinator-owned root workspace is deliberately untouched.
 # Remove this marker only when the coordinator enrolls the crate as a member.
+
+# One authoritative resource owner: the coordinator's core ResourceLedger.
+# This is a pure local dependency; no GPU driver or network stack is linked.
+[dependencies]
+tihulu-ai-core = { path = "../tihulu-ai-core" }

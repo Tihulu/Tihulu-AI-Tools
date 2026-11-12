@@ -5,12 +5,18 @@
 //! connects to a server or manipulates an external application.
 
 pub mod app_paths;
+pub mod consent_discovery;
 #[cfg(feature = "core-ledger")]
 pub mod core_adapter;
 pub mod discovery;
 pub mod leases;
 pub mod registry;
 
+pub use consent_discovery::{
+    discover_approved_models, ApprovedModelScope, ConsentDecision, DiscoveredModel,
+    DiscoveryBounds, DiscoveryError, DiscoveryInventory, DiscoveryReadOnlyPort, DiscoveryWarning,
+    DiscoveryWarningKind, FileEvidence, ModelSource,
+};
 pub use discovery::{
     observe_local_endpoint, scan_approved_source, DirectorySource, EndpointAdapter,
     EndpointRequest, ReadApproval, ScanLimits, ScanReport,
