@@ -7,6 +7,7 @@ pub mod advisor;
 pub mod lifecycle;
 pub mod manifest;
 pub mod matching;
+pub mod registry_contract;
 
 pub use advisor::{
     validate_advisor_proposal, AdvisorPolicy, AdvisorProposal, AdvisorValidation,
@@ -23,4 +24,12 @@ pub use manifest::{
 pub use matching::{
     match_model, rank_models, CompatibilityContext, MatchResult, MatchVerdict,
     TaskRequest, TrustedRuntimeProbe,
+};
+
+// Phase 2 Market-to-Registry preflight types; no runtime/lease authority.
+pub use registry_contract::{
+    match_registry_model, ApplicationId, ApplicationTask, ArtifactEvidence,
+    CatalogIdentityBinding, ContractError, HostId, RegistryMatchDecision,
+    RegistryMatchRequest, RegistryModelId, RegistryModelSnapshot, RegistryOwner,
+    RegistryPresence, RegistryRuntimeEvidence, RuntimeTarget, TrustedHardwareProbe,
 };
