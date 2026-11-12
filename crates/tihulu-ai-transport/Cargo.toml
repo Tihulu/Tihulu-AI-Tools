@@ -8,3 +8,6 @@ rust-version = "1.82"
 [lib]
 name = "tihulu_ai_transport"
 path = "src/lib.rs"
+
+# The coordinator-owned root workspace is deliberately untouched.
+# Remove this marker only when the coordinator enrolls the crate as a member.

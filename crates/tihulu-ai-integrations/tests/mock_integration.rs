@@ -39,8 +39,11 @@ impl AppAdapter for MockAdapter {
 
     fn invoke(
         &self,
+        _client: &str,
         _request: &ToolRequest,
         cancel: &CancellationToken,
+        _lifecycle: &mut LifecycleSupervisor,
+        _session_id: &str,
     ) -> Result<ToolResponse, BridgeError> {
         if cancel.is_cancelled() {
             return Err(BridgeError::Cancelled);
@@ -89,7 +92,7 @@ fn only_registered_available_scoped_adapters_advertise_tools() {
         &request(Capability::GetAppStatus, Arguments::None),
         None,
         &CancellationToken::default(),
-        &lifecycle,
+        &mut lifecycle,
         "active",
     );
     assert_eq!(result, Err(BridgeError::NotGranted));
@@ -98,7 +101,7 @@ fn only_registered_available_scoped_adapters_advertise_tools() {
         &request(Capability::RequestMediaTask, Arguments::TaskId("job".into())),
         None,
         &CancellationToken::default(),
-        &lifecycle,
+        &mut lifecycle,
         "active",
     );
     assert_eq!(result, Err(BridgeError::CapabilityUnavailable));
@@ -154,7 +157,7 @@ fn unavailable_adapter_and_stopped_session_are_not_callable() {
             &req,
             None,
             &CancellationToken::default(),
-            &lifecycle,
+            &mut lifecycle,
             "active"
         ),
         Err(BridgeError::AdapterUnavailable)
@@ -165,7 +168,7 @@ fn unavailable_adapter_and_stopped_session_are_not_callable() {
             &req,
             None,
             &CancellationToken::default(),
-            &lifecycle,
+            &mut lifecycle,
             "stopped"
         ),
         Err(BridgeError::SessionStopped)
@@ -200,26 +203,26 @@ fn mutating_tool_requires_exact_scoped_single_use_approval() {
     let mut lifecycle = LifecycleSupervisor::default();
     lifecycle.start_session("active").unwrap();
     assert_eq!(
-        bridge.invoke("jan", &req, None, &cancel, &lifecycle, "active"),
+        bridge.invoke("jan", &req, None, &cancel, &mut lifecycle, "active"),
         Err(BridgeError::ApprovalRequired)
     );
     let ticket = bridge
         .permissions_mut()
-        .owner_approved_action("jan", &req)
+        .owner_approved_action("jan", &req, "active")
         .unwrap();
     assert_eq!(
-        bridge.invoke("jan", &wrong, Some(ticket), &cancel, &lifecycle, "active"),
+        bridge.invoke("jan", &wrong, Some(ticket), &cancel, &mut lifecycle, "active"),
         Err(BridgeError::InvalidApproval)
     );
     assert_eq!(
-        bridge.invoke("other", &req, Some(ticket), &cancel, &lifecycle, "active"),
+        bridge.invoke("other", &req, Some(ticket), &cancel, &mut lifecycle, "active"),
         Err(BridgeError::NotGranted)
     );
     assert!(bridge
-        .invoke("jan", &req, Some(ticket), &cancel, &lifecycle, "active")
+        .invoke("jan", &req, Some(ticket), &cancel, &mut lifecycle, "active")
         .is_ok());
     assert_eq!(
-        bridge.invoke("jan", &req, Some(ticket), &cancel, &lifecycle, "active"),
+        bridge.invoke("jan", &req, Some(ticket), &cancel, &mut lifecycle, "active"),
         Err(BridgeError::InvalidApproval)
     );
     assert_eq!(calls.load(Ordering::SeqCst), 1);
@@ -390,7 +393,7 @@ fn l10_late_registration_blocked_and_leaked_resource_reported() {
     let report = lifecycle
         .shutdown("old-session", ShutdownReason::HardStop, Duration::ZERO)
         .unwrap();
-    assert_eq!(report.state, &lifecycle, "stopped");
+    assert_eq!(report.state, &mut lifecycle, "stopped");
     assert_eq!(report.unresolved_owned, 1);
     assert_eq!(
         lifecycle.track(
@@ -408,7 +411,7 @@ fn l10_late_registration_blocked_and_leaked_resource_reported() {
         .unwrap();
     assert_eq!(report.state, SessionState::Stopped);
     lifecycle.start_session("fresh-session").unwrap();
-    assert_eq!(lifecycle.state("fresh-session"), Some(&lifecycle, "active"));
+    assert_eq!(lifecycle.state("fresh-session"), Some(&mut lifecycle, "active"));
 }
 
 #[test]

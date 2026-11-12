@@ -8,7 +8,7 @@
 
 `ModelLocation::HostStored` references a PC-resolved model. `ClientStaged` requires host-attested consent, SHA-256, integrity and runtime compatibility before use. License, disk-space, retention and ownership validation remain unimplemented.
 
-`PeerEvidence` contains claimed identities for the **verified TLS adapter boundary**: target host ID, pinned server certificate SHA-256, paired client device ID and pinned client cert, **separately attested app identity** (`AppAuthentication::VerifiedScopedCredential`), approved network route and security level. A paired Pi device certificate must not let one installed app impersonate another: a future ingress must verify a host-issued app-specific credential/token cryptographically. These fields cannot simply be copied from a network request into a trusted structure.
+`PeerEvidence` contains claimed identities for the **verified TLS adapter boundary**: target host ID, pinned server certificate SHA-256, paired client device ID and pinned client cert, **separately attested app identity** (`AppAuthentication::VerifiedScopedCredential`), app-launch `AppSessionId`, task-session `TaskId`, approved network route and security level. A paired Pi device certificate must not let one installed app impersonate another: a future ingress must verify a host-issued app-specific credential/token cryptographically. These fields cannot simply be copied from a network request into a trusted structure.
 
 ## Candidate control calls
 
@@ -53,6 +53,10 @@ stateDiagram-v2
 ```
 
 The in-memory mock collapses some transitions to `Active → Closing → removed`; `JobStatus` tracks `Queued → Running → Cancelling → Cancelled` or terminal success/failure. Logical mock timeout does NOT imply a physical worker was killed. Host `Accepting → Draining → Drained` is independent of the GUI lifecycle.
+
+## Phase 2 single-authority cleanup
+
+See [ResourceLedger bridge](RESOURCE_LEDGER_BRIDGE.md). Coordinator-authoritative mode requires trusted mapping from Registry `ModelRecord.id` to typed `ModelId`, loaded runtime incarnation `RuntimeId`, coordinator `OwnerId(u64)` and `ResourceId(u64)`. Ordered `LedgerLeaseEvent::Acquired/Released` are consumed exactly once by the core `ResourceLedger` adapter. Only the core's last-owned-reference `CleanupRequest`, followed by verified backend cleanup and core `complete_cleanup`, authorizes `acknowledge_ledger_unload`. A new runtime generation must receive a fresh ResourceId. No external Jan/Ollama runtime unload. `MockLocal` is test-only.
 
 ## Adapter boundaries required before production
 

@@ -9,3 +9,6 @@ license = "MIT"
 [lib]
 name = "tihulu_ai_integrations"
 path = "src/lib.rs"
+
+# This crate is isolated until the coordinator opts it into the root workspace.
+# Run: cargo test --manifest-path crates/tihulu-ai-integrations/Cargo.toml

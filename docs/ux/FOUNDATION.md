@@ -57,3 +57,7 @@ Target matrix: Linux x86-64 (Debian/Ubuntu/Pop!_OS), Linux aarch64 (Pi 5 8 GB an
 2. Shared Rust supervisor API must be designed with Agents 01–05. Only after it is verified should desktop/browser controls call backend commands or claim physical cleanup.
 3. A secure Pi-hosted web transport, native device adapters and actual Jan bridge must precede real connection indicators, interactive downloads or external app actions.
 4. No changes to `ui/index.html`, existing TIHULU app repos, main or production releases.
+
+## Phase 2 typed interface
+
+See [PHASE2_TYPED_BOUNDARY.md](PHASE2_TYPED_BOUNDARY.md) for the versioned Rust/JS DTOs, authoritative-owner mapping, service-versus-GUI closure behavior, protocol tests and evidence limitations. Service mode is simulated and defaults DISABLED. The V8 harness can validate committed JavaScript behavior but does **not** replace `node --test`, Tauri builds, external adapters or physical cleanup tests.

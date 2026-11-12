@@ -4,6 +4,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::lifecycle::{CancellationToken, LifecycleSupervisor, SessionState};
+use crate::typed::{HostTask, TaskKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Capability {
@@ -57,6 +58,8 @@ pub enum Arguments {
     TaskId(String),
     ModelId(String),
     OwnedJobId(String),
+    FindModelsForTask(TaskKind),
+    HostTask(HostTask),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,6 +85,7 @@ pub enum BridgeError {
     NotGranted,
     ApprovalRequired,
     InvalidApproval,
+    InvalidArguments,
     Cancelled,
     SessionStopped,
     AdapterFailure,
@@ -103,8 +107,11 @@ pub trait AppAdapter: Send + Sync {
     fn capabilities(&self) -> Vec<Capability>;
     fn invoke(
         &self,
+        client: &str,
         request: &ToolRequest,
         cancellation: &CancellationToken,
+        lifecycle: &mut LifecycleSupervisor,
+        session_id: &str,
     ) -> Result<ToolResponse, BridgeError>;
 }
 
@@ -114,7 +121,7 @@ pub struct ApprovalTicket(u64);
 #[derive(Debug, Default)]
 pub struct PermissionGate {
     grants: BTreeSet<(String, String, Capability)>,
-    one_shot: BTreeMap<ApprovalTicket, (String, ToolRequest)>,
+    one_shot: BTreeMap<ApprovalTicket, (String, String, ToolRequest)>,
     next_ticket: u64,
 }
 
@@ -137,7 +144,7 @@ impl PermissionGate {
 
     pub fn revoke_client(&mut self, client: &str) {
         self.grants.retain(|(c, _, _)| c != client);
-        self.one_shot.retain(|_, (c, _)| c != client);
+        self.one_shot.retain(|_, (c, _, _)| c != client);
     }
 
     pub fn has_grant(&self, client: &str, app: &str, capability: Capability) -> bool {
@@ -151,7 +158,11 @@ impl PermissionGate {
         &mut self,
         client: &str,
         request: &ToolRequest,
+        owner_session: &str,
     ) -> Result<ApprovalTicket, BridgeError> {
+        if !safe_id(owner_session) {
+            return Err(BridgeError::InvalidIdentifier);
+        }
         if request.capability.access() != Access::ExplicitAction
             || !self.has_grant(client, &request.app_id, request.capability)
         {
@@ -162,8 +173,10 @@ impl PermissionGate {
             .checked_add(1)
             .ok_or(BridgeError::InvalidApproval)?;
         let ticket = ApprovalTicket(self.next_ticket);
-        self.one_shot
-            .insert(ticket, (client.to_owned(), request.clone()));
+        self.one_shot.insert(
+            ticket,
+            (client.to_owned(), owner_session.to_owned(), request.clone()),
+        );
         Ok(ticket)
     }
 
@@ -172,6 +185,7 @@ impl PermissionGate {
         client: &str,
         request: &ToolRequest,
         ticket: Option<ApprovalTicket>,
+        owner_session: &str,
     ) -> Result<(), BridgeError> {
         if !self.has_grant(client, &request.app_id, request.capability) {
             return Err(BridgeError::NotGranted);
@@ -181,8 +195,10 @@ impl PermissionGate {
         }
         let ticket = ticket.ok_or(BridgeError::ApprovalRequired)?;
         match self.one_shot.get(&ticket) {
-            Some((approved_client, approved_request))
-                if approved_client == client && approved_request == request =>
+            Some((approved_client, approved_session, approved_request))
+                if approved_client == client
+                    && approved_session == owner_session
+                    && approved_request == request =>
             {
                 self.one_shot.remove(&ticket);
                 Ok(())
@@ -260,7 +276,7 @@ impl IntegrationBridge {
         request: &ToolRequest,
         approval: Option<ApprovalTicket>,
         cancellation: &CancellationToken,
-        lifecycle: &LifecycleSupervisor,
+        lifecycle: &mut LifecycleSupervisor,
         session_id: &str,
     ) -> Result<ToolResponse, BridgeError> {
         if lifecycle.state(session_id) != Some(SessionState::Running) {
@@ -279,8 +295,8 @@ impl IntegrationBridge {
         if !adapter.capabilities().contains(&request.capability) {
             return Err(BridgeError::CapabilityUnavailable);
         }
-        self.permissions.authorize(client, request, approval)?;
-        let response = adapter.invoke(request, cancellation)?;
+        self.permissions.authorize(client, request, approval, session_id)?;
+        let response = adapter.invoke(client, request, cancellation, lifecycle, session_id)?;
         if cancellation.is_cancelled() {
             return Err(BridgeError::Cancelled);
         }
@@ -292,7 +308,9 @@ impl IntegrationBridge {
 pub fn safe_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128
+        && value.as_bytes().first().is_some_and(u8::is_ascii_alphanumeric)
+        && !value.contains("..")
         && value
             .bytes()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, b'-' | b'_' | b'.'))
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, b'-' | b'_' | b'.' | b':'))
 }

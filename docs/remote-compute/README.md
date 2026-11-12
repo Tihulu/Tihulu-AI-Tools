@@ -71,4 +71,6 @@ The crate deliberately declares its own `[workspace]`: the coordinator owns the 
 
 UI copy target: **English default, Turkish and German**; connected/idle/draining and model ownership must remain clear across languages. UI is not implemented by Agent 04.
 
-Related: [Protocol contract](PROTOCOL.md), [threat model](THREAT_MODEL.md), [validation](VALIDATION.md), [resource lifecycle](../RESOURCE_LIFECYCLE.md), [Agent 04 Issue](https://github.com/Tihulu/Tihulu-AI-Tools/issues/5).
+Related: [Phase 2 ResourceLedger reconciliation](RESOURCE_LEDGER_BRIDGE.md), [Protocol contract](PROTOCOL.md), [threat model](THREAT_MODEL.md), [validation](VALIDATION.md), [resource lifecycle](../RESOURCE_LIFECYCLE.md), [Agent 04 Issue](https://github.com/Tihulu/Tihulu-AI-Tools/issues/5).
+
+**Phase 2 coordination:** `LifecycleAuthority::CoordinatorLedger` emits ordered per-task acquire/release events and waits for a trusted coordinator cleanup acknowledgement before synthetic model unloading. Registry's reference/lease accounting must not independently send unload to this host when the coordinator's `ResourceLedger` is authoritative. App launch/task IDs, runtime incarnation and numerical ledger resource IDs are separate, and the latter cannot be reused (see bridge contract). The previous `MockLocal` behavior remains only for isolated tests. Real cross-PR type linking, backend teardown and security remain missing.
