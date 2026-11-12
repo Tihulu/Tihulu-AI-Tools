@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -21,6 +22,28 @@ from phase6_native_launch_smoke import (UnsafeEnvironment, runner_root,
 
 PASS_TITLE = "TIHULU_PHASE6_IPC_PASS"
 FAIL_TITLE = "TIHULU_PHASE6_IPC_FAIL"
+HEX_COLOR = re.compile(r"#[0-9A-Fa-f]{6}(?![0-9A-Fa-f])")
+
+
+def sample_test_only_pixel(wid: str) -> str | None:
+    """Read one private X11 window pixel; no filesystem/screenshots persisted.
+
+    The JS probe draws a full-window green FAIL-CLOSED overlay only after it
+    has successfully received and validated both unchanged Rust IPC replies.
+    A failed/missing bridge produces solid red; anything else stays HOLD.
+    """
+    found = subprocess.run(
+        ["import", "-window", wid, "-crop", "1x1+550+450", "-depth", "8", "txt:-"],
+        capture_output=True, text=True, timeout=8, check=False,
+    )
+    if found.returncode != 0:
+        return None
+    values = [c.upper() for c in HEX_COLOR.findall(found.stdout)]
+    if "#00FF00" in values:
+        return "PASS"
+    if "#FF0000" in values:
+        return "FAIL"
+    return None
 
 
 def observed_status(process: subprocess.Popen[bytes]) -> tuple[str | None, str | None]:
@@ -73,15 +96,19 @@ def observe(binary: Path, report: Path, root: Path, timeout: int) -> dict:
             deadline = time.monotonic() + timeout
             wid = None
             observed = ""
+            marker = None
             while time.monotonic() < deadline:
                 wid, observed = observed_status(process)
                 if observed == FAIL_TITLE:
                     raise RuntimeError("Live WebView rejected the native IPC result")
-                if observed == PASS_TITLE:
+                marker = sample_test_only_pixel(wid) if wid else None
+                if marker == "FAIL":
+                    raise RuntimeError("Live WebView returned a strict IPC FAIL marker")
+                if marker == "PASS":
                     break
                 time.sleep(1)
-            if observed != PASS_TITLE or not wid:
-                raise RuntimeError("No live IPC PASS marker appeared in the native window")
+            if marker != "PASS" or not wid:
+                raise RuntimeError("No validated WebView IPC visual PASS marker observed")
             close = subprocess.run(["xdotool", "windowclose", wid], capture_output=True,
                                    text=True, timeout=5, check=False)
             if close.returncode != 0:
@@ -97,6 +124,7 @@ def observe(binary: Path, report: Path, root: Path, timeout: int) -> dict:
                 "scope": "ubuntu-24.04-ephemeral-instrumented-webview",
                 "live_webview_native_ipc_observed": True,
                 "native_commands_validated": ["ui_backend_status", "ui_native_module_status"],
+                "ipc_observation": "one_pixel_private_xvfb_test_overlay",
                 "window_observed": True, "native_quit_observed": True,
                 "original_native_source_changed": False,
                 "ephemeral_test_frontend_injected": True,
