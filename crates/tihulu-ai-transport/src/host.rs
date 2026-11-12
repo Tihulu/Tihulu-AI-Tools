@@ -340,7 +340,27 @@ impl MockComputeHost {
         {
             return Err(Error::QuotaExceeded);
         }
-        if self.leases.contains_key(&id) { return Err(Error::IdentifierConflict); }
+        if self.used_lease_ids.contains_key(&id) { return Err(Error::IdentifierConflict); }
+        if self.used_lease_ids.len() >= MAX_LEASE_IDENTITIES {
+            return Err(Error::RecordCapacityReached);
+        }
+        let ledger_owner = if self.lifecycle_authority == LifecycleAuthority::CoordinatorLedger {
+            if !self.ledger_models.contains_key(&model) {
+                return Err(Error::LedgerBindingRequired);
+            }
+            let key = (peer.client.clone(), peer.app.clone(), peer.app_session.clone());
+            let owner = *self.ledger_owners.get(&key).ok_or(Error::LedgerBindingRequired)?;
+            if self.ledger_events.len().saturating_add(
+                self.leases.len().saturating_mul(2)).saturating_add(2) > MAX_LEDGER_EVENTS
+                || self.next_event_sequence > u64::MAX - 2
+            {
+                return Err(Error::RecordCapacityReached);
+            }
+            Some(owner)
+        } else { None };
+        if self.models.get(&model).is_some_and(|m| m.awaiting_ledger_ack) {
+            return Err(Error::LedgerCleanupPending);
+        }
         let count = self.leases.values().filter(|lease| {
             lease.client == peer.client && lease.app == peer.app
         }).count();
@@ -350,12 +370,21 @@ impl MockComputeHost {
         if first_load {
             state.loaded_by_us = true;
             state.load_count += 1;
+            state.generation = state.generation.checked_add(1)
+                .ok_or(Error::RecordCapacityReached)?;
         }
-        self.leases.insert(id.clone(), LeaseRecord {
-            client: peer.client.clone(), app: peer.app.clone(), model: model.clone(),
+        let record = LeaseRecord {
+            client: peer.client.clone(), app: peer.app.clone(),
+            app_session: peer.app_session.clone(), task: peer.task.clone(),
+            model: model.clone(), ledger_owner,
             status: LeaseStatus::Active, expires_at_ms: now_ms.saturating_add(self.lease_ttl_ms),
             close_started_ms: None,
-        });
+        };
+        self.leases.insert(id.clone(), record.clone());
+        self.used_lease_ids.insert(id.clone(), (
+            peer.client.clone(), peer.app.clone(), peer.app_session.clone(), peer.task.clone()
+        ));
+        self.emit_ledger_event(LedgerLeaseAction::Acquired, &id, &record);
         if first_load {
             self.log(now_ms, AuditAction::ModelLoaded, None, None, Some(model.clone()),
                 None, None, "synthetic host-owned runtime load");
@@ -371,7 +400,9 @@ impl MockComputeHost {
         self.tick(now_ms);
         self.authenticate(peer)?;
         let lease = self.leases.get_mut(id).ok_or(Error::UnknownLease)?;
-        if lease.client != peer.client || lease.app != peer.app {
+        if lease.client != peer.client || lease.app != peer.app
+            || lease.app_session != peer.app_session || lease.task != peer.task
+        {
             return Err(Error::NotOwner);
         }
         if lease.status != LeaseStatus::Active { return Err(Error::LeaseExpired); }
@@ -388,6 +419,7 @@ impl MockComputeHost {
         let grant = self.grant(peer)?;
         if let Some(existing) = self.jobs.get(&spec.id) {
             if existing.client == peer.client && existing.app == peer.app
+                && existing.app_session == peer.app_session && existing.task == peer.task
                 && existing.spec == spec { return Ok(existing.status); }
             return Err(Error::IdentifierConflict);
         }
@@ -397,7 +429,9 @@ impl MockComputeHost {
         }
         if !grant.allowed_tasks.contains(&spec.task) { return Err(Error::PermissionDenied); }
         let lease = self.leases.get(&spec.lease).ok_or(Error::UnknownLease)?;
-        if lease.client != peer.client || lease.app != peer.app {
+        if lease.client != peer.client || lease.app != peer.app
+            || lease.app_session != peer.app_session || lease.task != peer.task
+        {
             return Err(Error::NotOwner);
         }
         if lease.status != LeaseStatus::Active { return Err(Error::LeaseExpired); }
@@ -414,8 +448,9 @@ impl MockComputeHost {
         let queued = self.jobs.values().filter(|job| job.status == JobStatus::Queued).count();
         if queued >= self.max_pending_jobs { return Err(Error::QuotaExceeded); }
         self.jobs.insert(spec.id.clone(), JobRecord {
-            client: peer.client.clone(), app: peer.app.clone(), spec: spec.clone(),
-            status: JobStatus::Queued, cancellation_at_ms: None,
+            client: peer.client.clone(), app: peer.app.clone(),
+            app_session: peer.app_session.clone(), task: peer.task.clone(),
+            spec: spec.clone(), status: JobStatus::Queued, cancellation_at_ms: None,
         });
         self.log(now_ms, AuditAction::JobQueued, Some(peer.client.clone()),
             Some(peer.app.clone()), None, Some(spec.lease), Some(spec.id), "queued");
@@ -470,7 +505,9 @@ impl MockComputeHost {
         self.tick(now_ms);
         self.authenticate(peer)?;
         let job = self.jobs.get(id).ok_or(Error::UnknownRequest)?;
-        if job.client != peer.client || job.app != peer.app {
+        if job.client != peer.client || job.app != peer.app
+            || job.app_session != peer.app_session || job.task != peer.task
+        {
             return Err(Error::NotOwner);
         }
         self.cancel_internal(id, now_ms);
@@ -499,13 +536,16 @@ impl MockComputeHost {
     ) -> Result<(), Error> {
         self.tick(now_ms);
         self.authenticate(peer)?;
-        if let Some(lease) = self.leases.get(id) {
-            if lease.client != peer.client || lease.app != peer.app {
-                return Err(Error::NotOwner);
-            }
+        let owner = self.used_lease_ids.get(id).ok_or(Error::UnknownLease)?;
+        if owner != &(peer.client.clone(), peer.app.clone(),
+            peer.app_session.clone(), peer.task.clone())
+        {
+            return Err(Error::NotOwner);
+        }
+        if self.leases.contains_key(id) {
             self.close_internal(id, now_ms);
         }
-        // Idempotent release: already released by this session is a no-op.
+        // Idempotent only for the original lease owner, including after teardown.
         Ok(())
     }
 
@@ -525,6 +565,7 @@ impl MockComputeHost {
         self.authenticate(peer)?;
         let ids: Vec<_> = self.leases.iter().filter(|(_, lease)| {
             lease.client == peer.client && lease.app == peer.app
+                && lease.app_session == peer.app_session
         }).map(|(id, _)| id.clone()).collect();
         for id in ids { self.close_internal(&id, now_ms); }
         Ok(())
