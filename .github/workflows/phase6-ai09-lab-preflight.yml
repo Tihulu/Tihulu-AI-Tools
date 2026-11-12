@@ -1,0 +1,52 @@
+name: AI-09 - Disposable Installer Lab Preflight (synthetic only)
+
+on:
+  pull_request:
+    paths:
+      - 'qa/phase6/installer/**'
+      - 'docs/qa/installer/**'
+      - '.github/workflows/phase6-ai09-lab-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  private-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact PR state
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require frozen baseline and additive, isolated paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='283edc8a1101f63e08f12c172d6b2d6688b9a5ca'
+          git cat-file -e "$expected^{commit}"
+          git merge-base --is-ancestor "$expected" HEAD
+          count=0
+          while IFS= read -r path; do
+            [ -n "$path" ] || continue
+            count=$((count+1))
+            case "$path" in
+              .github/workflows/phase6-ai09-lab-preflight.yml|qa/phase6/installer/*|docs/qa/installer/*) ;;
+              *) echo "FROZEN SOURCE CHANGE: $path"; exit 1 ;;
+            esac
+          done < <(git diff --name-only "$expected" HEAD)
+          test "$count" -eq 4
+      - name: Execute CI-only private lab negative tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$CI" = true
+          test "$GITHUB_ACTIONS" = true
+          python3 -m compileall -q qa/phase6/installer
+          python3 -m unittest discover -s qa/phase6/installer -p 'test_*.py' -v
+      - name: Report evidence boundary
+        run: |
+          echo 'AI-09: synthetic private preflight only; no installed package, rollback, native UI, model, GPU or real hardware tested.'
+          echo 'INSTALLER GO: HOLD | RELEASE GO: HOLD'
