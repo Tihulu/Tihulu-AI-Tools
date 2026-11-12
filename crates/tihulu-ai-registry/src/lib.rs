@@ -4,12 +4,12 @@
 //! The crate never downloads, copies, opens model weights, starts inference,
 //! connects to a server or manipulates an external application.
 
+pub mod app_paths;
 #[cfg(feature = "core-ledger")]
 pub mod core_adapter;
 pub mod discovery;
 pub mod leases;
 pub mod registry;
-pub mod app_paths;
 
 pub use discovery::{
     observe_local_endpoint, scan_approved_source, DirectorySource, EndpointAdapter,
@@ -32,6 +32,6 @@ pub use registry::{
 // config capabilities, and rollback before acting on any returned plan.
 pub use app_paths::{
     app_default_model_root, app_shared_model_root, plan_app_model_path_change,
-    AppModelPathRecord, CandidatePath, CandidateSource, ChangeMode, ModelLocationOwnership,
-    ModelPathChangePlan, PathPlanError, user_visible_candidates,
+    user_visible_candidates, AppModelPathRecord, CandidatePath, CandidateSource, ChangeMode,
+    ModelLocationOwnership, ModelPathChangePlan, PathPlanError,
 };

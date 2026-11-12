@@ -92,14 +92,17 @@ fn valid_app_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 64
         && id.as_bytes()[0].is_ascii_lowercase()
-        && id.bytes().all(|byte| byte.is_ascii_lowercase()
-            || byte.is_ascii_digit() || byte == b'-')
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
         && !id.contains("--")
 }
 
 fn valid_lexical_path(path: &Path) -> bool {
     !path.as_os_str().is_empty()
-        && !path.components().any(|part| matches!(part, Component::ParentDir))
+        && !path
+            .components()
+            .any(|part| matches!(part, Component::ParentDir))
 }
 
 /// Stable convention for standalone installers. AI Tools does not need to be
@@ -135,7 +138,10 @@ pub fn user_visible_candidates(
     let mut paths = Vec::new();
     let mut push_unique = |path: &Path, source| {
         if valid_lexical_path(path) && !paths.iter().any(|p: &CandidatePath| p.path == path) {
-            paths.push(CandidatePath { path: path.to_path_buf(), source });
+            paths.push(CandidatePath {
+                path: path.to_path_buf(),
+                source,
+            });
         }
     };
     if let Some(path) = user_override {
@@ -217,7 +223,10 @@ mod tests {
     #[test]
     fn independent_installer_uses_consistent_model_convention() {
         let result = app_default_model_root(Path::new("user"), "tihulu-media-center").unwrap();
-        assert_eq!(result, PathBuf::from("user/TIHULU AI Tools/Models/apps/tihulu-media-center"));
+        assert_eq!(
+            result,
+            PathBuf::from("user/TIHULU AI Tools/Models/apps/tihulu-media-center")
+        );
         let shared = app_shared_model_root(Path::new("user")).unwrap();
         assert_eq!(shared, PathBuf::from("user/TIHULU AI Tools/Models/shared"));
     }
@@ -225,8 +234,10 @@ mod tests {
     #[test]
     fn invalid_app_id_never_becomes_a_model_directory() {
         for id in ["", "../media", "a/b", "UpperCase", "a..b", "x--y", "-abc"] {
-            assert_eq!(app_default_model_root(Path::new("user"), id),
-                Err(PathPlanError::InvalidAppId));
+            assert_eq!(
+                app_default_model_root(Path::new("user"), id),
+                Err(PathPlanError::InvalidAppId)
+            );
         }
     }
 
@@ -234,7 +245,10 @@ mod tests {
     fn candidates_prioritize_user_override_and_preserve_legacy() {
         let record = fixture();
         let candidates = user_visible_candidates(
-            &record, Path::new("user/standard"), Some(Path::new("user/custom")));
+            &record,
+            Path::new("user/standard"),
+            Some(Path::new("user/custom")),
+        );
         assert_eq!(candidates.len(), 4);
         assert_eq!(candidates[0].source, CandidateSource::UserOverride);
         assert_eq!(candidates[1].source, CandidateSource::AppReported);
@@ -247,36 +261,69 @@ mod tests {
     fn no_approval_means_no_path_change_plan() {
         let record = fixture();
         assert_eq!(
-            plan_app_model_path_change(&record, Path::new("user/new"), Path::new("user"),
-                ChangeMode::CopyToManagedRoot, false),
-            Err(PathPlanError::UserApprovalRequired));
+            plan_app_model_path_change(
+                &record,
+                Path::new("user/new"),
+                Path::new("user"),
+                ChangeMode::CopyToManagedRoot,
+                false
+            ),
+            Err(PathPlanError::UserApprovalRequired)
+        );
     }
 
     #[test]
     fn traversal_and_scope_escape_are_rejected() {
         let record = fixture();
         assert_eq!(
-            plan_app_model_path_change(&record, Path::new("user/../secrets"),
-                Path::new("user"), ChangeMode::RepointInPlace, true),
-            Err(PathPlanError::InvalidPath));
+            plan_app_model_path_change(
+                &record,
+                Path::new("user/../secrets"),
+                Path::new("user"),
+                ChangeMode::RepointInPlace,
+                true
+            ),
+            Err(PathPlanError::InvalidPath)
+        );
         assert_eq!(
-            plan_app_model_path_change(&record, Path::new("foreign/models"),
-                Path::new("user"), ChangeMode::RepointInPlace, true),
-            Err(PathPlanError::OutsideApprovedDestination));
+            plan_app_model_path_change(
+                &record,
+                Path::new("foreign/models"),
+                Path::new("user"),
+                ChangeMode::RepointInPlace,
+                true
+            ),
+            Err(PathPlanError::OutsideApprovedDestination)
+        );
     }
 
     #[test]
     fn borrowed_external_files_are_never_planned_for_copy_or_move() {
         let mut record = fixture();
         record.current_owner = ModelLocationOwnership::BorrowedExternal;
-        for mode in [ChangeMode::CopyToManagedRoot, ChangeMode::PlanMoveWithRollback] {
+        for mode in [
+            ChangeMode::CopyToManagedRoot,
+            ChangeMode::PlanMoveWithRollback,
+        ] {
             assert_eq!(
-                plan_app_model_path_change(&record, Path::new("user/models2"),
-                    Path::new("user"), mode, true),
-                Err(PathPlanError::BorrowedModelCannotMove));
+                plan_app_model_path_change(
+                    &record,
+                    Path::new("user/models2"),
+                    Path::new("user"),
+                    mode,
+                    true
+                ),
+                Err(PathPlanError::BorrowedModelCannotMove)
+            );
         }
-        assert!(plan_app_model_path_change(&record, Path::new("user/external"),
-            Path::new("user"), ChangeMode::RepointInPlace, true).is_ok());
+        assert!(plan_app_model_path_change(
+            &record,
+            Path::new("user/external"),
+            Path::new("user"),
+            ChangeMode::RepointInPlace,
+            true
+        )
+        .is_ok());
     }
 
     #[test]
@@ -284,32 +331,57 @@ mod tests {
         let mut record = fixture();
         record.authorized_consumers = 2;
         assert_eq!(
-            plan_app_model_path_change(&record, Path::new("user/new"),
-                Path::new("user"), ChangeMode::PlanMoveWithRollback, true),
-            Err(PathPlanError::SharedModelCannotMove));
-        assert!(plan_app_model_path_change(&record, Path::new("user/new"),
-            Path::new("user"), ChangeMode::CopyToManagedRoot, true).is_ok());
+            plan_app_model_path_change(
+                &record,
+                Path::new("user/new"),
+                Path::new("user"),
+                ChangeMode::PlanMoveWithRollback,
+                true
+            ),
+            Err(PathPlanError::SharedModelCannotMove)
+        );
+        assert!(plan_app_model_path_change(
+            &record,
+            Path::new("user/new"),
+            Path::new("user"),
+            ChangeMode::CopyToManagedRoot,
+            true
+        )
+        .is_ok());
     }
 
     #[test]
     fn approved_plan_never_moves_a_file_or_rewrites_installed_app() {
         let record = fixture();
         let result = plan_app_model_path_change(
-            &record, Path::new("user/new"), Path::new("user"),
-            ChangeMode::CopyToManagedRoot, true).unwrap();
+            &record,
+            Path::new("user/new"),
+            Path::new("user"),
+            ChangeMode::CopyToManagedRoot,
+            true,
+        )
+        .unwrap();
         assert!(!result.effectful_operation_executed);
         assert!(result.native_verification_required);
         assert!(result.preserve_original);
         assert!(result.backup_and_rollback_required);
         assert!(result.requires_app_adapter);
-        assert_eq!(record.installation_path, Some(PathBuf::from("installed/apps/media")));
-        assert_eq!(record.current_model_root, PathBuf::from("user/old-media-models"));
+        assert_eq!(
+            record.installation_path,
+            Some(PathBuf::from("installed/apps/media"))
+        );
+        assert_eq!(
+            record.current_model_root,
+            PathBuf::from("user/old-media-models")
+        );
     }
 
     #[test]
     fn rejected_legacy_candidates_do_not_expand_read_scope() {
         let mut record = fixture();
-        record.legacy_model_roots.push(PathBuf::from("user/../../escape"));
+        record
+            .legacy_model_roots
+            .push(PathBuf::from("user/../../escape"));
         record.legacy_model_roots.push(PathBuf::new());
         let candidates = user_visible_candidates(&record, Path::new("user/new"), None);
         assert_eq!(candidates.len(), 3);
