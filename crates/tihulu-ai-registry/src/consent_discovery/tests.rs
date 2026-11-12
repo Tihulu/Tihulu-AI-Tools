@@ -10,7 +10,10 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
-        let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let root = std::env::temp_dir().join(format!(
             "tihulu-consent-fixture-{}-{stamp}-{}",
             std::process::id(),
@@ -97,7 +100,13 @@ fn explicit_consent_required_and_revocation_is_shared_across_clones() {
     );
     let copy = scope.clone();
     fixture.gguf("model.gguf");
-    assert_eq!(discover_approved_models(&scope, DiscoveryBounds::default()).unwrap().models.len(), 1);
+    assert_eq!(
+        discover_approved_models(&scope, DiscoveryBounds::default())
+            .unwrap()
+            .models
+            .len(),
+        1
+    );
     scope.revoke();
     assert!(matches!(
         discover_approved_models(&copy, DiscoveryBounds::default()),
@@ -141,15 +150,33 @@ fn jan_scans_only_explicitly_granted_engine_model_folders() {
     fixture.gguf("jan-data/mlx/models/vision.gguf");
     fixture.gguf("jan-data/private/chat-history.gguf");
     fixture.gguf("jan-data/.secrets/secret.gguf");
-    fixture.write("jan-data/llamacpp/models/config.json", br#"{"model_type":"llama","architectures":["LlamaForCausalLM"]}"#);
+    fixture.write(
+        "jan-data/llamacpp/models/config.json",
+        br#"{"model_type":"llama","architectures":["LlamaForCausalLM"]}"#,
+    );
     let grant = fixture.approve(&fixture.path("jan-data"), ModelSource::JanDesktop);
     let inventory = discover_approved_models(&grant, DiscoveryBounds::default()).unwrap();
     assert_eq!(inventory.models.len(), 2);
-    assert!(inventory.models.iter().all(|m| m.owner == ModelOwner::JanDesktop));
-    assert!(inventory.models.iter().all(|m| m.evidence == FileEvidence::FormatHeaderVerified));
-    assert!(inventory.models.iter().all(|m| !m.location.to_string_lossy().contains("private")));
-    assert!(inventory.models.iter().any(|m| m.metadata.get("model_type") == Some(&"llama".into())));
-    assert!(!fixture.path("jan-data/private/chat-history.gguf").to_string_lossy().is_empty());
+    assert!(inventory
+        .models
+        .iter()
+        .all(|m| m.owner == ModelOwner::JanDesktop));
+    assert!(inventory
+        .models
+        .iter()
+        .all(|m| m.evidence == FileEvidence::FormatHeaderVerified));
+    assert!(inventory
+        .models
+        .iter()
+        .all(|m| !m.location.to_string_lossy().contains("private")));
+    assert!(inventory
+        .models
+        .iter()
+        .any(|m| m.metadata.get("model_type") == Some(&"llama".into())));
+    assert!(!fixture
+        .path("jan-data/private/chat-history.gguf")
+        .to_string_lossy()
+        .is_empty());
 }
 
 #[test]
@@ -162,7 +189,10 @@ fn ollama_inventory_only_uses_approved_manifests_and_model_blobs() {
         r#"{{"schemaVersion":2,"layers":[{{"mediaType":"application/vnd.ollama.image.model","digest":"sha256:{digest}","size":7}},{{"mediaType":"application/vnd.ollama.image.template","digest":"sha256:{}","size":1}}]}}"#,
         "b".repeat(64)
     );
-    fixture.write("ollama/manifests/registry.ollama.ai/library/synthetic/latest", manifest.as_bytes());
+    fixture.write(
+        "ollama/manifests/registry.ollama.ai/library/synthetic/latest",
+        manifest.as_bytes(),
+    );
     let grant = fixture.approve(&fixture.path("ollama"), ModelSource::OllamaStore);
     let inventory = discover_approved_models(&grant, DiscoveryBounds::default()).unwrap();
     assert_eq!(inventory.models.len(), 1);
@@ -173,17 +203,26 @@ fn ollama_inventory_only_uses_approved_manifests_and_model_blobs() {
     assert!(model.format_hint.is_none());
     assert_eq!(model.size_bytes, 7);
     assert!(model.provenance_path.ends_with("synthetic/latest"));
-    assert_eq!(model.metadata.get("declared_digest"), Some(&format!("sha256:{digest}")));
+    assert_eq!(
+        model.metadata.get("declared_digest"),
+        Some(&format!("sha256:{digest}"))
+    );
 }
 
 #[test]
 fn malformed_ollama_manifest_does_not_become_installed_model() {
     let fixture = Fixture::new();
-    fixture.write("ollama/manifests/registry.ollama.ai/library/model/latest", b"{no-json");
+    fixture.write(
+        "ollama/manifests/registry.ollama.ai/library/model/latest",
+        b"{no-json",
+    );
     let grant = fixture.approve(&fixture.path("ollama"), ModelSource::OllamaStore);
     let report = discover_approved_models(&grant, DiscoveryBounds::default()).unwrap();
     assert!(report.models.is_empty());
-    assert!(report.warnings.iter().any(|w| w.kind == DiscoveryWarningKind::MalformedMetadata));
+    assert!(report
+        .warnings
+        .iter()
+        .any(|w| w.kind == DiscoveryWarningKind::MalformedMetadata));
 }
 
 #[test]
@@ -204,7 +243,10 @@ fn hf_valid_snapshot_symlink_remains_inside_approved_cache() {
     let grant = fixture.approve(&fixture.path("cache"), ModelSource::HuggingFaceCache);
     let report = discover_approved_models(&grant, DiscoveryBounds::default()).unwrap();
     assert_eq!(report.models.len(), 1);
-    assert_eq!(report.models[0].evidence, FileEvidence::FormatHeaderVerified);
+    assert_eq!(
+        report.models[0].evidence,
+        FileEvidence::FormatHeaderVerified
+    );
     assert_eq!(report.models[0].owner, ModelOwner::HuggingFace);
     assert_eq!(report.models[0].location, blob.canonicalize().unwrap());
 }
@@ -225,7 +267,10 @@ fn hf_external_symlink_escape_is_skipped() {
     let grant = fixture.approve(&fixture.path("cache"), ModelSource::HuggingFaceCache);
     let report = discover_approved_models(&grant, DiscoveryBounds::default()).unwrap();
     assert!(report.models.is_empty());
-    assert!(report.warnings.iter().any(|w| w.kind == DiscoveryWarningKind::OutsideScope));
+    assert!(report
+        .warnings
+        .iter()
+        .any(|w| w.kind == DiscoveryWarningKind::OutsideScope));
 }
 
 #[test]
@@ -237,7 +282,8 @@ fn jan_symlinked_engine_folder_cannot_escape_selected_scope() {
     #[cfg(unix)]
     let link = std::os::unix::fs::symlink(external.path("models"), fixture.path("jan/llamacpp"));
     #[cfg(windows)]
-    let link = std::os::windows::fs::symlink_dir(external.path("models"), fixture.path("jan/llamacpp"));
+    let link =
+        std::os::windows::fs::symlink_dir(external.path("models"), fixture.path("jan/llamacpp"));
     if let Err(error) = link {
         if error.kind() == io::ErrorKind::PermissionDenied {
             return;
@@ -247,7 +293,10 @@ fn jan_symlinked_engine_folder_cannot_escape_selected_scope() {
     let grant = fixture.approve(&fixture.path("jan"), ModelSource::JanDesktop);
     let report = discover_approved_models(&grant, DiscoveryBounds::default()).unwrap();
     assert!(report.models.is_empty());
-    assert!(report.warnings.iter().any(|w| w.kind == DiscoveryWarningKind::SymlinkSkipped));
+    assert!(report
+        .warnings
+        .iter()
+        .any(|w| w.kind == DiscoveryWarningKind::SymlinkSkipped));
 }
 
 #[test]
@@ -267,13 +316,20 @@ fn independent_tihulu_app_folders_never_inherit_another_apps_models() {
             app_id: "tihulu-text-center".into(),
         },
     );
-    let media_inventory = discover_approved_models(&media_grant, DiscoveryBounds::default()).unwrap();
+    let media_inventory =
+        discover_approved_models(&media_grant, DiscoveryBounds::default()).unwrap();
     let text_inventory = discover_approved_models(&text_grant, DiscoveryBounds::default()).unwrap();
     assert_eq!(media_inventory.models.len(), 1);
     assert_eq!(text_inventory.models.len(), 1);
     assert_ne!(media_inventory.models[0].id, text_inventory.models[0].id);
-    assert_eq!(media_inventory.models[0].owner, ModelOwner::TihuluApp("tihulu-media-center".into()));
-    assert_eq!(text_inventory.models[0].owner, ModelOwner::TihuluApp("tihulu-text-center".into()));
+    assert_eq!(
+        media_inventory.models[0].owner,
+        ModelOwner::TihuluApp("tihulu-media-center".into())
+    );
+    assert_eq!(
+        text_inventory.models[0].owner,
+        ModelOwner::TihuluApp("tihulu-text-center".into())
+    );
 }
 
 #[test]
@@ -297,17 +353,31 @@ fn hidden_descendants_require_separate_explicit_consent() {
     let fixture = Fixture::new();
     fixture.gguf("models/visible.gguf");
     fixture.gguf("models/.private/secret.gguf");
-    let source = ModelSource::UserFolder { owner_label: "custom".into() };
+    let source = ModelSource::UserFolder {
+        owner_label: "custom".into(),
+    };
     let grant = fixture.approve(&fixture.path("models"), source.clone());
-    assert_eq!(discover_approved_models(&grant, DiscoveryBounds::default()).unwrap().models.len(), 1);
+    assert_eq!(
+        discover_approved_models(&grant, DiscoveryBounds::default())
+            .unwrap()
+            .models
+            .len(),
+        1
+    );
     let grant_with_hidden = ApprovedModelScope::approve(
         &fixture.path("models"),
         source,
-        ConsentDecision { user_approved_read: true, include_hidden_descendants: true },
-    ).unwrap();
+        ConsentDecision {
+            user_approved_read: true,
+            include_hidden_descendants: true,
+        },
+    )
+    .unwrap();
     assert_eq!(
         discover_approved_models(&grant_with_hidden, DiscoveryBounds::default())
-            .unwrap().models.len(),
+            .unwrap()
+            .models
+            .len(),
         2
     );
 }
@@ -319,7 +389,9 @@ fn same_filename_in_different_folders_is_not_deduplicated() {
     fixture.gguf("models/b/model.gguf");
     let grant = fixture.approve(
         &fixture.path("models"),
-        ModelSource::UserFolder { owner_label: "custom".into() },
+        ModelSource::UserFolder {
+            owner_label: "custom".into(),
+        },
     );
     let inventory = discover_approved_models(&grant, DiscoveryBounds::default()).unwrap();
     assert_eq!(inventory.models.len(), 2);
@@ -333,13 +405,18 @@ fn bogus_gguf_header_and_malformed_config_remain_unverified() {
     fixture.write("models/config.json", b"{ malformed ");
     let grant = fixture.approve(
         &fixture.path("models"),
-        ModelSource::UserFolder { owner_label: "custom".into() },
+        ModelSource::UserFolder {
+            owner_label: "custom".into(),
+        },
     );
     let report = discover_approved_models(&grant, DiscoveryBounds::default()).unwrap();
     assert_eq!(report.models.len(), 1);
     assert_eq!(report.models[0].evidence, FileEvidence::UnverifiedCandidate);
     assert!(report.models[0].metadata.is_empty());
-    assert!(report.warnings.iter().any(|w| w.kind == DiscoveryWarningKind::MalformedMetadata));
+    assert!(report
+        .warnings
+        .iter()
+        .any(|w| w.kind == DiscoveryWarningKind::MalformedMetadata));
 }
 
 #[test]
@@ -350,12 +427,19 @@ fn bounded_directory_enumeration_marks_truncated_results() {
     }
     let grant = fixture.approve(
         &fixture.path("models"),
-        ModelSource::UserFolder { owner_label: "test".into() },
+        ModelSource::UserFolder {
+            owner_label: "test".into(),
+        },
     );
     let report = discover_approved_models(
         &grant,
-        DiscoveryBounds { max_entries: 2, max_models: 50, max_depth: 4 },
-    ).unwrap();
+        DiscoveryBounds {
+            max_entries: 2,
+            max_models: 50,
+            max_depth: 4,
+        },
+    )
+    .unwrap();
     assert!(report.truncated);
     assert!(report.scanned_entries <= 2);
     assert!(report.models.len() <= 2);
@@ -373,12 +457,20 @@ fn unreadable_synthetic_file_is_never_upgraded_to_verified() {
     let inaccessible = File::open(&file).is_err();
     let grant = fixture.approve(
         &fixture.path("models"),
-        ModelSource::UserFolder { owner_label: "test".into() },
+        ModelSource::UserFolder {
+            owner_label: "test".into(),
+        },
     );
     let report = discover_approved_models(&grant, DiscoveryBounds::default()).unwrap();
     if inaccessible {
-        assert!(report.models.iter().all(|m| m.evidence == FileEvidence::UnverifiedCandidate));
-        assert!(report.warnings.iter().any(|w| w.kind == DiscoveryWarningKind::Inaccessible));
+        assert!(report
+            .models
+            .iter()
+            .all(|m| m.evidence == FileEvidence::UnverifiedCandidate));
+        assert!(report
+            .warnings
+            .iter()
+            .any(|w| w.kind == DiscoveryWarningKind::Inaccessible));
     }
     let mut perms = fs::metadata(&file).unwrap().permissions();
     perms.set_mode(0o600);
@@ -394,9 +486,17 @@ fn discovery_does_not_modify_source_weights_or_configs() {
     let before_config = fs::read(&metadata).unwrap();
     let grant = fixture.approve(
         &fixture.path("models"),
-        ModelSource::UserFolder { owner_label: "test".into() },
+        ModelSource::UserFolder {
+            owner_label: "test".into(),
+        },
     );
-    assert_eq!(discover_approved_models(&grant, DiscoveryBounds::default()).unwrap().models.len(), 1);
+    assert_eq!(
+        discover_approved_models(&grant, DiscoveryBounds::default())
+            .unwrap()
+            .models
+            .len(),
+        1
+    );
     assert_eq!(before, fs::read(&file).unwrap());
     assert_eq!(before_config, fs::read(&metadata).unwrap());
 }
