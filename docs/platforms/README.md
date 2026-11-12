@@ -49,3 +49,8 @@ The coordinator may add `scripts/**` tests to the existing Rust workflow's trigg
 - [Native Tauri/package prerequisites and Pi Hailo boundaries](INSTALLER_DEPENDENCIES.md).
 - The optional Python runner `scripts/validate_standalone_crates.py` operates on explicitly supplied disposable agent/integration checkouts; it never merges or installs code. `scripts/platform_dependency_preflight.py` is read-only.
 - See [CI proposal](CI_PROPOSAL.md) for coordinator-owned workflow changes only. Agent 01 does not edit shared `.github/workflows/**`.
+
+
+## Phase 3 — coordinator sandbox validation
+
+The coordinator's [Draft PR #17](https://github.com/Tihulu/Tihulu-AI-Tools/pull/17) integrates **four** agent Rust crates into a six-package root workspace; the Tauri 2 desktop is deliberately excluded. [Phase 3 CI commands, evidence and physical acceptance boundaries](PHASE3_INTEGRATION.md) take precedence over the Phase 2 per-branch plan when validating that sandbox. Use `python3 scripts/validate_standalone_crates.py --integrated` to inspect membership; `--integrated --execute` requires a complete disposable integrated checkout. Do not assume a green root job proves the separate Tauri shell, GPU/SDR/Hailo or real shutdown. No coordinator-owned CI files are edited in this workstream.
