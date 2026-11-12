@@ -1,273 +1,512 @@
-//! Pure, owner-aware model lease bookkeeping; never sends OS kill signals.
+//! Phase 2 ResourceLedger handoff. This module contains NO runtime lease
+//! registry, reference counter, unloading policy or backend cleanup executor.
 //!
-//! A caller must own and explicitly supervise its actual runtime handles.
-//! Last-lease events are *instructions* to the owner, not evidence of release.
+//! ResourceLedger in coordinator Draft PR #12 is the **only authority** for
+//! active references, stop phases and generation of cleanup requests.
+//! This crate supplies typed discovery/task references and a narrow adapter
+//! port. A production port must delegate one-to-one to core ResourceLedger.
 
-use std::collections::BTreeMap;
+use crate::registry::{ModelId, ModelOwner};
+
+/// Numeric IDs are assigned and de-duplicated by the *coordinator ledger*.
+/// They must not be hashed from a model path or re-used after unload.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct LedgerOwnerRef(pub u64);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct LedgerResourceRef(pub u64);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct AppSessionId(pub String);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TaskSessionId(pub String);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct RuntimeInstanceId(pub String);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RuntimeOwner {
-    /// Only this application/host may unload the tracked owned model context.
-    AiTools { supervisor_id: String },
-    /// A Jan/Ollama/other application's runtime, not ours to unload or kill.
-    BorrowedExternal { application: String },
+pub struct ConsumerTask {
+    pub app_session: AppSessionId,
+    pub task_session: TaskSessionId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Consumer {
-    pub app_session: String,
-    pub task_session: String,
+pub enum ContextAuthority {
+    /// Maps to core Provenance::SharedManaged.
+    ManagedShared,
+    /// Maps to core Provenance::Exclusive(core OwnerId(owner.0)).
+    ManagedExclusive(LedgerOwnerRef),
+    /// Maps to core Provenance::BorrowedExternal; the provider's runtime
+    /// must not be stopped or unloaded by this application.
+    BorrowedExternal(ModelOwner),
 }
 
+/// Binding is a reference, not a loaded model or a grant to use it.
+/// Trusted host/app authorization must precede registration/attachment.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LeaseToken {
-    pub runtime_id: String,
-    pub sequence: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ReleaseAction {
-    AlreadyReleased,
-    /// Other authorized consumers still need the same model context.
-    KeepLoaded { remaining: usize },
-    /// The owner must stop owned work, unload the context and acknowledge it.
-    UnloadOwned { runtime_id: String, model_id: String },
-    /// Release this client's requests/streams; NEVER stop Jan/Ollama.
-    DisconnectBorrowedClient { runtime_id: String },
+pub struct ModelRuntimeBinding {
+    /// Stable SOURCE identity. Multiple runtime instances can use one model.
+    pub model_id: ModelId,
+    /// One actual loaded runtime context, supplied by its authorized backend.
+    pub runtime_instance: RuntimeInstanceId,
+    /// Core ResourceId, unique for the ledger lifetime.
+    pub resource: LedgerResourceRef,
+    pub authority: ContextAuthority,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LeaseError {
-    DuplicateRuntime,
-    UnknownRuntime,
-    Stopping,
-    InvalidConsumer,
+pub enum LedgerResourceKind {
+    ModelContext,
+    GpuAllocation,
+    AudioRamBuffer,
+    AiWorker,
+    SdrHandle,
+    NetworkSession,
+    RemoteInferenceLease,
+    TemporaryFile,
 }
 
-#[derive(Debug)]
-struct LoadedRuntime {
-    model_id: String,
-    owner: RuntimeOwner,
-    leases: BTreeMap<u64, Consumer>,
-    accepting: bool,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LedgerCleanupRequest {
+    pub resource: LedgerResourceRef,
+    pub kind: LedgerResourceKind,
 }
 
-#[derive(Debug, Default)]
-pub struct LeaseRegistry {
-    runtimes: BTreeMap<String, LoadedRuntime>,
-    next_sequence: u64,
-}
+/// Exact semantic port over core ResourceLedger (PR #12).
+///
+/// Implementors must map:
+/// - register_model_context => ledger.register(owner, resource,
+///   ResourceKind::ModelContext, provenance), which CREATES the first lease.
+/// - attach => ledger.attach(owner, resource), creating one more lease.
+/// - release_one => ledger.release_one(owner, resource), which ALONE decides
+///   when the last lease generates a CleanupRequest.
+/// - stop_owner => ledger.stop_owner(owner), atomically rejecting new attaches
+///   and returning cleanup requests for the whole app session.
+/// - complete_cleanup => ledger.complete_cleanup(resource, succeeded).
+///
+/// The implementation MUST NOT maintain a second runtime count, invent an
+/// additional last-lease unload event, interpret a missing borrowed resource
+/// as permission to kill a provider, or process cleanup requests twice.
+/// No production implementation is shipped here until PR #12 is integrated.
+pub trait ResourceLedgerPort {
+    type Error;
 
-impl LeaseRegistry {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Register a runtime that its owning backend *already* loaded.
-    /// This function never loads a model or allocates RAM/VRAM.
-    pub fn register_loaded_runtime(
+    fn register_model_context(
         &mut self,
-        runtime_id: impl Into<String>,
-        model_id: impl Into<String>,
-        owner: RuntimeOwner,
-    ) -> Result<(), LeaseError> {
-        let runtime_id = runtime_id.into();
-        let model_id = model_id.into();
-        if runtime_id.is_empty() || model_id.is_empty() {
-            return Err(LeaseError::InvalidConsumer);
-        }
-        if self.runtimes.contains_key(&runtime_id) {
-            return Err(LeaseError::DuplicateRuntime);
-        }
-        self.runtimes.insert(
-            runtime_id,
-            LoadedRuntime {
-                model_id,
-                owner,
-                leases: BTreeMap::new(),
-                accepting: true,
-            },
-        );
-        Ok(())
-    }
+        initial_owner: LedgerOwnerRef,
+        binding: &ModelRuntimeBinding,
+    ) -> Result<(), Self::Error>;
 
-    /// One token per authorized task/session; callers must enforce real
-    /// authorization and serialize/mutex-protect access to this registry.
-    pub fn acquire(&mut self, runtime_id: &str, consumer: Consumer) -> Result<LeaseToken, LeaseError> {
-        if consumer.app_session.is_empty() || consumer.task_session.is_empty() {
-            return Err(LeaseError::InvalidConsumer);
-        }
-        let state = self.runtimes.get_mut(runtime_id).ok_or(LeaseError::UnknownRuntime)?;
-        if !state.accepting {
-            return Err(LeaseError::Stopping);
-        }
-        self.next_sequence = self.next_sequence.checked_add(1).ok_or(LeaseError::Stopping)?;
-        let token = LeaseToken {
-            runtime_id: runtime_id.to_owned(),
-            sequence: self.next_sequence,
-        };
-        state.leases.insert(token.sequence, consumer);
-        Ok(token)
-    }
+    fn attach(
+        &mut self,
+        owner: LedgerOwnerRef,
+        resource: LedgerResourceRef,
+    ) -> Result<(), Self::Error>;
 
-    /// Idempotent: a repeated release cannot unload another consumer's model.
-    pub fn release(&mut self, token: &LeaseToken) -> ReleaseAction {
-        let Some(state) = self.runtimes.get_mut(&token.runtime_id) else {
-            return ReleaseAction::AlreadyReleased;
-        };
-        if state.leases.remove(&token.sequence).is_none() {
-            return ReleaseAction::AlreadyReleased;
+    fn release_one(
+        &mut self,
+        owner: LedgerOwnerRef,
+        resource: LedgerResourceRef,
+    ) -> Result<Option<LedgerCleanupRequest>, Self::Error>;
+
+    fn stop_owner(
+        &mut self,
+        owner: LedgerOwnerRef,
+    ) -> Result<Vec<LedgerCleanupRequest>, Self::Error>;
+
+    fn active_lease_count(&self, resource: LedgerResourceRef) -> Option<usize>;
+
+    fn complete_cleanup(
+        &mut self,
+        resource: LedgerResourceRef,
+        succeeded: bool,
+    ) -> Result<(), Self::Error>;
+}
+
+/// A client-held single-use receipt; **not** another lease authority.
+/// The bool only prevents the *same client receipt* being submitted twice.
+/// All active reference accounting and unload decisions belong to the port.
+#[derive(Debug)]
+pub struct TaskLeaseReceipt {
+    pub consumer: ConsumerTask,
+    pub model_id: ModelId,
+    pub runtime_instance: RuntimeInstanceId,
+    pub owner: LedgerOwnerRef,
+    pub resource: LedgerResourceRef,
+    released: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TaskRelease {
+    AlreadyReleased,
+    /// Request is emitted by ResourceLedger, never by the registry.
+    Delegated(Option<LedgerCleanupRequest>),
+}
+
+impl TaskLeaseReceipt {
+    /// Does not invent a cleanup request. A caller must send the returned
+    /// request to its owned backend and acknowledge actual cleanup on ledger.
+    ///
+    /// After app-wide stop, remaining receipts should be discarded rather
+    /// than replayed: core stop_owner has already released those references.
+    pub fn release<L: ResourceLedgerPort>(
+        &mut self,
+        ledger: &mut L,
+    ) -> Result<TaskRelease, L::Error> {
+        if self.released {
+            return Ok(TaskRelease::AlreadyReleased);
         }
-        if !state.leases.is_empty() {
-            return ReleaseAction::KeepLoaded {
-                remaining: state.leases.len(),
-            };
-        }
-        match &state.owner {
-            RuntimeOwner::AiTools { .. } => {
-                state.accepting = false;
-                ReleaseAction::UnloadOwned {
-                    runtime_id: token.runtime_id.clone(),
-                    model_id: state.model_id.clone(),
-                }
-            }
-            RuntimeOwner::BorrowedExternal { .. } => {
-                ReleaseAction::DisconnectBorrowedClient {
-                    runtime_id: token.runtime_id.clone(),
-                }
-            }
-        }
+        let cleanup = ledger.release_one(self.owner, self.resource)?;
+        self.released = true;
+        Ok(TaskRelease::Delegated(cleanup))
     }
+}
 
-    /// App Quit / Global Hard Stop: release this app's tokens only.
-    pub fn close_app(&mut self, app_session: &str) -> Vec<ReleaseAction> {
-        let tokens: Vec<_> = self.runtimes.iter().flat_map(|(runtime_id, state)| {
-            state.leases.iter().filter_map(move |(sequence, consumer)| {
-                (consumer.app_session == app_session).then(|| LeaseToken {
-                    runtime_id: runtime_id.clone(),
-                    sequence: *sequence,
-                })
-            })
-        }).collect();
-        tokens.iter().map(|token| self.release(token)).collect()
-    }
+/// The existing loaded model is registered ONCE with core; its registering
+/// owner receives the initial lease as part of ledger.register (PR #12).
+/// Do not call ledger.attach again for that same initial task.
+pub fn register_initial_task<L: ResourceLedgerPort>(
+    ledger: &mut L,
+    binding: &ModelRuntimeBinding,
+    owner: LedgerOwnerRef,
+    consumer: ConsumerTask,
+) -> Result<TaskLeaseReceipt, L::Error> {
+    ledger.register_model_context(owner, binding)?;
+    Ok(receipt(binding, owner, consumer))
+}
 
-    /// Close one task without closing the entire application.
-    pub fn close_task(&mut self, app_session: &str, task_session: &str) -> Vec<ReleaseAction> {
-        let tokens: Vec<_> = self.runtimes.iter().flat_map(|(runtime_id, state)| {
-            state.leases.iter().filter_map(move |(sequence, consumer)| {
-                (consumer.app_session == app_session && consumer.task_session == task_session)
-                    .then(|| LeaseToken {
-                        runtime_id: runtime_id.clone(),
-                        sequence: *sequence,
-                    })
-            })
-        }).collect();
-        tokens.iter().map(|token| self.release(token)).collect()
-    }
+/// Every subsequent task contributes exactly one core ledger attachment.
+pub fn attach_task<L: ResourceLedgerPort>(
+    ledger: &mut L,
+    binding: &ModelRuntimeBinding,
+    owner: LedgerOwnerRef,
+    consumer: ConsumerTask,
+) -> Result<TaskLeaseReceipt, L::Error> {
+    ledger.attach(owner, binding.resource)?;
+    Ok(receipt(binding, owner, consumer))
+}
 
-    /// Call only after the owned backend proves that its context was unloaded.
-    /// A borrowed runtime can never be acknowledged as ours.
-    pub fn acknowledge_owned_unloaded(&mut self, runtime_id: &str) -> bool {
-        let ready = self.runtimes.get(runtime_id).is_some_and(|state| {
-            matches!(&state.owner, RuntimeOwner::AiTools { .. })
-                && !state.accepting
-                && state.leases.is_empty()
-        });
-        if ready {
-            self.runtimes.remove(runtime_id);
-        }
-        ready
-    }
+/// Whole-app STOP is solely a core ledger decision. It can also include
+/// cleanup for workers, sockets, SDR and RAM tracked by the same ledger.
+/// Never filter out non-model requests here.
+pub fn stop_app<L: ResourceLedgerPort>(
+    ledger: &mut L,
+    owner: LedgerOwnerRef,
+) -> Result<Vec<LedgerCleanupRequest>, L::Error> {
+    ledger.stop_owner(owner)
+}
 
-    pub fn active_leases(&self, runtime_id: &str) -> usize {
-        self.runtimes
-            .get(runtime_id)
-            .map_or(0, |state| state.leases.len())
-    }
-
-    pub fn runtime_count(&self) -> usize {
-        self.runtimes.len()
+fn receipt(
+    binding: &ModelRuntimeBinding,
+    owner: LedgerOwnerRef,
+    consumer: ConsumerTask,
+) -> TaskLeaseReceipt {
+    TaskLeaseReceipt {
+        consumer,
+        model_id: binding.model_id.clone(),
+        runtime_instance: binding.runtime_instance.clone(),
+        owner,
+        resource: binding.resource,
+        released: false,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::registry::{ArtifactObservation, FileFormat, SourceAdapter};
+    use std::collections::{BTreeMap, BTreeSet};
+    use std::path::PathBuf;
 
-    fn ai() -> RuntimeOwner {
-        RuntimeOwner::AiTools { supervisor_id: "synthetic-owned-host".into() }
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum FakeError {
+        UnknownOrStoppedOwner,
+        DuplicateResource,
+        ResourceUnavailable,
+        NotHeld,
+        NotPending,
     }
 
-    fn consumer(app: &str, task: &str) -> Consumer {
-        Consumer { app_session: app.into(), task_session: task.into() }
+    #[derive(Debug)]
+    struct FakeContext {
+        authority: ContextAuthority,
+        holders: BTreeMap<LedgerOwnerRef, usize>,
+        pending: bool,
+    }
+
+    /// Synthetic PR #12 semantics only. NOT a second production ledger.
+    #[derive(Debug, Default)]
+    struct MockResourceLedger {
+        owners: BTreeMap<LedgerOwnerRef, bool>,
+        contexts: BTreeMap<LedgerResourceRef, FakeContext>,
+        used_ids: BTreeSet<LedgerResourceRef>,
+    }
+
+    impl MockResourceLedger {
+        fn open_owner(&mut self, owner: LedgerOwnerRef) {
+            self.owners.insert(owner, true);
+        }
+
+        fn ensure_running(&self, owner: LedgerOwnerRef) -> Result<(), FakeError> {
+            if self.owners.get(&owner) == Some(&true) {
+                Ok(())
+            } else {
+                Err(FakeError::UnknownOrStoppedOwner)
+            }
+        }
+
+        fn last_release(&mut self, resource: LedgerResourceRef) -> Option<LedgerCleanupRequest> {
+            let item = self.contexts.get_mut(&resource)?;
+            if !item.holders.is_empty() || item.pending {
+                return None;
+            }
+            if matches!(&item.authority, ContextAuthority::BorrowedExternal(_)) {
+                self.contexts.remove(&resource);
+                return None;
+            }
+            item.pending = true;
+            Some(LedgerCleanupRequest {
+                resource,
+                kind: LedgerResourceKind::ModelContext,
+            })
+        }
+    }
+
+    impl ResourceLedgerPort for MockResourceLedger {
+        type Error = FakeError;
+
+        fn register_model_context(
+            &mut self,
+            initial_owner: LedgerOwnerRef,
+            binding: &ModelRuntimeBinding,
+        ) -> Result<(), Self::Error> {
+            self.ensure_running(initial_owner)?;
+            if self.used_ids.contains(&binding.resource) {
+                return Err(FakeError::DuplicateResource);
+            }
+            if matches!(
+                &binding.authority,
+                ContextAuthority::ManagedExclusive(only) if *only != initial_owner
+            ) {
+                return Err(FakeError::ResourceUnavailable);
+            }
+            self.used_ids.insert(binding.resource);
+            let mut holders = BTreeMap::new();
+            holders.insert(initial_owner, 1);
+            self.contexts.insert(
+                binding.resource,
+                FakeContext {
+                    authority: binding.authority.clone(),
+                    holders,
+                    pending: false,
+                },
+            );
+            Ok(())
+        }
+
+        fn attach(
+            &mut self,
+            owner: LedgerOwnerRef,
+            resource: LedgerResourceRef,
+        ) -> Result<(), Self::Error> {
+            self.ensure_running(owner)?;
+            let item = self.contexts.get_mut(&resource).ok_or(FakeError::ResourceUnavailable)?;
+            if item.pending
+                || matches!(
+                    &item.authority,
+                    ContextAuthority::ManagedExclusive(only) if *only != owner
+                )
+            {
+                return Err(FakeError::ResourceUnavailable);
+            }
+            let count = item.holders.entry(owner).or_insert(0);
+            *count += 1;
+            Ok(())
+        }
+
+        fn release_one(
+            &mut self,
+            owner: LedgerOwnerRef,
+            resource: LedgerResourceRef,
+        ) -> Result<Option<LedgerCleanupRequest>, Self::Error> {
+            let item = self.contexts.get_mut(&resource).ok_or(FakeError::ResourceUnavailable)?;
+            if item.pending {
+                return Err(FakeError::ResourceUnavailable);
+            }
+            let count = item.holders.get_mut(&owner).ok_or(FakeError::NotHeld)?;
+            *count -= 1;
+            if *count == 0 {
+                item.holders.remove(&owner);
+            }
+            Ok(self.last_release(resource))
+        }
+
+        fn stop_owner(
+            &mut self,
+            owner: LedgerOwnerRef,
+        ) -> Result<Vec<LedgerCleanupRequest>, Self::Error> {
+            let running = self.owners.get_mut(&owner).ok_or(FakeError::UnknownOrStoppedOwner)?;
+            if !*running {
+                return Ok(Vec::new());
+            }
+            *running = false;
+            let keys: Vec<_> = self.contexts.keys().copied().collect();
+            let mut cleanup = Vec::new();
+            for key in keys {
+                if let Some(item) = self.contexts.get_mut(&key) {
+                    item.holders.remove(&owner);
+                }
+                if let Some(request) = self.last_release(key) {
+                    cleanup.push(request);
+                }
+            }
+            Ok(cleanup)
+        }
+
+        fn active_lease_count(&self, resource: LedgerResourceRef) -> Option<usize> {
+            self.contexts.get(&resource).map(|item| item.holders.values().sum())
+        }
+
+        fn complete_cleanup(
+            &mut self,
+            resource: LedgerResourceRef,
+            succeeded: bool,
+        ) -> Result<(), Self::Error> {
+            let item = self.contexts.get_mut(&resource).ok_or(FakeError::ResourceUnavailable)?;
+            if !item.pending {
+                return Err(FakeError::NotPending);
+            }
+            if succeeded {
+                self.contexts.remove(&resource);
+            }
+            Ok(())
+        }
+    }
+
+    fn binding(resource: u64, file_owner: ModelOwner, authority: ContextAuthority) -> ModelRuntimeBinding {
+        let artifact = ArtifactObservation {
+            source_path: PathBuf::from("/synthetic/external/model.gguf"),
+            canonical_path: PathBuf::from("/synthetic/external/model.gguf"),
+            owner: file_owner,
+            adapter: SourceAdapter::CustomFolder,
+            format_hint: FileFormat::Gguf,
+            size_bytes: 16,
+        };
+        ModelRuntimeBinding {
+            model_id: ModelId::from_artifact(&artifact),
+            runtime_instance: RuntimeInstanceId(format!("runtime-{resource}")),
+            resource: LedgerResourceRef(resource),
+            authority,
+        }
+    }
+
+    fn consumer(app: &str, task: &str) -> ConsumerTask {
+        ConsumerTask {
+            app_session: AppSessionId(app.to_owned()),
+            task_session: TaskSessionId(task.to_owned()),
+        }
     }
 
     #[test]
-    fn l02_advisor_close_preserves_agent_on_shared_context() {
-        let mut tracker = LeaseRegistry::new();
-        tracker.register_loaded_runtime("ctx", "model", ai()).unwrap();
-        let _advisor = tracker.acquire("ctx", consumer("app", "advisor")).unwrap();
-        let _agent = tracker.acquire("ctx", consumer("app", "agent")).unwrap();
-        assert_eq!(tracker.close_task("app", "advisor"), vec![ReleaseAction::KeepLoaded { remaining: 1 }]);
-        assert_eq!(tracker.active_leases("ctx"), 1);
-        assert_eq!(tracker.close_task("app", "agent"), vec![
-            ReleaseAction::UnloadOwned { runtime_id: "ctx".into(), model_id: "model".into() }
+    fn l03_two_apps_share_model_without_first_app_unload() {
+        let mut ledger = MockResourceLedger::default();
+        let first = LedgerOwnerRef(1);
+        let second = LedgerOwnerRef(2);
+        ledger.open_owner(first);
+        ledger.open_owner(second);
+        let model = binding(101, ModelOwner::JanDesktop, ContextAuthority::ManagedShared);
+        let initial = register_initial_task(&mut ledger, &model, first, consumer("media", "asr")).unwrap();
+        let another = attach_task(&mut ledger, &model, second, consumer("text", "asr")).unwrap();
+        assert_eq!(initial.model_id, another.model_id);
+        assert_eq!(ledger.active_lease_count(model.resource), Some(2));
+        assert!(stop_app(&mut ledger, first).unwrap().is_empty());
+        assert_eq!(ledger.active_lease_count(model.resource), Some(1));
+        assert_eq!(stop_app(&mut ledger, second).unwrap(), vec![
+            LedgerCleanupRequest { resource: model.resource, kind: LedgerResourceKind::ModelContext }
         ]);
     }
 
     #[test]
-    fn l03_l04_last_authorized_host_lease_unloads_only_its_model() {
-        let mut tracker = LeaseRegistry::new();
-        tracker.register_loaded_runtime("host-model", "model", ai()).unwrap();
-        let first = tracker.acquire("host-model", consumer("media", "asr")).unwrap();
-        let second = tracker.acquire("host-model", consumer("text", "asr")).unwrap();
-        assert_eq!(tracker.release(&first), ReleaseAction::KeepLoaded { remaining: 1 });
-        assert_eq!(tracker.active_leases("host-model"), 1);
-        assert_eq!(tracker.release(&second), ReleaseAction::UnloadOwned {
-            runtime_id: "host-model".into(), model_id: "model".into()
-        });
-        assert_eq!(tracker.release(&second), ReleaseAction::AlreadyReleased);
-        assert_eq!(tracker.acquire("host-model", consumer("new", "task")), Err(LeaseError::Stopping));
-        assert!(tracker.acknowledge_owned_unloaded("host-model"));
+    fn l04_final_managed_task_releases_one_cleanup_and_ack_only_after_unload() {
+        let mut ledger = MockResourceLedger::default();
+        let owner = LedgerOwnerRef(3);
+        ledger.open_owner(owner);
+        let model = binding(102, ModelOwner::HuggingFace, ContextAuthority::ManagedShared);
+        let mut first = register_initial_task(&mut ledger, &model, owner, consumer("app", "advisor")).unwrap();
+        let mut other = attach_task(&mut ledger, &model, owner, consumer("app", "agent")).unwrap();
+        assert_eq!(first.release(&mut ledger).unwrap(), TaskRelease::Delegated(None));
+        assert_eq!(other.release(&mut ledger).unwrap(), TaskRelease::Delegated(Some(
+            LedgerCleanupRequest { resource: model.resource, kind: LedgerResourceKind::ModelContext }
+        )));
+        assert_eq!(ledger.active_lease_count(model.resource), Some(0));
+        // Last release generates only a REQUEST; cleanup remains pending.
+        assert_eq!(other.release(&mut ledger).unwrap(), TaskRelease::AlreadyReleased);
+        assert!(stop_app(&mut ledger, owner).unwrap().is_empty());
+        ledger.complete_cleanup(model.resource, true).unwrap();
+        assert_eq!(ledger.active_lease_count(model.resource), None);
     }
 
     #[test]
-    fn l07_external_jan_ollama_is_never_unloaded() {
-        let mut tracker = LeaseRegistry::new();
-        tracker.register_loaded_runtime("jan", "borrowed", RuntimeOwner::BorrowedExternal {
-            application: "Jan Desktop".into()
-        }).unwrap();
-        let token = tracker.acquire("jan", consumer("media", "chat")).unwrap();
-        assert_eq!(tracker.release(&token), ReleaseAction::DisconnectBorrowedClient { runtime_id: "jan".into() });
-        assert!(!tracker.acknowledge_owned_unloaded("jan"));
-        assert_eq!(tracker.runtime_count(), 1);
-        assert!(tracker.acquire("jan", consumer("text", "chat")).is_ok());
+    fn l07_borrowed_jan_and_ollama_survive_stop_and_duplicate_stop() {
+        let mut ledger = MockResourceLedger::default();
+        let owner = LedgerOwnerRef(4);
+        ledger.open_owner(owner);
+        let jan = binding(103, ModelOwner::JanDesktop, ContextAuthority::BorrowedExternal(ModelOwner::JanDesktop));
+        let ollama = binding(104, ModelOwner::Ollama, ContextAuthority::BorrowedExternal(ModelOwner::Ollama));
+        register_initial_task(&mut ledger, &jan, owner, consumer("app", "jan")).unwrap();
+        register_initial_task(&mut ledger, &ollama, owner, consumer("app", "ollama")).unwrap();
+        assert!(stop_app(&mut ledger, owner).unwrap().is_empty());
+        assert!(stop_app(&mut ledger, owner).unwrap().is_empty());
+        assert_eq!(ledger.active_lease_count(jan.resource), None);
+        assert_eq!(ledger.active_lease_count(ollama.resource), None);
     }
 
     #[test]
-    fn l11_relaunch_is_fresh_not_stale() {
-        let mut tracker = LeaseRegistry::new();
-        tracker.register_loaded_runtime("old", "model", ai()).unwrap();
-        tracker.acquire("old", consumer("one", "job")).unwrap();
-        assert_eq!(tracker.close_app("one").len(), 1);
-        assert_eq!(tracker.close_app("one"), Vec::<ReleaseAction>::new());
-        assert!(tracker.acknowledge_owned_unloaded("old"));
-        tracker.register_loaded_runtime("new", "model", ai()).unwrap();
-        assert_eq!(tracker.active_leases("new"), 0);
+    fn l15_independent_models_on_same_host_are_distinct_resources() {
+        let mut ledger = MockResourceLedger::default();
+        let a = LedgerOwnerRef(5);
+        let b = LedgerOwnerRef(6);
+        ledger.open_owner(a);
+        ledger.open_owner(b);
+        let one = binding(105, ModelOwner::JanDesktop, ContextAuthority::ManagedShared);
+        let two = binding(106, ModelOwner::JanDesktop, ContextAuthority::ManagedShared);
+        register_initial_task(&mut ledger, &one, a, consumer("one", "job")).unwrap();
+        register_initial_task(&mut ledger, &two, b, consumer("two", "job")).unwrap();
+        assert_eq!(one.model_id, two.model_id); // same file, two contexts
+        assert_ne!(one.resource, two.resource); // core IDs are distinct
+        assert_eq!(stop_app(&mut ledger, a).unwrap().len(), 1);
+        assert_eq!(ledger.active_lease_count(two.resource), Some(1));
     }
 
     #[test]
-    fn l15_separate_models_under_one_host_remain_independent() {
-        let mut tracker = LeaseRegistry::new();
-        tracker.register_loaded_runtime("a", "model-a", ai()).unwrap();
-        tracker.register_loaded_runtime("b", "model-b", ai()).unwrap();
-        tracker.acquire("a", consumer("app-one", "job")).unwrap();
-        tracker.acquire("b", consumer("app-two", "job")).unwrap();
-        assert_eq!(tracker.close_app("app-one"), vec![
-            ReleaseAction::UnloadOwned { runtime_id: "a".into(), model_id: "model-a".into() }
-        ]);
-        assert_eq!(tracker.active_leases("b"), 1);
-        assert_eq!(tracker.runtime_count(), 2);
+    fn duplicate_stop_blocks_new_lease_and_does_not_reissue_cleanup() {
+        let mut ledger = MockResourceLedger::default();
+        let owner = LedgerOwnerRef(7);
+        ledger.open_owner(owner);
+        let model = binding(107, ModelOwner::AiTools, ContextAuthority::ManagedExclusive(owner));
+        register_initial_task(&mut ledger, &model, owner, consumer("app", "job")).unwrap();
+        let first = stop_app(&mut ledger, owner).unwrap();
+        assert_eq!(first.len(), 1);
+        assert!(stop_app(&mut ledger, owner).unwrap().is_empty());
+        assert_eq!(
+            attach_task(&mut ledger, &model, owner, consumer("app", "late")).err(),
+            Some(FakeError::UnknownOrStoppedOwner)
+        );
+    }
+
+    #[test]
+    fn borrowed_runtime_and_external_file_have_separate_owners() {
+        let mut ledger = MockResourceLedger::default();
+        let owner = LedgerOwnerRef(8);
+        ledger.open_owner(owner);
+        // An external Jan model file can be loaded in a TIHULU-owned worker.
+        // The worker is unloadable; the Jan model FILE remains external.
+        let model = binding(108, ModelOwner::JanDesktop, ContextAuthority::ManagedShared);
+        let mut task = register_initial_task(&mut ledger, &model, owner, consumer("app", "task")).unwrap();
+        assert!(matches!(task.model_id, ModelId::Artifact { owner: ModelOwner::JanDesktop, .. }));
+        assert!(matches!(task.release(&mut ledger).unwrap(), TaskRelease::Delegated(Some(_))));
+        ledger.complete_cleanup(model.resource, true).unwrap();
+        assert_eq!(ledger.active_lease_count(model.resource), None);
     }
 }
