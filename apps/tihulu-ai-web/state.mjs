@@ -24,10 +24,12 @@ export const ACTION_DETAILS = Object.freeze({
   [SHUTDOWN.QUIT_ALL]: { title: "Quit All TIHULU-Owned Services", description: "Also stop the independently managed TIHULU host, after warning affected authorized clients. Never stop Jan, Ollama or readsb." },
 });
 
-export function createDemoState() {
+export function createDemoState({ independentHost = false } = {}) {
   return {
-    resources: demoResources.map((r) => ({ ...r })),
+    resources: demoResources.map((r) => r.id === "host" ?
+      { ...r, status: independentHost ? "active" : "released", clients: independentHost ? 2 : 0 } : { ...r }),
     lifecycle: "running",
+    serviceMode: independentHost ? "independent" : "disabled",
     history: [],
     progress: [],
     activeTab: "overview",
@@ -97,6 +99,7 @@ export function applyShutdown(state, action) {
   return {
     ...state,
     resources,
+    serviceMode: action === SHUTDOWN.QUIT_ALL ? "disabled" : state.serviceMode,
     lifecycle: action === SHUTDOWN.APP_QUIT || action === SHUTDOWN.HARD_STOP || action === SHUTDOWN.QUIT_ALL ? "stopped" : state.lifecycle,
     progress: ["Reject new demo work", "Cancel owned demo requests", "Release simulated contexts / handles", "Verify mock ownership", "Simulation complete — physical state unverified"],
     history: [{ action, affected: preview.affected, preserved: preview.preserved, demo: true }, ...state.history].slice(0, 12),
