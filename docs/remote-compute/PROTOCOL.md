@@ -8,7 +8,7 @@
 
 `ModelLocation::HostStored` references a PC-resolved model. `ClientStaged` requires host-attested consent, SHA-256, integrity and runtime compatibility before use. License, disk-space, retention and ownership validation remain unimplemented.
 
-`PeerEvidence` contains claimed identities for the **verified TLS adapter boundary**: target host ID, pinned server certificate SHA-256, paired client device ID and pinned client cert, app identity attested through server-issued scoped grants, approved network route and security level. These fields cannot simply be copied from a network request into a trusted structure.
+`PeerEvidence` contains claimed identities for the **verified TLS adapter boundary**: target host ID, pinned server certificate SHA-256, paired client device ID and pinned client cert, **separately attested app identity** (`AppAuthentication::VerifiedScopedCredential`), approved network route and security level. A paired Pi device certificate must not let one installed app impersonate another: a future ingress must verify a host-issued app-specific credential/token cryptographically. These fields cannot simply be copied from a network request into a trusted structure.
 
 ## Candidate control calls
 
