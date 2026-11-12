@@ -1,6 +1,14 @@
-# Optional Jan Integration — v0.6 architecture proposal
+# Optional Jan Integration — v0.7 architecture proposal
 
 > **Status:** Planning only. Jan and TIHULU AI Tools are not presently integrated. A future **TIHULU MCP Server** should be implemented in Rust and offered as an optional integration, not installed or enabled without user approval.
+
+## In-app setup guide and button (approved requirement, not built)
+
+The **TIHULU AI Tools → External Apps → Jan** screen must include a visible **How to Connect Jan** guide and a primary **Set Up Jan Integration** button. The real Rust-backed button will detect compatible installed Jan versions, verify/install the TIHULU MCP bridge after owner approval, preview tools and permissions, use Jan's supported MCP management commands when available, verify a real MCP handshake, and provide rollback/disconnect. If safe automatic configuration is unavailable, it must show guided manual setup rather than rewriting Jan's data files.
+
+Jan Desktop's supported manual path is **Settings → MCP Servers → + Add MCP Server**. Jan Agent currently documents `jan cli mcp list/add/enable/disable/remove` operations for the shared MCP configuration; actual availability must be checked for the installed distribution and version. Read-only tools default on, app-changing tools default off, Jan's global auto-approval setting stays untouched, and nothing is reported as connected until the bridge passes real verification.
+
+The [Jan Setup Wizard specification](JAN_SETUP_WIZARD.md) is the detailed source for flow, progress states, safety and acceptance tests. The HTML prototype only simulates button behavior; it neither installs software nor accesses Jan.
 
 ## 1. Two distinct Jan products
 
