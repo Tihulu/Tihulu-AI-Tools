@@ -12,6 +12,8 @@ Status: **NEW ISOLATED EXPERIMENT**. This branch is a coordinator-owned additive
   remains immutable **scoped PASS**. This PR neither changes nor reinterprets that workflow.
 - AI-09 isolated preflight: [Draft #39](https://github.com/Tihulu/Tihulu-AI-Tools/pull/39)
   `ea6667b72d01fadf222c1c50363e4df7a2a3b7f3`.
+- AI-09 synthetic transaction/rollback lab: [Draft #43](https://github.com/Tihulu/Tihulu-AI-Tools/pull/43)
+  `c11d2bb38f04d0ac4c03529a70284c136e58c254`.
 - AI-10 policy oracle: [Draft #40](https://github.com/Tihulu/Tihulu-AI-Tools/pull/40)
   `b28a4b1b1869289fd77392f8e1985f9b3b00f3b5`.
 - AI-10 synthetic provider session QA: [Draft #42](https://github.com/Tihulu/Tihulu-AI-Tools/pull/42)
@@ -29,9 +31,9 @@ The workflow runs 15 contract tests for the scope checker, then extracts **only 
 pinned Python fixture blobs** (never the workflow files) into a newly allocated private
 `RUNNER_TEMP` directory. Python unittest discovers and executes:
 
-- AI-09 installer-preflight synthetic suite — expected 10 tests.
+- AI-09 installer-preflight and transaction synthetic suites — expected 10 + 18 = 28 tests.
 - AI-10 route-policy + provider-session suites — expected 15 + 34 = 49 tests.
-- Expected aggregate: **59/59 synthetic**. Failure to execute or a different test count is HOLD.
+- Expected aggregate: **77/77 synthetic**. Failure to execute or a different test count is HOLD.
 
 No executable from the owner's machine, no model inference, no real native installer, no
 Jan/Ollama/OpenCode endpoint, no SDR, no GPU, no map download and no automatic background
