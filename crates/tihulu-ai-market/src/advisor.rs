@@ -21,18 +21,10 @@ pub struct AdvisorProposal {
     pub internet_used: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AdvisorPolicy {
     /// Internet is OFF until an explicit per-request opt-in.
     pub internet_opt_in: bool,
-}
-
-impl Default for AdvisorPolicy {
-    fn default() -> Self {
-        Self {
-            internet_opt_in: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
