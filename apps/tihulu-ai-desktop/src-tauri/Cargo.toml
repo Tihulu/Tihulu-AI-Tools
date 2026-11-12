@@ -1,0 +1,16 @@
+[package]
+name = "tihulu-ai-desktop"
+version = "0.1.0"
+edition = "2021"
+description = "TIHULU AI Tools Tauri 2 demo UI shell"
+publish = false
+build = "build.rs"
+
+# Standalone during parallel agent development; coordinator may integrate it into the root workspace.
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
