@@ -1,0 +1,15 @@
+[package]
+name = "tihulu-ai-integrations"
+version = "0.1.0"
+description = "Permissioned, transport-agnostic TIHULU app integration primitives (mock-only)"
+edition = "2021"
+rust-version = "1.82"
+license = "MIT"
+
+[lib]
+name = "tihulu_ai_integrations"
+path = "src/lib.rs"
+
+# This crate is isolated until the coordinator opts it into the root workspace.
+# Run: cargo test --manifest-path crates/tihulu-ai-integrations/Cargo.toml
+[workspace]
