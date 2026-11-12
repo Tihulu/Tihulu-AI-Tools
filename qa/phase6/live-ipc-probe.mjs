@@ -66,6 +66,17 @@ export async function liveReadonlyProbe(invoke) {
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   const invoke = window.__TAURI__?.core?.invoke;
   void liveReadonlyProbe(invoke).then((ok) => {
+    // The test overlay exists ONLY in an ephemeral CI-injected frontend.
+    // A pure WebView document.title change may not update a Tauri OS titlebar.
+    // Use an opaque pixel marker that the private Xvfb observer can sample.
+    const indicator = document.createElement("div");
+    indicator.id = "phase6-only-live-ipc-result";
+    indicator.style.position = "fixed";
+    indicator.style.inset = "0";
+    indicator.style.zIndex = "2147483647";
+    indicator.style.backgroundColor = ok ? "rgb(0, 255, 0)" : "rgb(255, 0, 0)";
+    indicator.style.pointerEvents = "none";
+    document.body.append(indicator);
     document.title = ok ? PROBE_PASS : PROBE_FAIL;
   });
 }
