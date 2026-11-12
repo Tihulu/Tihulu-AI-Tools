@@ -1,0 +1,83 @@
+name: Phase 5 UI / Native P0 - Exact SHA Verification
+
+# Test-only workflow: no application changes, installations or hardware access.
+on:
+  push:
+    branches: [agent/06-phase5-ui-ci-verification]
+  pull_request:
+    branches: [coord/phase4-native-inventory]
+    paths:
+      - ".github/workflows/phase5-ui-exact-source-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phase5-ui-node:
+    name: Node mock and negative tests
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    steps:
+      - name: Checkout PR 26 exact UI head
+        uses: actions/checkout@v4
+        with:
+          ref: 3706d73a59dfedc8087a7a0e1c7b32e306eb7f8d
+          path: candidate
+          persist-credentials: false
+      - name: Checkout PR 28 exact P0 remediation head
+        uses: actions/checkout@v4
+        with:
+          ref: 5c7e62b23656b145c21222fd2c44152725e8a3a2
+          path: remediation
+          persist-credentials: false
+      - name: Checkout PR 21 exact QA head
+        uses: actions/checkout@v4
+        with:
+          ref: 041fe014990ecce046a48fe309949f61760d63ba
+          path: independent-qa
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Assemble isolated source-only test overlay with exact Git blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p candidate/qa/phase5/js
+          cp remediation/apps/tihulu-ai-web/native-bridge.mjs candidate/apps/tihulu-ai-web/native-bridge.mjs
+          cp remediation/apps/tihulu-ai-web/tests/native-bridge.test.mjs candidate/apps/tihulu-ai-web/tests/native-bridge.test.mjs
+          cp independent-qa/qa/phase5/js/native-safety.test.mjs candidate/qa/phase5/js/native-safety.test.mjs
+          check_blob() {
+            actual="$(git -C candidate hash-object "$1")"
+            if [ "$actual" != "$2" ]; then
+              echo "::error::Blob mismatch for $1 (actual $actual)" >&2
+              exit 1
+            fi
+          }
+          check_blob apps/tihulu-ai-web/native-bridge.mjs 65218e13f44b27ce53d2b36162ca317635e964b0
+          check_blob apps/tihulu-ai-web/tests/native-bridge.test.mjs d2f47957224bd0c85cd801edfc9fe7a78a5a91f5
+          check_blob qa/phase5/js/native-safety.test.mjs 713bbca80701b8c5ed46d32340f27cc65b82b013
+          check_blob apps/tihulu-ai-web/native-inventory-model.mjs 8b2308ee0e0822f3ee57c7cb850a71a121694bad
+          check_blob apps/tihulu-ai-web/native-inventory-i18n.mjs a2b287119c4a9617ab0bd6ffbe31d19a12056e78
+          check_blob apps/tihulu-ai-web/native-inventory-view.mjs c82e2885b54474ae37e68cde0885c81a56cc5373
+          check_blob apps/tihulu-ai-web/native-inventory-view.css 63035ad7742decc571dead5cd317f45419db389e
+          check_blob apps/tihulu-ai-web/tests/native-inventory-model.test.mjs e0fd5e5f351c55e65c9fbe9b8bb45eb3668ff284
+          check_blob apps/tihulu-ai-web/tests/native-inventory-view.test.mjs 267f8587ec589c601c8afc0cd9c1d712bfe3b8de
+          echo "All pinned source blobs match their GitHub committed objects."
+      - name: Existing web JS syntax checks
+        run: npm --prefix candidate/apps/tihulu-ai-web run check
+      - name: New PR 26 model and UI suites (actual Node test runner)
+        run: node --test candidate/apps/tihulu-ai-web/tests/native-inventory-model.test.mjs candidate/apps/tihulu-ai-web/tests/native-inventory-view.test.mjs
+      - name: PR 28 native P0 plus unchanged PR 21 independent negative suite
+        run: node --test candidate/apps/tihulu-ai-web/tests/native-bridge.test.mjs candidate/qa/phase5/js/native-safety.test.mjs
+      - name: Combined existing web test suite and new UI tests
+        run: npm --prefix candidate/apps/tihulu-ai-web test
+
+# Matrix runs prove Node mock/source behavior only, never installed native
+# models, Jan/Ollama/GPU connections, cleanup ACKs, or real hardware.
