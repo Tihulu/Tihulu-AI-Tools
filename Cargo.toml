@@ -3,7 +3,14 @@ resolver = "2"
 members = [
     "crates/tihulu-ai-core",
     "apps/tihulu-ai-cli",
+    "crates/tihulu-ai-registry",
+    "crates/tihulu-ai-market",
+    "crates/tihulu-ai-transport",
+    "crates/tihulu-ai-integrations",
 ]
+# Tauri 2 native dependencies and signing/installers are a separate gate;
+# its proposed shell is copied for review but not part of this Rust CI.
+exclude = ["apps/tihulu-ai-desktop/src-tauri"]
 
 [workspace.package]
 edition = "2021"

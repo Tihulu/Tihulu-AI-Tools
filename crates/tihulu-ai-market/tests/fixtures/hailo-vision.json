@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "fixture:hailo-vision",
+  "display_name": "Synthetic Hailo vision HEF",
+  "source": {
+    "kind": "tihulu"
+  },
+  "availability": "installed",
+  "format": "hailo_hef",
+  "runtimes": [
+    "hailo_rt"
+  ],
+  "hardware_targets": [
+    "hailo"
+  ],
+  "tasks": [
+    "vision"
+  ],
+  "input": "image",
+  "output": "text",
+  "languages": [
+    "en",
+    "tr",
+    "de"
+  ],
+  "translation_pairs": [],
+  "quantization": "Q4_K_M",
+  "memory": {
+    "ram_mib": 1024,
+    "vram_mib": null,
+    "npu_mib": 4096
+  },
+  "license": {
+    "kind": "known",
+    "spdx": "Apache-2.0"
+  },
+  "integrity_verified": true,
+  "verified_runtimes": [
+    {
+      "runtime": "hailo_rt",
+      "hardware": "hailo",
+      "evidence_id": "synthetic-fixture-probe"
+    }
+  ],
+  "supports_tool_calling": false,
+  "internet_required": false
+}

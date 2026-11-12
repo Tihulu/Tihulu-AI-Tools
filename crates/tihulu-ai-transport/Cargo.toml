@@ -1,0 +1,13 @@
+[package]
+name = "tihulu-ai-transport"
+version = "0.1.0"
+description = "Offline-only typed contracts and mock lifecycle for paired TIHULU compute"
+edition = "2021"
+rust-version = "1.82"
+
+[lib]
+name = "tihulu_ai_transport"
+path = "src/lib.rs"
+
+# The coordinator-owned root workspace is deliberately untouched.
+# Remove this marker only when the coordinator enrolls the crate as a member.

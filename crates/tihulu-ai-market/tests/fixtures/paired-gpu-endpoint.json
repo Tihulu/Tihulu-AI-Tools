@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "fixture:paired-gpu",
+  "display_name": "Synthetic paired GPU served model",
+  "source": {
+    "kind": "external",
+    "application": "Paired Host"
+  },
+  "availability": "external",
+  "format": "endpoint",
+  "runtimes": [
+    "open_ai_api"
+  ],
+  "hardware_targets": [
+    "paired_gpu_host"
+  ],
+  "tasks": [
+    "chat"
+  ],
+  "input": "text",
+  "output": "text",
+  "languages": [
+    "en",
+    "tr",
+    "de"
+  ],
+  "translation_pairs": [],
+  "quantization": "Q4_K_M",
+  "memory": {
+    "ram_mib": 0,
+    "vram_mib": 6144,
+    "npu_mib": null
+  },
+  "license": {
+    "kind": "known",
+    "spdx": "Apache-2.0"
+  },
+  "integrity_verified": true,
+  "verified_runtimes": [
+    {
+      "runtime": "open_ai_api",
+      "hardware": "paired_gpu_host",
+      "evidence_id": "synthetic-fixture-probe"
+    }
+  ],
+  "supports_tool_calling": false,
+  "internet_required": false
+}

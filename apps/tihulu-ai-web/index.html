@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="TIHULU AI Tools read-only simulated interface — no model or device connections">
+  <title>TIHULU AI Tools — UI Foundation (Demo)</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="app"></div>
+  <dialog id="confirmation" aria-labelledby="dialog-title" aria-describedby="dialog-detail">
+    <div id="dialog-body"></div>
+    <div class="dialog-actions">
+      <button type="button" id="dialog-cancel" class="btn secondary">Cancel</button>
+      <button type="button" id="dialog-confirm" class="btn danger">Simulate only</button>
+    </div>
+  </dialog>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>

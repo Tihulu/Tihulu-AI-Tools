@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "fixture:asr-whisper",
+  "display_name": "Synthetic ASR Whisper",
+  "source": {
+    "kind": "tihulu"
+  },
+  "availability": "installed",
+  "format": "whisper_ggml",
+  "runtimes": [
+    "whisper_cpp"
+  ],
+  "hardware_targets": [
+    "cpu"
+  ],
+  "tasks": [
+    "asr"
+  ],
+  "input": "audio",
+  "output": "text",
+  "languages": [
+    "en",
+    "tr",
+    "de"
+  ],
+  "translation_pairs": [],
+  "quantization": "Q4_K_M",
+  "memory": {
+    "ram_mib": 2048,
+    "vram_mib": null,
+    "npu_mib": null
+  },
+  "license": {
+    "kind": "known",
+    "spdx": "Apache-2.0"
+  },
+  "integrity_verified": true,
+  "verified_runtimes": [
+    {
+      "runtime": "whisper_cpp",
+      "hardware": "cpu",
+      "evidence_id": "synthetic-fixture-probe"
+    }
+  ],
+  "supports_tool_calling": false,
+  "internet_required": false
+}
