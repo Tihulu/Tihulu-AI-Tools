@@ -578,28 +578,18 @@ mod tests {
         ledger.open_owner(owner);
         ledger.open_owner(other);
         let binding = binding(180, ModelOwner::JanDesktop, ContextAuthority::ManagedShared);
-        let mut one = register_initial_task(
-            &mut ledger,
-            &binding,
-            owner,
-            consumer("app-80", "task-a"),
-        )
-        .unwrap();
-        let mut two = attach_task(
-            &mut ledger,
-            &binding,
-            other,
-            consumer("app-81", "task-b"),
-        )
-        .unwrap();
-        let results = stop_app_with_receipts(
-            &mut ledger,
-            owner,
-            std::slice::from_mut(&mut one),
-        )
-        .unwrap();
+        let mut one =
+            register_initial_task(&mut ledger, &binding, owner, consumer("app-80", "task-a"))
+                .unwrap();
+        let mut two =
+            attach_task(&mut ledger, &binding, other, consumer("app-81", "task-b")).unwrap();
+        let results =
+            stop_app_with_receipts(&mut ledger, owner, std::slice::from_mut(&mut one)).unwrap();
         assert!(results.is_empty());
-        assert_eq!(one.release(&mut ledger).unwrap(), TaskRelease::AlreadyReleased);
+        assert_eq!(
+            one.release(&mut ledger).unwrap(),
+            TaskRelease::AlreadyReleased
+        );
         assert_eq!(ledger.active_lease_count(binding.resource), Some(1));
         assert_eq!(
             attach_task(&mut ledger, &binding, owner, consumer("app-80", "late")).err(),
@@ -620,25 +610,20 @@ mod tests {
         let owner = LedgerOwnerRef(82);
         ledger.open_owner(owner);
         let binding = binding(182, ModelOwner::AiTools, ContextAuthority::ManagedShared);
-        let mut receipt = register_initial_task(
-            &mut ledger,
-            &binding,
-            owner,
-            consumer("app-82", "task-a"),
-        )
-        .unwrap();
+        let mut receipt =
+            register_initial_task(&mut ledger, &binding, owner, consumer("app-82", "task-a"))
+                .unwrap();
         assert_eq!(
-            stop_app_with_receipts(
-                &mut ledger,
-                owner,
-                std::slice::from_mut(&mut receipt)
-            )
-            .unwrap()
-            .len(),
+            stop_app_with_receipts(&mut ledger, owner, std::slice::from_mut(&mut receipt))
+                .unwrap()
+                .len(),
             1
         );
         assert!(stop_app(&mut ledger, owner).unwrap().is_empty());
-        assert_eq!(receipt.release(&mut ledger).unwrap(), TaskRelease::AlreadyReleased);
+        assert_eq!(
+            receipt.release(&mut ledger).unwrap(),
+            TaskRelease::AlreadyReleased
+        );
         assert_eq!(ledger.active_lease_count(binding.resource), Some(0));
     }
 
@@ -661,13 +646,8 @@ mod tests {
             }
             ModelId::Endpoint { .. } => panic!("expected file reference"),
         };
-        let mut receipt = register_initial_task(
-            &mut ledger,
-            &binding,
-            owner,
-            consumer("app-83", "job"),
-        )
-        .unwrap();
+        let mut receipt =
+            register_initial_task(&mut ledger, &binding, owner, consumer("app-83", "job")).unwrap();
         let cleanup = receipt.release(&mut ledger).unwrap();
         assert!(matches!(cleanup, TaskRelease::Delegated(Some(_))));
         assert!(matches!(
@@ -677,7 +657,10 @@ mod tests {
                 ..
             }
         ));
-        assert_eq!(source_path.to_string_lossy(), "/synthetic/external/model.gguf");
+        assert_eq!(
+            source_path.to_string_lossy(),
+            "/synthetic/external/model.gguf"
+        );
         assert_eq!(ledger.active_lease_count(binding.resource), Some(0));
     }
 
@@ -689,13 +672,7 @@ mod tests {
         ledger.open_owner(first);
         ledger.open_owner(unrelated);
         let binding = binding(184, ModelOwner::AiTools, ContextAuthority::ManagedShared);
-        register_initial_task(
-            &mut ledger,
-            &binding,
-            first,
-            consumer("app-84", "task-a"),
-        )
-        .unwrap();
+        register_initial_task(&mut ledger, &binding, first, consumer("app-84", "task-a")).unwrap();
         assert!(stop_app(&mut ledger, unrelated).unwrap().is_empty());
         assert_eq!(ledger.active_lease_count(binding.resource), Some(1));
         assert_eq!(stop_app(&mut ledger, first).unwrap().len(), 1);

@@ -87,42 +87,57 @@ impl MockComputeHost {
         grace_ms: u64,
         max_pending_jobs: usize,
     ) -> Result<Self, Error> {
-        if !valid_sha256_hex(&server_cert_sha256) || lease_ttl_ms == 0
-            || grace_ms == 0 || max_pending_jobs == 0
+        if !valid_sha256_hex(&server_cert_sha256)
+            || lease_ttl_ms == 0
+            || grace_ms == 0
+            || max_pending_jobs == 0
         {
             return Err(Error::InvalidConfiguration);
         }
         Ok(Self {
-            id, server_cert_sha256, lease_ttl_ms, grace_ms, max_pending_jobs,
+            id,
+            server_cert_sha256,
+            lease_ttl_ms,
+            grace_ms,
+            max_pending_jobs,
             status: HostStatus::Accepting,
             lifecycle_authority: LifecycleAuthority::MockLocal,
             ledger_models: HashMap::new(),
-            used_ledger_resources: HashSet::new(), used_owned_runtime_ids: HashSet::new(),
+            used_ledger_resources: HashSet::new(),
+            used_owned_runtime_ids: HashSet::new(),
             ledger_owners: HashMap::new(),
-            ledger_events: VecDeque::new(), next_event_sequence: 0,
+            ledger_events: VecDeque::new(),
+            next_event_sequence: 0,
             used_lease_ids: HashMap::new(),
-            stopped_app_sessions: HashSet::new(), stopped_tasks: HashSet::new(),
-            paired: HashMap::new(), grants: HashMap::new(), models: HashMap::new(),
-            leases: HashMap::new(), jobs: HashMap::new(), audit: VecDeque::new(),
+            stopped_app_sessions: HashSet::new(),
+            stopped_tasks: HashSet::new(),
+            paired: HashMap::new(),
+            grants: HashMap::new(),
+            models: HashMap::new(),
+            leases: HashMap::new(),
+            jobs: HashMap::new(),
+            audit: VecDeque::new(),
         })
     }
 
     // Structured audit payload keeps ownership explicit and avoids a fragile
     // eight-field positional API. No audit event semantics are changed.
     fn log(&mut self, event: AuditEvent) {
-        if self.audit.len() == MAX_AUDIT_EVENTS { self.audit.pop_front(); }
+        if self.audit.len() == MAX_AUDIT_EVENTS {
+            self.audit.pop_front();
+        }
         self.audit.push_back(event);
     }
 
-    pub fn audit(&self) -> &VecDeque<AuditEvent> { &self.audit }
-    pub fn lifecycle_authority(&self) -> LifecycleAuthority { self.lifecycle_authority }
+    pub fn audit(&self) -> &VecDeque<AuditEvent> {
+        &self.audit
+    }
+    pub fn lifecycle_authority(&self) -> LifecycleAuthority {
+        self.lifecycle_authority
+    }
     /// Switch only before any lease/model load; coordinator mode forbids local unloading.
-    pub fn set_lifecycle_authority(&mut self, authority: LifecycleAuthority)
-        -> Result<(), Error>
-    {
-        if !self.used_lease_ids.is_empty()
-            || self.models.values().any(|state| state.loaded_by_us)
-        {
+    pub fn set_lifecycle_authority(&mut self, authority: LifecycleAuthority) -> Result<(), Error> {
+        if !self.used_lease_ids.is_empty() || self.models.values().any(|state| state.loaded_by_us) {
             return Err(Error::InvalidConfiguration);
         }
         self.lifecycle_authority = authority;
@@ -131,27 +146,35 @@ impl MockComputeHost {
 
     /// Host-trusted mapping to the registry's stable model reference and core
     /// ResourceLedger's numeric ResourceId. Two models cannot alias one resource.
-    pub fn bind_ledger_runtime(&mut self, binding: LedgerRuntimeBinding)
-        -> Result<(), Error>
-    {
+    pub fn bind_ledger_runtime(&mut self, binding: LedgerRuntimeBinding) -> Result<(), Error> {
         if !self.models.contains_key(&binding.model) {
             return Err(Error::UnknownModel);
         }
-        if self.models.get(&binding.model).is_some_and(|m| m.loaded_by_us)
+        if self
+            .models
+            .get(&binding.model)
+            .is_some_and(|m| m.loaded_by_us)
             || self.ledger_models.contains_key(&binding.model)
             || self.used_ledger_resources.contains(&binding.resource)
             || self.used_ledger_resources.len() >= MAX_LEDGER_RESOURCE_IDENTITIES
-            || (self.models.get(&binding.model).is_some_and(|m| {
-                m.registration.ownership == RuntimeOwnership::HostOwned
-            }) && self.used_owned_runtime_ids.contains(&binding.runtime))
-            || self.ledger_models.values().any(|b| b.runtime == binding.runtime)
+            || (self
+                .models
+                .get(&binding.model)
+                .is_some_and(|m| m.registration.ownership == RuntimeOwnership::HostOwned)
+                && self.used_owned_runtime_ids.contains(&binding.runtime))
+            || self
+                .ledger_models
+                .values()
+                .any(|b| b.runtime == binding.runtime)
         {
             return Err(Error::IdentifierConflict);
         }
         self.used_ledger_resources.insert(binding.resource);
-        if self.models.get(&binding.model).is_some_and(|m| {
-            m.registration.ownership == RuntimeOwnership::HostOwned
-        }) {
+        if self
+            .models
+            .get(&binding.model)
+            .is_some_and(|m| m.registration.ownership == RuntimeOwnership::HostOwned)
+        {
             self.used_owned_runtime_ids.insert(binding.runtime.clone());
         }
         self.ledger_models.insert(binding.model.clone(), binding);
@@ -163,20 +186,25 @@ impl MockComputeHost {
     /// Assign a NEW resource (and a new owned runtime instance on reload)
     /// before another lease; never recycle an old resource or accept stale ACKs.
     pub fn rotate_ledger_runtime(
-        &mut self, new_binding: LedgerRuntimeBinding,
+        &mut self,
+        new_binding: LedgerRuntimeBinding,
     ) -> Result<(), Error> {
         if self.lifecycle_authority != LifecycleAuthority::CoordinatorLedger {
             return Err(Error::InvalidConfiguration);
         }
         let model = new_binding.model.clone();
         let state = self.models.get(&model).ok_or(Error::UnknownModel)?;
-        if !state.ledger_resource_spent || state.loaded_by_us
-            || state.awaiting_ledger_ack || self.model_lease_count(&model) != 0
+        if !state.ledger_resource_spent
+            || state.loaded_by_us
+            || state.awaiting_ledger_ack
+            || self.model_lease_count(&model) != 0
             || self.ledger_events.iter().any(|event| event.model == model)
         {
             return Err(Error::LedgerCleanupPending);
         }
-        self.ledger_models.get(&model).ok_or(Error::LedgerBindingRequired)?;
+        self.ledger_models
+            .get(&model)
+            .ok_or(Error::LedgerBindingRequired)?;
         if self.used_ledger_resources.contains(&new_binding.resource)
             || self.used_ledger_resources.len() >= MAX_LEDGER_RESOURCE_IDENTITIES
             || (state.registration.ownership == RuntimeOwnership::HostOwned
@@ -189,7 +217,8 @@ impl MockComputeHost {
         }
         self.used_ledger_resources.insert(new_binding.resource);
         if state.registration.ownership == RuntimeOwnership::HostOwned {
-            self.used_owned_runtime_ids.insert(new_binding.runtime.clone());
+            self.used_owned_runtime_ids
+                .insert(new_binding.runtime.clone());
         }
         self.ledger_models.insert(model.clone(), new_binding);
         if let Some(state) = self.models.get_mut(&model) {
@@ -201,7 +230,10 @@ impl MockComputeHost {
     /// The coordinator alone assigns per-app-launch OwnerId from its ledger.
     /// Device identity, app identity and app-session ID together are the key.
     pub fn bind_ledger_owner(
-        &mut self, client: ClientId, app: AppId, session: AppSessionId,
+        &mut self,
+        client: ClientId,
+        app: AppId,
+        session: AppSessionId,
         owner: LedgerOwnerId,
     ) -> Result<(), Error> {
         if !self.paired.contains_key(&client)
@@ -210,9 +242,14 @@ impl MockComputeHost {
             return Err(Error::PermissionDenied);
         }
         let key = (client, app, session);
-        if self.ledger_owners.get(&key) == Some(&owner) { return Ok(()); }
+        if self.ledger_owners.get(&key) == Some(&owner) {
+            return Ok(());
+        }
         if self.ledger_owners.contains_key(&key)
-            || self.ledger_owners.iter().any(|(k, id)| *id == owner && k != &key)
+            || self
+                .ledger_owners
+                .iter()
+                .any(|(k, id)| *id == owner && k != &key)
         {
             return Err(Error::IdentifierConflict);
         }
@@ -228,7 +265,11 @@ impl MockComputeHost {
     pub fn acknowledge_ledger_event(&mut self, sequence: u64, now_ms: u64) -> bool {
         // No out-of-order acknowledgements: acquire must be applied before
         // release in the coordinator ResourceLedger. Retried ACK is idempotent.
-        if self.ledger_events.front().is_some_and(|e| e.sequence == sequence) {
+        if self
+            .ledger_events
+            .front()
+            .is_some_and(|e| e.sequence == sequence)
+        {
             self.ledger_events.pop_front();
             self.update_drained(now_ms);
             return true;
@@ -239,14 +280,22 @@ impl MockComputeHost {
     /// backend verified unload, and complete_cleanup(resource, true) succeeded.
     /// The generation fences stale late acknowledgements against a reload.
     pub fn acknowledge_ledger_unload(
-        &mut self, model: &ModelId, resource: LedgerResourceId,
-        generation: u64, succeeded: bool, now_ms: u64,
+        &mut self,
+        model: &ModelId,
+        resource: LedgerResourceId,
+        generation: u64,
+        succeeded: bool,
+        now_ms: u64,
     ) -> Result<(), Error> {
         if self.lifecycle_authority != LifecycleAuthority::CoordinatorLedger {
             return Err(Error::LedgerAckRejected);
         }
-        let binding = self.ledger_models.get(model).ok_or(Error::LedgerBindingRequired)?;
-        if binding.resource != resource || self.model_lease_count(model) != 0
+        let binding = self
+            .ledger_models
+            .get(model)
+            .ok_or(Error::LedgerBindingRequired)?;
+        if binding.resource != resource
+            || self.model_lease_count(model) != 0
             || self.ledger_events.iter().any(|event| event.model == *model)
         {
             // First confirm every acquire/release reached the authoritative ledger.
@@ -262,7 +311,16 @@ impl MockComputeHost {
             if state.loaded_by_us {
                 state.loaded_by_us = false;
                 state.unload_count += 1;
-                self.log(AuditEvent { at_ms: now_ms, action: AuditAction::ModelUnloaded, client: None, app: None, model: Some(model.clone()), lease: None, request: None, detail: "mock received authoritative ledger/backend unload ack" });
+                self.log(AuditEvent {
+                    at_ms: now_ms,
+                    action: AuditAction::ModelUnloaded,
+                    client: None,
+                    app: None,
+                    model: Some(model.clone()),
+                    lease: None,
+                    request: None,
+                    detail: "mock received authoritative ledger/backend unload ack",
+                });
             }
             self.update_drained(now_ms);
         }
@@ -272,35 +330,60 @@ impl MockComputeHost {
         self.models.get(model).map(|state| state.generation)
     }
     pub fn awaiting_ledger_unload(&self, model: &ModelId) -> bool {
-        self.models.get(model).is_some_and(|state| state.awaiting_ledger_ack)
+        self.models
+            .get(model)
+            .is_some_and(|state| state.awaiting_ledger_ack)
     }
 
     fn emit_ledger_event(&mut self, action: LedgerLeaseAction, id: &LeaseId, lease: &LeaseRecord) {
-        if self.lifecycle_authority != LifecycleAuthority::CoordinatorLedger { return; }
-        let binding = self.ledger_models.get(&lease.model)
+        if self.lifecycle_authority != LifecycleAuthority::CoordinatorLedger {
+            return;
+        }
+        let binding = self
+            .ledger_models
+            .get(&lease.model)
             .expect("ledger binding required before opening a lease");
-        let owner = lease.ledger_owner.expect("ledger owner required before opening a lease");
+        let owner = lease
+            .ledger_owner
+            .expect("ledger owner required before opening a lease");
         // Admission reserves two event slots and fences u64 sequence exhaustion.
         self.next_event_sequence += 1;
         self.ledger_events.push_back(LedgerLeaseEvent {
-            sequence: self.next_event_sequence, action, host: self.id.clone(),
-            client: lease.client.clone(), app: lease.app.clone(),
-            app_session: lease.app_session.clone(), task: lease.task.clone(),
-            model: lease.model.clone(), runtime: binding.runtime.clone(),
-            owner, resource: binding.resource, lease: id.clone(),
+            sequence: self.next_event_sequence,
+            action,
+            host: self.id.clone(),
+            client: lease.client.clone(),
+            app: lease.app.clone(),
+            app_session: lease.app_session.clone(),
+            task: lease.task.clone(),
+            model: lease.model.clone(),
+            runtime: binding.runtime.clone(),
+            owner,
+            resource: binding.resource,
+            lease: id.clone(),
         });
     }
-    pub fn status(&self) -> HostStatus { self.status }
-    pub fn lease_count(&self) -> usize { self.leases.len() }
+    pub fn status(&self) -> HostStatus {
+        self.status
+    }
+    pub fn lease_count(&self) -> usize {
+        self.leases.len()
+    }
     pub fn total_owned_vram_mib(&self) -> u64 {
-        self.models.values().filter(|m| m.loaded_by_us)
-            .map(|m| m.registration.estimated_vram_mib).sum()
+        self.models
+            .values()
+            .filter(|m| m.loaded_by_us)
+            .map(|m| m.registration.estimated_vram_mib)
+            .sum()
     }
     pub fn model_load_counts(&self, id: &ModelId) -> Option<(u64, u64)> {
         self.models.get(id).map(|m| (m.load_count, m.unload_count))
     }
     pub fn model_lease_count(&self, id: &ModelId) -> usize {
-        self.leases.values().filter(|lease| &lease.model == id).count()
+        self.leases
+            .values()
+            .filter(|lease| &lease.model == id)
+            .count()
     }
     pub fn lease_status(&self, id: &LeaseId) -> Option<LeaseStatus> {
         self.leases.get(id).map(|lease| lease.status)
@@ -311,11 +394,8 @@ impl MockComputeHost {
 
     /// Host-local administrator operation: the UI approved the exact TLS client pin
     /// over an out-of-band verification channel. No pair code or credentials logged.
-    pub fn pair_client(
-        &mut self, approval: PairingApproval, now_ms: u64,
-    ) -> Result<(), Error> {
-        if !approval.user_approved || !valid_sha256_hex(&approval.client_cert_sha256)
-        {
+    pub fn pair_client(&mut self, approval: PairingApproval, now_ms: u64) -> Result<(), Error> {
+        if !approval.user_approved || !valid_sha256_hex(&approval.client_cert_sha256) {
             return Err(Error::PairingRequired);
         }
         if let Some(existing) = self.paired.get(&approval.client) {
@@ -324,61 +404,111 @@ impl MockComputeHost {
             }
         }
         let client = approval.client;
-        self.paired.insert(client.clone(), PairedClient {
-            cert_sha256: approval.client_cert_sha256,
+        self.paired.insert(
+            client.clone(),
+            PairedClient {
+                cert_sha256: approval.client_cert_sha256,
+            },
+        );
+        self.log(AuditEvent {
+            at_ms: now_ms,
+            action: AuditAction::Paired,
+            client: Some(client),
+            app: None,
+            model: None,
+            lease: None,
+            request: None,
+            detail: "user-approved certificate pin",
         });
-        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::Paired, client: Some(client), app: None, model: None, lease: None, request: None, detail: "user-approved certificate pin" });
         Ok(())
     }
 
     /// Host-local administrator operation, never a client-editable grant.
     pub fn set_grant(
-        &mut self, client: ClientId, app: AppId, grant: AppGrant, now_ms: u64,
+        &mut self,
+        client: ClientId,
+        app: AppId,
+        grant: AppGrant,
+        now_ms: u64,
     ) -> Result<(), Error> {
         grant.validate()?;
-        if !self.paired.contains_key(&client) { return Err(Error::PairingRequired); }
-        if grant.allowed_models.iter().any(|id| !self.models.contains_key(id)) {
+        if !self.paired.contains_key(&client) {
+            return Err(Error::PairingRequired);
+        }
+        if grant
+            .allowed_models
+            .iter()
+            .any(|id| !self.models.contains_key(id))
+        {
             return Err(Error::UnknownModel);
         }
         // A permission downgrade cannot leave an already running forbidden
         // workload behind. Scope the drain to this device+app, not the host.
-        let leased: Vec<_> = self.leases.iter().filter(|(_, lease)| {
-            lease.client == client && lease.app == app
-        }).map(|(id, lease)| (id.clone(), lease.model.clone())).collect();
+        let leased: Vec<_> = self
+            .leases
+            .iter()
+            .filter(|(_, lease)| lease.client == client && lease.app == app)
+            .map(|(id, lease)| (id.clone(), lease.model.clone()))
+            .collect();
         let over_count = leased.len() > grant.max_leases;
         let changed_jobs = self.jobs.values().any(|job| {
-            job.client == client && job.app == app && !job.status.terminal()
+            job.client == client
+                && job.app == app
+                && !job.status.terminal()
                 && (!grant.allowed_tasks.contains(&job.spec.task)
                     || job.spec.payload_bytes > grant.max_payload_bytes)
         });
-        let forbidden: Vec<_> = leased.iter().filter(|(_, model)| {
-            !grant.allowed_models.contains(model)
-                || self.models.get(model).is_some_and(|state| {
-                    state.registration.ownership == RuntimeOwnership::HostOwned
-                        && state.registration.estimated_vram_mib > grant.max_model_vram_mib
-                })
-        }).map(|(id, _)| id.clone()).collect();
+        let forbidden: Vec<_> = leased
+            .iter()
+            .filter(|(_, model)| {
+                !grant.allowed_models.contains(model)
+                    || self.models.get(model).is_some_and(|state| {
+                        state.registration.ownership == RuntimeOwnership::HostOwned
+                            && state.registration.estimated_vram_mib > grant.max_model_vram_mib
+                    })
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
         self.grants.insert((client.clone(), app.clone()), grant);
         if over_count || changed_jobs {
-            for (id, _) in leased { self.close_internal(&id, now_ms); }
+            for (id, _) in leased {
+                self.close_internal(&id, now_ms);
+            }
         } else {
-            for id in forbidden { self.close_internal(&id, now_ms); }
+            for id in forbidden {
+                self.close_internal(&id, now_ms);
+            }
         }
-        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::Granted, client: Some(client), app: Some(app), model: None, lease: None, request: None, detail: "host policy grant" });
+        self.log(AuditEvent {
+            at_ms: now_ms,
+            action: AuditAction::Granted,
+            client: Some(client),
+            app: Some(app),
+            model: None,
+            lease: None,
+            request: None,
+            detail: "host policy grant",
+        });
         Ok(())
     }
 
     /// Host-local inventory registration, never accept raw client filesystem paths.
-    pub fn register_model(&mut self, registration: ModelRegistration)
-        -> Result<(), Error>
-    {
+    pub fn register_model(&mut self, registration: ModelRegistration) -> Result<(), Error> {
         if self.models.contains_key(&registration.id) {
             return Err(Error::IdentifierConflict);
         }
-        self.models.insert(registration.id.clone(), ModelState {
-            registration, loaded_by_us: false, load_count: 0, unload_count: 0,
-            generation: 0, awaiting_ledger_ack: false, ledger_resource_spent: false,
-        });
+        self.models.insert(
+            registration.id.clone(),
+            ModelState {
+                registration,
+                loaded_by_us: false,
+                load_count: 0,
+                unload_count: 0,
+                generation: 0,
+                awaiting_ledger_ack: false,
+                ledger_resource_spent: false,
+            },
+        );
         Ok(())
     }
 
@@ -394,11 +524,17 @@ impl MockComputeHost {
         if peer.app_authentication != AppAuthentication::VerifiedScopedCredential {
             return Err(Error::UnverifiedApplication);
         }
-        let pair = self.paired.get(&peer.client).ok_or(Error::PairingRequired)?;
+        let pair = self
+            .paired
+            .get(&peer.client)
+            .ok_or(Error::PairingRequired)?;
         if pair.cert_sha256 != peer.client_cert_sha256 {
             return Err(Error::IdentityMismatch);
         }
-        if !self.grants.contains_key(&(peer.client.clone(), peer.app.clone())) {
+        if !self
+            .grants
+            .contains_key(&(peer.client.clone(), peer.app.clone()))
+        {
             return Err(Error::PermissionDenied);
         }
         Ok(())
@@ -406,34 +542,62 @@ impl MockComputeHost {
 
     fn grant(&self, peer: &PeerEvidence) -> Result<&AppGrant, Error> {
         self.authenticate(peer)?;
-        self.grants.get(&(peer.client.clone(), peer.app.clone()))
+        self.grants
+            .get(&(peer.client.clone(), peer.app.clone()))
             .ok_or(Error::PermissionDenied)
     }
 
     pub fn open_lease(
-        &mut self, peer: &PeerEvidence, id: LeaseId, model: ModelId, now_ms: u64,
+        &mut self,
+        peer: &PeerEvidence,
+        id: LeaseId,
+        model: ModelId,
+        now_ms: u64,
     ) -> Result<(), Error> {
         self.tick(now_ms);
-        if self.status != HostStatus::Accepting { return Err(Error::ShuttingDown); }
+        if self.status != HostStatus::Accepting {
+            return Err(Error::ShuttingDown);
+        }
         let grant = self.grant(peer)?;
-        let session = (peer.client.clone(), peer.app.clone(), peer.app_session.clone());
+        let session = (
+            peer.client.clone(),
+            peer.app.clone(),
+            peer.app_session.clone(),
+        );
         if self.stopped_app_sessions.contains(&session)
-            || self.stopped_tasks.contains(&(session.0, session.1, session.2, peer.task.clone()))
+            || self
+                .stopped_tasks
+                .contains(&(session.0, session.1, session.2, peer.task.clone()))
         {
             return Err(Error::LeaseExpired);
         }
-        if !grant.allowed_models.contains(&model) { return Err(Error::PermissionDenied); }
-        let reg = self.models.get(&model).ok_or(Error::UnknownModel)?.registration.clone();
-        if !reg.location.executable() { return Err(Error::StagingNotVerified); }
+        if !grant.allowed_models.contains(&model) {
+            return Err(Error::PermissionDenied);
+        }
+        let reg = self
+            .models
+            .get(&model)
+            .ok_or(Error::UnknownModel)?
+            .registration
+            .clone();
+        if !reg.location.executable() {
+            return Err(Error::StagingNotVerified);
+        }
         if reg.ownership == RuntimeOwnership::HostOwned
             && reg.estimated_vram_mib > grant.max_model_vram_mib
         {
             return Err(Error::QuotaExceeded);
         }
         if let Some(owner) = self.used_lease_ids.get(&id) {
-            let expected = (peer.client.clone(), peer.app.clone(),
-                peer.app_session.clone(), peer.task.clone());
-            if owner != &expected { return Err(Error::NotOwner); }
+            let expected = (
+                peer.client.clone(),
+                peer.app.clone(),
+                peer.app_session.clone(),
+                peer.task.clone(),
+            );
+            if owner != &expected {
+                return Err(Error::NotOwner);
+            }
             if let Some(existing) = self.leases.get(&id) {
                 if existing.model == model && existing.status == LeaseStatus::Active {
                     // Retry after lost response is the SAME lease, never a second load.
@@ -451,163 +615,335 @@ impl MockComputeHost {
             if !self.ledger_models.contains_key(&model) {
                 return Err(Error::LedgerBindingRequired);
             }
-            let key = (peer.client.clone(), peer.app.clone(), peer.app_session.clone());
-            let owner = *self.ledger_owners.get(&key).ok_or(Error::LedgerBindingRequired)?;
-            if self.ledger_events.len().saturating_add(
-                self.leases.len().saturating_mul(2)).saturating_add(2) > MAX_LEDGER_EVENTS
+            let key = (
+                peer.client.clone(),
+                peer.app.clone(),
+                peer.app_session.clone(),
+            );
+            let owner = *self
+                .ledger_owners
+                .get(&key)
+                .ok_or(Error::LedgerBindingRequired)?;
+            if self
+                .ledger_events
+                .len()
+                .saturating_add(self.leases.len().saturating_mul(2))
+                .saturating_add(2)
+                > MAX_LEDGER_EVENTS
                 || self.next_event_sequence > u64::MAX - 2
             {
                 return Err(Error::RecordCapacityReached);
             }
             Some(owner)
-        } else { None };
-        if self.models.get(&model).is_some_and(|m| m.awaiting_ledger_ack) {
+        } else {
+            None
+        };
+        if self
+            .models
+            .get(&model)
+            .is_some_and(|m| m.awaiting_ledger_ack)
+        {
             return Err(Error::LedgerCleanupPending);
         }
         if self.lifecycle_authority == LifecycleAuthority::CoordinatorLedger
-            && self.models.get(&model).is_some_and(|m| m.ledger_resource_spent)
+            && self
+                .models
+                .get(&model)
+                .is_some_and(|m| m.ledger_resource_spent)
         {
             return Err(Error::LedgerBindingRequired);
         }
-        let count = self.leases.values().filter(|lease| {
-            lease.client == peer.client && lease.app == peer.app
-        }).count();
-        if count >= grant.max_leases { return Err(Error::QuotaExceeded); }
+        let count = self
+            .leases
+            .values()
+            .filter(|lease| lease.client == peer.client && lease.app == peer.app)
+            .count();
+        if count >= grant.max_leases {
+            return Err(Error::QuotaExceeded);
+        }
         let state = self.models.get_mut(&model).ok_or(Error::UnknownModel)?;
         let first_load = reg.ownership == RuntimeOwnership::HostOwned && !state.loaded_by_us;
         if first_load {
-            let next_generation = state.generation.checked_add(1)
+            let next_generation = state
+                .generation
+                .checked_add(1)
                 .ok_or(Error::RecordCapacityReached)?;
             state.generation = next_generation;
             state.loaded_by_us = true;
             state.load_count += 1;
         }
         let record = LeaseRecord {
-            client: peer.client.clone(), app: peer.app.clone(),
-            app_session: peer.app_session.clone(), task: peer.task.clone(),
-            model: model.clone(), ledger_owner,
-            status: LeaseStatus::Active, expires_at_ms: now_ms.saturating_add(self.lease_ttl_ms),
+            client: peer.client.clone(),
+            app: peer.app.clone(),
+            app_session: peer.app_session.clone(),
+            task: peer.task.clone(),
+            model: model.clone(),
+            ledger_owner,
+            status: LeaseStatus::Active,
+            expires_at_ms: now_ms.saturating_add(self.lease_ttl_ms),
             close_started_ms: None,
         };
         self.leases.insert(id.clone(), record.clone());
-        self.used_lease_ids.insert(id.clone(), (
-            peer.client.clone(), peer.app.clone(), peer.app_session.clone(), peer.task.clone()
-        ));
+        self.used_lease_ids.insert(
+            id.clone(),
+            (
+                peer.client.clone(),
+                peer.app.clone(),
+                peer.app_session.clone(),
+                peer.task.clone(),
+            ),
+        );
         self.emit_ledger_event(LedgerLeaseAction::Acquired, &id, &record);
         if first_load {
-            self.log(AuditEvent { at_ms: now_ms, action: AuditAction::ModelLoaded, client: None, app: None, model: Some(model.clone()), lease: None, request: None, detail: "synthetic host-owned runtime load" });
+            self.log(AuditEvent {
+                at_ms: now_ms,
+                action: AuditAction::ModelLoaded,
+                client: None,
+                app: None,
+                model: Some(model.clone()),
+                lease: None,
+                request: None,
+                detail: "synthetic host-owned runtime load",
+            });
         }
-        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::LeaseOpened, client: Some(peer.client.clone()), app: Some(peer.app.clone()), model: Some(model), lease: Some(id), request: None, detail: "per-client model lease" });
+        self.log(AuditEvent {
+            at_ms: now_ms,
+            action: AuditAction::LeaseOpened,
+            client: Some(peer.client.clone()),
+            app: Some(peer.app.clone()),
+            model: Some(model),
+            lease: Some(id),
+            request: None,
+            detail: "per-client model lease",
+        });
         Ok(())
     }
 
     pub fn heartbeat(
-        &mut self, peer: &PeerEvidence, id: &LeaseId, now_ms: u64,
+        &mut self,
+        peer: &PeerEvidence,
+        id: &LeaseId,
+        now_ms: u64,
     ) -> Result<(), Error> {
         self.tick(now_ms);
         self.authenticate(peer)?;
         let lease = self.leases.get_mut(id).ok_or(Error::UnknownLease)?;
-        if lease.client != peer.client || lease.app != peer.app
-            || lease.app_session != peer.app_session || lease.task != peer.task
+        if lease.client != peer.client
+            || lease.app != peer.app
+            || lease.app_session != peer.app_session
+            || lease.task != peer.task
         {
             return Err(Error::NotOwner);
         }
-        if lease.status != LeaseStatus::Active { return Err(Error::LeaseExpired); }
+        if lease.status != LeaseStatus::Active {
+            return Err(Error::LeaseExpired);
+        }
         lease.expires_at_ms = now_ms.saturating_add(self.lease_ttl_ms);
-        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::LeaseRenewed, client: Some(peer.client.clone()), app: Some(peer.app.clone()), model: None, lease: Some(id.clone()), request: None, detail: "heartbeat" });
+        self.log(AuditEvent {
+            at_ms: now_ms,
+            action: AuditAction::LeaseRenewed,
+            client: Some(peer.client.clone()),
+            app: Some(peer.app.clone()),
+            model: None,
+            lease: Some(id.clone()),
+            request: None,
+            detail: "heartbeat",
+        });
         Ok(())
     }
 
     pub fn submit(
-        &mut self, peer: &PeerEvidence, spec: RequestSpec, now_ms: u64,
+        &mut self,
+        peer: &PeerEvidence,
+        spec: RequestSpec,
+        now_ms: u64,
     ) -> Result<JobStatus, Error> {
         self.tick(now_ms);
         let grant = self.grant(peer)?;
         if let Some(existing) = self.jobs.get(&spec.id) {
-            if existing.client == peer.client && existing.app == peer.app
-                && existing.app_session == peer.app_session && existing.task == peer.task
-                && existing.spec == spec { return Ok(existing.status); }
+            if existing.client == peer.client
+                && existing.app == peer.app
+                && existing.app_session == peer.app_session
+                && existing.task == peer.task
+                && existing.spec == spec
+            {
+                return Ok(existing.status);
+            }
             return Err(Error::IdentifierConflict);
         }
-        if self.status != HostStatus::Accepting { return Err(Error::ShuttingDown); }
+        if self.status != HostStatus::Accepting {
+            return Err(Error::ShuttingDown);
+        }
         if spec.payload_bytes > grant.max_payload_bytes {
             return Err(Error::RequestTooLarge);
         }
-        if !grant.allowed_tasks.contains(&spec.task) { return Err(Error::PermissionDenied); }
+        if !grant.allowed_tasks.contains(&spec.task) {
+            return Err(Error::PermissionDenied);
+        }
         let lease = self.leases.get(&spec.lease).ok_or(Error::UnknownLease)?;
-        if lease.client != peer.client || lease.app != peer.app
-            || lease.app_session != peer.app_session || lease.task != peer.task
+        if lease.client != peer.client
+            || lease.app != peer.app
+            || lease.app_session != peer.app_session
+            || lease.task != peer.task
         {
             return Err(Error::NotOwner);
         }
-        if lease.status != LeaseStatus::Active { return Err(Error::LeaseExpired); }
+        if lease.status != LeaseStatus::Active {
+            return Err(Error::LeaseExpired);
+        }
         if !grant.allowed_models.contains(&lease.model) {
             return Err(Error::PermissionDenied);
         }
         if self.jobs.len() >= MAX_JOB_RECORDS {
             return Err(Error::RecordCapacityReached);
         }
-        let active = self.jobs.values().filter(|job| {
-            job.client == peer.client && job.app == peer.app && !job.status.terminal()
-        }).count();
-        if active >= grant.max_nonterminal_jobs { return Err(Error::QuotaExceeded); }
-        let queued = self.jobs.values().filter(|job| job.status == JobStatus::Queued).count();
-        if queued >= self.max_pending_jobs { return Err(Error::QuotaExceeded); }
-        self.jobs.insert(spec.id.clone(), JobRecord {
-            client: peer.client.clone(), app: peer.app.clone(),
-            app_session: peer.app_session.clone(), task: peer.task.clone(),
-            spec: spec.clone(), status: JobStatus::Queued, cancellation_at_ms: None,
+        let active = self
+            .jobs
+            .values()
+            .filter(|job| {
+                job.client == peer.client && job.app == peer.app && !job.status.terminal()
+            })
+            .count();
+        if active >= grant.max_nonterminal_jobs {
+            return Err(Error::QuotaExceeded);
+        }
+        let queued = self
+            .jobs
+            .values()
+            .filter(|job| job.status == JobStatus::Queued)
+            .count();
+        if queued >= self.max_pending_jobs {
+            return Err(Error::QuotaExceeded);
+        }
+        self.jobs.insert(
+            spec.id.clone(),
+            JobRecord {
+                client: peer.client.clone(),
+                app: peer.app.clone(),
+                app_session: peer.app_session.clone(),
+                task: peer.task.clone(),
+                spec: spec.clone(),
+                status: JobStatus::Queued,
+                cancellation_at_ms: None,
+            },
+        );
+        self.log(AuditEvent {
+            at_ms: now_ms,
+            action: AuditAction::JobQueued,
+            client: Some(peer.client.clone()),
+            app: Some(peer.app.clone()),
+            model: None,
+            lease: Some(spec.lease),
+            request: Some(spec.id),
+            detail: "queued",
         });
-        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::JobQueued, client: Some(peer.client.clone()), app: Some(peer.app.clone()), model: None, lease: Some(spec.lease), request: Some(spec.id), detail: "queued" });
         Ok(JobStatus::Queued)
     }
 
     /// Host executor only; deterministic lexicographic ordering in this fake queue.
     pub fn start_next_job(&mut self, now_ms: u64) -> Option<RequestId> {
         self.tick(now_ms);
-        if self.status != HostStatus::Accepting { return None; }
-        let next = self.jobs.iter().filter(|(_, j)| j.status == JobStatus::Queued)
-            .map(|(id, _)| id.clone()).min()?;
+        if self.status != HostStatus::Accepting {
+            return None;
+        }
+        let next = self
+            .jobs
+            .iter()
+            .filter(|(_, j)| j.status == JobStatus::Queued)
+            .map(|(id, _)| id.clone())
+            .min()?;
         let job = self.jobs.get_mut(&next)?;
         job.status = JobStatus::Running;
-        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::JobStarted, client: None, app: None, model: None, lease: None, request: Some(next.clone()), detail: "synthetic worker started" });
+        self.log(AuditEvent {
+            at_ms: now_ms,
+            action: AuditAction::JobStarted,
+            client: None,
+            app: None,
+            model: None,
+            lease: None,
+            request: Some(next.clone()),
+            detail: "synthetic worker started",
+        });
         Some(next)
     }
 
     /// Host executor only. A late success cannot resurrect a cancelled job.
     pub fn finish_job(
-        &mut self, id: &RequestId, success: bool, now_ms: u64,
+        &mut self,
+        id: &RequestId,
+        success: bool,
+        now_ms: u64,
     ) -> Result<JobStatus, Error> {
         self.tick(now_ms);
         let job = self.jobs.get_mut(id).ok_or(Error::UnknownRequest)?;
-        if job.status.terminal() { return Ok(job.status); }
+        if job.status.terminal() {
+            return Ok(job.status);
+        }
         job.status = if job.status == JobStatus::Cancelling {
             JobStatus::Cancelled
-        } else if success { JobStatus::Succeeded } else { JobStatus::Failed };
+        } else if success {
+            JobStatus::Succeeded
+        } else {
+            JobStatus::Failed
+        };
         let result = job.status;
-        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::JobFinished, client: None, app: None, model: None, lease: None, request: Some(id.clone()), detail: "synthetic backend completion" });
+        self.log(AuditEvent {
+            at_ms: now_ms,
+            action: AuditAction::JobFinished,
+            client: None,
+            app: None,
+            model: None,
+            lease: None,
+            request: Some(id.clone()),
+            detail: "synthetic backend completion",
+        });
         self.finalize_closed(now_ms);
         Ok(result)
     }
 
     fn cancel_internal(&mut self, id: &RequestId, now_ms: u64) {
-        let Some(job) = self.jobs.get_mut(id) else { return; };
-        if job.status.terminal() || job.status == JobStatus::Cancelling { return; }
+        let Some(job) = self.jobs.get_mut(id) else {
+            return;
+        };
+        if job.status.terminal() || job.status == JobStatus::Cancelling {
+            return;
+        }
         let queued = job.status == JobStatus::Queued;
-        job.status = if queued { JobStatus::Cancelled } else { JobStatus::Cancelling };
+        job.status = if queued {
+            JobStatus::Cancelled
+        } else {
+            JobStatus::Cancelling
+        };
         job.cancellation_at_ms = Some(now_ms);
-        self.log(AuditEvent { at_ms: now_ms, action: if queued { AuditAction::JobCancelled }
-                else { AuditAction::JobCancellationRequested }, client: None, app: None, model: None, lease: None, request: Some(id.clone()), detail: "scoped request cancellation" });
+        self.log(AuditEvent {
+            at_ms: now_ms,
+            action: if queued {
+                AuditAction::JobCancelled
+            } else {
+                AuditAction::JobCancellationRequested
+            },
+            client: None,
+            app: None,
+            model: None,
+            lease: None,
+            request: Some(id.clone()),
+            detail: "scoped request cancellation",
+        });
     }
 
     pub fn cancel_request(
-        &mut self, peer: &PeerEvidence, id: &RequestId, now_ms: u64,
+        &mut self,
+        peer: &PeerEvidence,
+        id: &RequestId,
+        now_ms: u64,
     ) -> Result<JobStatus, Error> {
         self.tick(now_ms);
         self.authenticate(peer)?;
         let job = self.jobs.get(id).ok_or(Error::UnknownRequest)?;
-        if job.client != peer.client || job.app != peer.app
-            || job.app_session != peer.app_session || job.task != peer.task
+        if job.client != peer.client
+            || job.app != peer.app
+            || job.app_session != peer.app_session
+            || job.task != peer.task
         {
             return Err(Error::NotOwner);
         }
@@ -617,28 +953,55 @@ impl MockComputeHost {
     }
 
     fn close_internal(&mut self, id: &LeaseId, now_ms: u64) {
-        let Some(lease) = self.leases.get_mut(id) else { return; };
-        if lease.status == LeaseStatus::Closing { return; }
+        let Some(lease) = self.leases.get_mut(id) else {
+            return;
+        };
+        if lease.status == LeaseStatus::Closing {
+            return;
+        }
         lease.status = LeaseStatus::Closing;
         lease.close_started_ms = Some(now_ms);
         let client = lease.client.clone();
         let app = lease.app.clone();
         let model = lease.model.clone();
-        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::LeaseClosing, client: Some(client), app: Some(app), model: Some(model), lease: Some(id.clone()), request: None, detail: "reject new work; cancel and drain" });
-        let ids: Vec<_> = self.jobs.iter().filter(|(_, job)| job.spec.lease == *id
-            && !job.status.terminal()).map(|(id, _)| id.clone()).collect();
-        for request in ids { self.cancel_internal(&request, now_ms); }
+        self.log(AuditEvent {
+            at_ms: now_ms,
+            action: AuditAction::LeaseClosing,
+            client: Some(client),
+            app: Some(app),
+            model: Some(model),
+            lease: Some(id.clone()),
+            request: None,
+            detail: "reject new work; cancel and drain",
+        });
+        let ids: Vec<_> = self
+            .jobs
+            .iter()
+            .filter(|(_, job)| job.spec.lease == *id && !job.status.terminal())
+            .map(|(id, _)| id.clone())
+            .collect();
+        for request in ids {
+            self.cancel_internal(&request, now_ms);
+        }
         self.finalize_closed(now_ms);
     }
 
     pub fn close_lease(
-        &mut self, peer: &PeerEvidence, id: &LeaseId, now_ms: u64,
+        &mut self,
+        peer: &PeerEvidence,
+        id: &LeaseId,
+        now_ms: u64,
     ) -> Result<(), Error> {
         self.tick(now_ms);
         self.authenticate(peer)?;
         let owner = self.used_lease_ids.get(id).ok_or(Error::UnknownLease)?;
-        if owner != &(peer.client.clone(), peer.app.clone(),
-            peer.app_session.clone(), peer.task.clone())
+        if owner
+            != &(
+                peer.client.clone(),
+                peer.app.clone(),
+                peer.app_session.clone(),
+                peer.task.clone(),
+            )
         {
             return Err(Error::NotOwner);
         }
@@ -654,10 +1017,19 @@ impl MockComputeHost {
     /// or allow its own lease TTL to expire, to preserve another app on the same Pi.
     /// Abrupt process death without a verified callback is recovered by lease TTL.
     pub fn close_client(&mut self, client: &ClientId, now_ms: u64) {
-        let ids: Vec<_> = self.leases.iter().filter(|(_, lease)| &lease.client == client)
-            .map(|(id, _)| id.clone()).collect();
-        for id in ids { self.close_internal(&id, now_ms); }
-        let scopes: Vec<_> = self.used_lease_ids.values().filter(|scope| &scope.0 == client)
+        let ids: Vec<_> = self
+            .leases
+            .iter()
+            .filter(|(_, lease)| &lease.client == client)
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in ids {
+            self.close_internal(&id, now_ms);
+        }
+        let scopes: Vec<_> = self
+            .used_lease_ids
+            .values()
+            .filter(|scope| &scope.0 == client)
             .map(|scope| (scope.0.clone(), scope.1.clone(), scope.2.clone()))
             .collect();
         self.stopped_app_sessions.extend(scopes);
@@ -668,13 +1040,23 @@ impl MockComputeHost {
         self.tick(now_ms);
         self.authenticate(peer)?;
         self.stopped_app_sessions.insert((
-            peer.client.clone(), peer.app.clone(), peer.app_session.clone()
+            peer.client.clone(),
+            peer.app.clone(),
+            peer.app_session.clone(),
         ));
-        let ids: Vec<_> = self.leases.iter().filter(|(_, lease)| {
-            lease.client == peer.client && lease.app == peer.app
-                && lease.app_session == peer.app_session
-        }).map(|(id, _)| id.clone()).collect();
-        for id in ids { self.close_internal(&id, now_ms); }
+        let ids: Vec<_> = self
+            .leases
+            .iter()
+            .filter(|(_, lease)| {
+                lease.client == peer.client
+                    && lease.app == peer.app
+                    && lease.app_session == peer.app_session
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in ids {
+            self.close_internal(&id, now_ms);
+        }
         Ok(())
     }
 
@@ -683,84 +1065,167 @@ impl MockComputeHost {
         self.tick(now_ms);
         self.authenticate(peer)?;
         self.stopped_tasks.insert((
-            peer.client.clone(), peer.app.clone(),
-            peer.app_session.clone(), peer.task.clone()
+            peer.client.clone(),
+            peer.app.clone(),
+            peer.app_session.clone(),
+            peer.task.clone(),
         ));
-        let ids: Vec<_> = self.leases.iter().filter(|(_, lease)| {
-            lease.client == peer.client && lease.app == peer.app
-                && lease.app_session == peer.app_session && lease.task == peer.task
-        }).map(|(id, _)| id.clone()).collect();
-        for id in ids { self.close_internal(&id, now_ms); }
+        let ids: Vec<_> = self
+            .leases
+            .iter()
+            .filter(|(_, lease)| {
+                lease.client == peer.client
+                    && lease.app == peer.app
+                    && lease.app_session == peer.app_session
+                    && lease.task == peer.task
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in ids {
+            self.close_internal(&id, now_ms);
+        }
         Ok(())
     }
 
     /// Host-local policy revocation, cancels only this app's affected leases.
     pub fn revoke_app(&mut self, client: &ClientId, app: &AppId, now_ms: u64) {
         self.grants.remove(&(client.clone(), app.clone()));
-        let ids: Vec<_> = self.leases.iter().filter(|(_, lease)| {
-            &lease.client == client && &lease.app == app
-        }).map(|(id, _)| id.clone()).collect();
-        for id in ids { self.close_internal(&id, now_ms); }
-        let old_scopes: Vec<_> = self.used_lease_ids.values().filter(|scope| {
-            &scope.0 == client && &scope.1 == app
-        }).map(|scope| (scope.0.clone(), scope.1.clone(), scope.2.clone())).collect();
+        let ids: Vec<_> = self
+            .leases
+            .iter()
+            .filter(|(_, lease)| &lease.client == client && &lease.app == app)
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in ids {
+            self.close_internal(&id, now_ms);
+        }
+        let old_scopes: Vec<_> = self
+            .used_lease_ids
+            .values()
+            .filter(|scope| &scope.0 == client && &scope.1 == app)
+            .map(|scope| (scope.0.clone(), scope.1.clone(), scope.2.clone()))
+            .collect();
         self.stopped_app_sessions.extend(old_scopes);
-        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::Revoked, client: Some(client.clone()), app: Some(app.clone()), model: None, lease: None, request: None, detail: "host revoked one application grant" });
+        self.log(AuditEvent {
+            at_ms: now_ms,
+            action: AuditAction::Revoked,
+            client: Some(client.clone()),
+            app: Some(app.clone()),
+            model: None,
+            lease: None,
+            request: None,
+            detail: "host revoked one application grant",
+        });
     }
 
     /// Explicit host-owner command (Quit All TIHULU-Owned Services); not UI Quit.
     /// Real implementation must warn clients and supervise only owned workers.
     pub fn begin_host_drain(&mut self, now_ms: u64) {
-        if self.status != HostStatus::Accepting { return; }
+        if self.status != HostStatus::Accepting {
+            return;
+        }
         self.status = HostStatus::Draining;
-        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::HostDraining, client: None, app: None, model: None, lease: None, request: None, detail: "host-owner requested drain" });
+        self.log(AuditEvent {
+            at_ms: now_ms,
+            action: AuditAction::HostDraining,
+            client: None,
+            app: None,
+            model: None,
+            lease: None,
+            request: None,
+            detail: "host-owner requested drain",
+        });
         let ids: Vec<_> = self.leases.keys().cloned().collect();
-        for id in ids { self.close_internal(&id, now_ms); }
+        for id in ids {
+            self.close_internal(&id, now_ms);
+        }
         self.finalize_closed(now_ms);
     }
 
     /// Host timer. Expire orphan leases and force logical completion after grace.
     /// An actual executor MUST still prove its owned worker was joined/terminated.
     pub fn tick(&mut self, now_ms: u64) {
-        let expired: Vec<_> = self.leases.iter().filter(|(_, lease)| {
-            lease.status == LeaseStatus::Active && now_ms >= lease.expires_at_ms
-        }).map(|(id, _)| id.clone()).collect();
-        for id in expired { self.close_internal(&id, now_ms); }
+        let expired: Vec<_> = self
+            .leases
+            .iter()
+            .filter(|(_, lease)| {
+                lease.status == LeaseStatus::Active && now_ms >= lease.expires_at_ms
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in expired {
+            self.close_internal(&id, now_ms);
+        }
 
-        let forced: Vec<_> = self.jobs.iter().filter(|(_, job)| {
-            job.status == JobStatus::Cancelling
-                && (job.cancellation_at_ms.is_some_and(|t| {
-                    now_ms >= t.saturating_add(self.grace_ms)
-                }) || self.leases.get(&job.spec.lease).and_then(|lease| {
-                    lease.close_started_ms
-                }).is_some_and(|t| now_ms >= t.saturating_add(self.grace_ms)))
-        }).map(|(id, _)| id.clone()).collect();
+        let forced: Vec<_> = self
+            .jobs
+            .iter()
+            .filter(|(_, job)| {
+                job.status == JobStatus::Cancelling
+                    && (job
+                        .cancellation_at_ms
+                        .is_some_and(|t| now_ms >= t.saturating_add(self.grace_ms))
+                        || self
+                            .leases
+                            .get(&job.spec.lease)
+                            .and_then(|lease| lease.close_started_ms)
+                            .is_some_and(|t| now_ms >= t.saturating_add(self.grace_ms)))
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
         for id in forced {
             if let Some(job) = self.jobs.get_mut(&id) {
                 job.status = JobStatus::Cancelled;
             }
-            self.log(AuditEvent { at_ms: now_ms, action: AuditAction::ForceCancelled, client: None, app: None, model: None, lease: None, request: Some(id), detail: "mock bounded drain: backend termination NOT proven" });
+            self.log(AuditEvent {
+                at_ms: now_ms,
+                action: AuditAction::ForceCancelled,
+                client: None,
+                app: None,
+                model: None,
+                lease: None,
+                request: Some(id),
+                detail: "mock bounded drain: backend termination NOT proven",
+            });
         }
         self.finalize_closed(now_ms);
     }
 
     fn finalize_closed(&mut self, now_ms: u64) {
-        let releasable: Vec<_> = self.leases.iter().filter(|(id, lease)| {
-            lease.status == LeaseStatus::Closing && !self.jobs.values().any(|job| {
-                job.spec.lease == **id && !job.status.terminal()
+        let releasable: Vec<_> = self
+            .leases
+            .iter()
+            .filter(|(id, lease)| {
+                lease.status == LeaseStatus::Closing
+                    && !self
+                        .jobs
+                        .values()
+                        .any(|job| job.spec.lease == **id && !job.status.terminal())
             })
-        }).map(|(id, _)| id.clone()).collect();
+            .map(|(id, _)| id.clone())
+            .collect();
 
         let mut affected = HashSet::new();
         for id in releasable {
             if let Some(lease) = self.leases.remove(&id) {
                 affected.insert(lease.model.clone());
                 self.emit_ledger_event(LedgerLeaseAction::Released, &id, &lease);
-                self.log(AuditEvent { at_ms: now_ms, action: AuditAction::LeaseClosed, client: Some(lease.client), app: Some(lease.app), model: Some(lease.model), lease: Some(id), request: None, detail: "lease ended; ledger event queued if coordinator-managed" });
+                self.log(AuditEvent {
+                    at_ms: now_ms,
+                    action: AuditAction::LeaseClosed,
+                    client: Some(lease.client),
+                    app: Some(lease.app),
+                    model: Some(lease.model),
+                    lease: Some(id),
+                    request: None,
+                    detail: "lease ended; ledger event queued if coordinator-managed",
+                });
             }
         }
         for model in affected {
-            if self.leases.values().any(|lease| lease.model == model) { continue; }
+            if self.leases.values().any(|lease| lease.model == model) {
+                continue;
+            }
             if let Some(state) = self.models.get_mut(&model) {
                 if self.lifecycle_authority == LifecycleAuthority::CoordinatorLedger {
                     state.ledger_resource_spent = true;
@@ -773,7 +1238,16 @@ impl MockComputeHost {
                     } else {
                         state.loaded_by_us = false;
                         state.unload_count += 1;
-                        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::ModelUnloaded, client: None, app: None, model: Some(model), lease: None, request: None, detail: "standalone mock last-lease unload" });
+                        self.log(AuditEvent {
+                            at_ms: now_ms,
+                            action: AuditAction::ModelUnloaded,
+                            client: None,
+                            app: None,
+                            model: Some(model),
+                            lease: None,
+                            request: None,
+                            detail: "standalone mock last-lease unload",
+                        });
                     }
                 }
             }
@@ -782,7 +1256,9 @@ impl MockComputeHost {
     }
 
     fn update_drained(&mut self, now_ms: u64) {
-        if self.status != HostStatus::Draining || !self.leases.is_empty() { return; }
+        if self.status != HostStatus::Draining || !self.leases.is_empty() {
+            return;
+        }
         if self.lifecycle_authority == LifecycleAuthority::CoordinatorLedger
             && (!self.ledger_events.is_empty()
                 || self.models.values().any(|m| m.awaiting_ledger_ack))
@@ -791,6 +1267,15 @@ impl MockComputeHost {
             return;
         }
         self.status = HostStatus::Drained;
-        self.log(AuditEvent { at_ms: now_ms, action: AuditAction::HostDrained, client: None, app: None, model: None, lease: None, request: None, detail: "all mock lease and ledger cleanup acknowledgments completed" });
+        self.log(AuditEvent {
+            at_ms: now_ms,
+            action: AuditAction::HostDrained,
+            client: None,
+            app: None,
+            model: None,
+            lease: None,
+            request: None,
+            detail: "all mock lease and ledger cleanup acknowledgments completed",
+        });
     }
 }

@@ -38,9 +38,10 @@ impl std::error::Error for Error {}
 fn valid_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128
-        && value.as_bytes().iter().all(|c| {
-            c.is_ascii_alphanumeric() || matches!(*c, b'-' | b'_' | b'.' | b':')
-        })
+        && value
+            .as_bytes()
+            .iter()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(*c, b'-' | b'_' | b'.' | b':'))
         && value.as_bytes()[0].is_ascii_alphanumeric()
         && !value.contains("..")
 }
@@ -51,10 +52,14 @@ macro_rules! opaque_id {
         impl $name {
             pub fn new(value: impl Into<String>) -> Result<Self, Error> {
                 let value = value.into();
-                if !valid_id(&value) { return Err(Error::InvalidIdentifier); }
+                if !valid_id(&value) {
+                    return Err(Error::InvalidIdentifier);
+                }
                 Ok(Self(value))
             }
-            pub fn as_str(&self) -> &str { &self.0 }
+            pub fn as_str(&self) -> &str {
+                &self.0
+            }
         }
         impl fmt::Display for $name {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -149,9 +154,16 @@ impl ModelLocation {
         match self {
             Self::HostStored => true,
             Self::ClientStaged {
-                sha256, transfer_approved, integrity_verified, runtime_compatible
-            } => valid_sha256_hex(sha256)
-                && *transfer_approved && *integrity_verified && *runtime_compatible,
+                sha256,
+                transfer_approved,
+                integrity_verified,
+                runtime_compatible,
+            } => {
+                valid_sha256_hex(sha256)
+                    && *transfer_approved
+                    && *integrity_verified
+                    && *runtime_compatible
+            }
         }
     }
 }
@@ -193,9 +205,14 @@ pub struct AppGrant {
 }
 impl AppGrant {
     pub fn validate(&self) -> Result<(), Error> {
-        if self.allowed_models.is_empty() || self.allowed_tasks.is_empty()
-            || self.max_leases == 0 || self.max_nonterminal_jobs == 0
-            || self.max_payload_bytes == 0 { return Err(Error::InvalidConfiguration); }
+        if self.allowed_models.is_empty()
+            || self.allowed_tasks.is_empty()
+            || self.max_leases == 0
+            || self.max_nonterminal_jobs == 0
+            || self.max_payload_bytes == 0
+        {
+            return Err(Error::InvalidConfiguration);
+        }
         Ok(())
     }
 }
@@ -270,7 +287,6 @@ pub struct AuditEvent {
     /// Never contains model paths, TLS credentials, task payloads or outputs.
     pub detail: &'static str,
 }
-
 
 /// Numeric IDs are allocated by the coordinator, not parsed from remote text.
 /// These are the local bridge equivalents of core OwnerId(u64)/ResourceId(u64).

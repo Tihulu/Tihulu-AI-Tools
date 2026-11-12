@@ -126,11 +126,18 @@ mod tests {
         ledger.open_owner(OwnerId(41)).unwrap();
         ledger.open_owner(OwnerId(42)).unwrap();
         let model = model(910, ModelOwner::JanDesktop, ContextAuthority::ManagedShared);
-        register_initial_task(&mut ledger, &model, LedgerOwnerRef(41), task("media", "asr"))
-            .unwrap();
+        register_initial_task(
+            &mut ledger,
+            &model,
+            LedgerOwnerRef(41),
+            task("media", "asr"),
+        )
+        .unwrap();
         attach_task(&mut ledger, &model, LedgerOwnerRef(42), task("text", "asr")).unwrap();
         assert_eq!(ledger.active_lease_count(ResourceId(910)), Some(2));
-        assert!(stop_app(&mut ledger, LedgerOwnerRef(41)).unwrap().is_empty());
+        assert!(stop_app(&mut ledger, LedgerOwnerRef(41))
+            .unwrap()
+            .is_empty());
         assert_eq!(ledger.active_lease_count(ResourceId(910)), Some(1));
         assert_eq!(
             stop_app(&mut ledger, LedgerOwnerRef(42)).unwrap(),
@@ -139,7 +146,9 @@ mod tests {
                 kind: LedgerResourceKind::ModelContext,
             }]
         );
-        assert!(stop_app(&mut ledger, LedgerOwnerRef(42)).unwrap().is_empty());
+        assert!(stop_app(&mut ledger, LedgerOwnerRef(42))
+            .unwrap()
+            .is_empty());
         assert_eq!(ledger.pending_cleanup_count(), 1);
         ledger.complete_cleanup(ResourceId(910), true).unwrap();
         assert_eq!(ledger.active_lease_count(ResourceId(910)), None);
@@ -163,9 +172,13 @@ mod tests {
             )
             .unwrap();
         }
-        assert!(stop_app(&mut ledger, LedgerOwnerRef(51)).unwrap().is_empty());
+        assert!(stop_app(&mut ledger, LedgerOwnerRef(51))
+            .unwrap()
+            .is_empty());
         assert_eq!(ledger.pending_cleanup_count(), 0);
-        assert!(stop_app(&mut ledger, LedgerOwnerRef(51)).unwrap().is_empty());
+        assert!(stop_app(&mut ledger, LedgerOwnerRef(51))
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
@@ -175,7 +188,9 @@ mod tests {
         let model = model(930, ModelOwner::AiTools, ContextAuthority::ManagedShared);
 
         // Stop-first serial ordering: no late start.
-        assert!(stop_app(&mut ledger, LedgerOwnerRef(61)).unwrap().is_empty());
+        assert!(stop_app(&mut ledger, LedgerOwnerRef(61))
+            .unwrap()
+            .is_empty());
         assert_eq!(
             register_initial_task(&mut ledger, &model, LedgerOwnerRef(61), task("app", "late"))
                 .err(),
@@ -198,12 +213,22 @@ mod tests {
         )
         .unwrap();
         assert_eq!(requests.len(), 1);
-        assert_eq!(receipt.release(&mut ledger).unwrap(), TaskRelease::AlreadyReleased);
-        assert!(stop_app(&mut ledger, LedgerOwnerRef(62)).unwrap().is_empty());
+        assert_eq!(
+            receipt.release(&mut ledger).unwrap(),
+            TaskRelease::AlreadyReleased
+        );
+        assert!(stop_app(&mut ledger, LedgerOwnerRef(62))
+            .unwrap()
+            .is_empty());
         assert_eq!(ledger.pending_cleanup_count(), 1);
         assert_eq!(
-            attach_task(&mut ledger, &model, LedgerOwnerRef(62), task("new-app", "late"))
-                .err(),
+            attach_task(
+                &mut ledger,
+                &model,
+                LedgerOwnerRef(62),
+                task("new-app", "late")
+            )
+            .err(),
             Some(LifecycleError::OwnerNotRunning)
         );
     }
@@ -216,8 +241,13 @@ mod tests {
         core.open_owner(OwnerId(71)).unwrap();
         core.open_owner(OwnerId(72)).unwrap();
         let binding = model(940, ModelOwner::JanDesktop, ContextAuthority::ManagedShared);
-        register_initial_task(&mut core, &binding, LedgerOwnerRef(71), task("first", "main"))
-            .unwrap();
+        register_initial_task(
+            &mut core,
+            &binding,
+            LedgerOwnerRef(71),
+            task("first", "main"),
+        )
+        .unwrap();
 
         let shared = Arc::new(Mutex::new(core));
         let gate = Arc::new(Barrier::new(3));
@@ -249,8 +279,9 @@ mod tests {
         let mut ledger = shared.lock().unwrap();
         assert_eq!(ledger.active_lease_count(ResourceId(940)), Some(1));
         assert_eq!(stop_app(&mut *ledger, LedgerOwnerRef(71)).unwrap().len(), 1);
-        assert!(stop_app(&mut *ledger, LedgerOwnerRef(71)).unwrap().is_empty());
+        assert!(stop_app(&mut *ledger, LedgerOwnerRef(71))
+            .unwrap()
+            .is_empty());
         assert_eq!(ledger.pending_cleanup_count(), 1);
     }
-
 }
