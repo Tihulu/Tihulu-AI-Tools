@@ -27,7 +27,8 @@ export const ACTION_DETAILS = Object.freeze({
 export function createDemoState({ independentHost = false } = {}) {
   return {
     resources: demoResources.map((r) => r.id === "host" ?
-      { ...r, status: independentHost ? "active" : "released", clients: independentHost ? 2 : 0 } : { ...r }),
+      { ...r, status: independentHost ? "active" : "released", clients: independentHost ? 2 : 0 } :
+      r.id === "host-lease" ? { ...r, status: independentHost ? "active" : "released" } : { ...r }),
     lifecycle: "running",
     serviceMode: independentHost ? "independent" : "disabled",
     history: [],
