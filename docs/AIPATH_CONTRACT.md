@@ -78,3 +78,38 @@ flowchart TD
 - EN/TR/DE UI strings must clearly distinguish **Available locally**, **Referenced externally**, **Ready to run**, **Remote host unavailable**, and **Needs compatible runtime**.
 
 See [architecture](ARCHITECTURE.md) and [decisions](DECISIONS.md).
+
+
+## v0.6 external model references and task-level matching (proposal)
+
+When TIHULU AI Tools discovers a model in **Jan or another application**, it may register a user-approved reference **without** moving the source file or modifying Jan's configuration. An eligible TIHULU consumer may then select that reference per supported AI task. Binding **the consumer** is separate from repointing **the model owner**.
+
+Example proposed *future* mapping, not a standardized v1 parser:
+
+```ini
+schema=2-proposal
+app_id=tihulu-survival-kit
+manager_mode=optional
+task.llm.model_ref=external:jan:stable-model-id
+task.llm.compute=local-first
+task.llm.runtime=llama.cpp
+fallback=legacy
+```
+
+Interpretation: `external:jan:stable-model-id` resolves via a **locally cached and user-owned private model registry** to either (a) an authorized model file referenced in place and a verified runtime, or (b) an approved inference endpoint. The app must not assume that a Jan model appears in `~/TIHULU AI Tools/Models`.
+
+### Independence when GUI or third-party owner is closed
+
+- The *GUI* may be closed: client reads a persistent valid local manifest/registry reference or legacy configuration.
+- A **direct file reference** may remain usable with a compatible separately installed runtime even if Jan is closed, subject to file availability and owner control.
+- A **Jan inference server endpoint** requires that Jan (or its independently managed server) is running. Never silently start or stop Jan.
+- A **paired PC host** requires a securely paired, reachable host service. It uses its *own* model registry and validates task/model IDs; paths on Pi are not interpreted on PC.
+- Missing external files, broken references, revoked access and version changes should produce per-task errors with legacy fallback; never stop unrelated features.
+
+### Future permissions
+
+Scanning a foreign model directory permits **read-only discovery**, not editing its files. A user-initiated model-to-app mapping may write **only** the target app's pre-approved configuration, using atomic updates, backup, compatibility test and rollback. Moving a model managed by Jan or another application requires a supported owner-native relocation operation or a clearly verified multi-app migration with a separate cleanup confirmation.
+
+Never put secrets or raw provider access tokens in `aipath.txt`. Both application path and model reference must be validated against owner-granted scopes. The matching LLM must not generate a writable path that bypasses Rust-side validation.
+
+See [discovery and matching](MODEL_DISCOVERY_AND_MATCHING.md) and [Jan integration](JAN_INTEGRATION.md).
