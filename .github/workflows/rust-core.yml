@@ -2,11 +2,13 @@ name: Rust Core — Multi-OS
 
 on:
   push:
-    branches: [main, feat/rust-foundation]
+    branches: [main, feat/rust-foundation, coord/phase2-integration-sandbox]
     paths:
       - "Cargo.toml"
       - "crates/**"
       - "apps/tihulu-ai-cli/**"
+      - "apps/tihulu-ai-web/**"
+      - "scripts/**"
       - ".github/workflows/rust-core.yml"
   pull_request:
     paths:
@@ -69,6 +71,35 @@ jobs:
             echo "::error::Rust format, test or lint did not pass."
             exit 1
           fi
+
+  platform-synthetic:
+    name: Platform — Python lifecycle mock
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python script syntax
+        run: python3 -m compileall -q scripts
+      - name: Python platform and owned-resource regression tests
+        run: python3 -m unittest discover -s scripts/tests -v
+      - name: Owned dummy-child shutdown smoke
+        run: python3 scripts/platform_lifecycle_smoke.py --owned-child-smoke
+      - name: Validate integrated member layout
+        run: python3 scripts/validate_standalone_crates.py --integrated
+
+  ui-web-synthetic:
+    name: UI — typed mock state and i18n
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate JS syntax
+        run: npm --prefix apps/tihulu-ai-web run check
+      - name: UI state and shutdown mock tests
+        run: npm --prefix apps/tihulu-ai-web test
 
   # Deliberately NOT claiming hardware acceptance:
   # - Raspberry Pi 5 GPIO/PCIe, Hailo-10H, CUDA RTX 5080 and packaging require
