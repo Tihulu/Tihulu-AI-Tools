@@ -4,6 +4,7 @@
 //! It does not scan disks, download weights, launch inference or access a GPU.
 
 pub mod advisor;
+pub mod inventory_bridge;
 pub mod lifecycle;
 pub mod manifest;
 pub mod matching;
@@ -14,10 +15,14 @@ pub use advisor::{
     validate_advisor_proposal, AdvisorPolicy, AdvisorProposal, AdvisorValidation, Citation,
     ProposalError,
 };
+pub use inventory_bridge::{
+    inspect_registered_model, registry_format_hint, InventoryCompatibilityReport,
+    InventoryInspection, InventoryReadiness,
+};
 pub use lifecycle::{CleanupAction, MarketPreviewSupervisor, PreviewResource, SupervisorError};
 pub use manifest::{
-    HardwareTarget, LanguagePair, License, MemoryRequirements, Modality, ModelFormat,
-    ModelManifest, ModelSource, ModelStatus, Runtime, RuntimeVerification, TaskKind,
+    HardwareTarget, LanguagePair, License, MemoryRequirements, Modality, ModelArchitecture,
+    ModelFormat, ModelManifest, ModelSource, ModelStatus, Runtime, RuntimeVerification, TaskKind,
 };
 pub use matching::{
     match_model, rank_models, CompatibilityContext, MatchResult, MatchVerdict, TaskRequest,
