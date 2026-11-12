@@ -5,6 +5,18 @@ description = "Read-only, provenance-aware model inventory and runtime lease con
 edition = "2021"
 rust-version = "1.82"
 
+[features]
+default = []
+# Enable only on a coordinator integration branch containing ResourceLedger
+# from Draft PR #12 / sandbox PR #17.
+core-ledger = ["dep:tihulu-ai-core"]
+
+[dependencies]
+tihulu-ai-core = { path = "../tihulu-ai-core", optional = true }
+
 [lib]
 name = "tihulu_ai_registry"
 path = "src/lib.rs"
+
+# Standalone until the coordinator adds this crate to the root workspace.
+# The coordinator must remove this section when adding it as a workspace member.

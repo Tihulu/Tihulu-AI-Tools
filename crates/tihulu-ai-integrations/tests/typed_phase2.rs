@@ -6,15 +6,14 @@ use tihulu_ai_integrations::bridge::{
     Arguments, BridgeError, Capability, IntegrationBridge, ToolRequest,
 };
 use tihulu_ai_integrations::lifecycle::{
-    CancellationToken, LifecycleSupervisor, Ownership, ResourceHandle, ResourceKind,
-    SessionState, ShutdownReason,
+    CancellationToken, LifecycleSupervisor, Ownership, ResourceHandle, ResourceKind, SessionState,
+    ShutdownReason,
 };
 use tihulu_ai_integrations::references::{ReferenceError, StartupReferences};
 use tihulu_ai_integrations::typed::{
     AppId, BoundaryError, CallerIdentity, HostGateway, HostId, HostModelId, HostRoute,
-    HostRuntimeOwner, HostTask, JobId, RegistryModelId, RegistryOwner,
-    RegistryReader, RegistryRecord, RegistryVerification, TaskKind,
-    TypedAppAdapter,
+    HostRuntimeOwner, HostTask, JobId, RegistryModelId, RegistryOwner, RegistryReader,
+    RegistryRecord, RegistryVerification, TaskKind, TypedAppAdapter,
 };
 
 struct FakeRegistry {
@@ -30,11 +29,7 @@ impl RegistryReader for FakeRegistry {
             .collect()
     }
 
-    fn resolve_visible(
-        &self,
-        app: &AppId,
-        model: &RegistryModelId,
-    ) -> Option<RegistryRecord> {
+    fn resolve_visible(&self, app: &AppId, model: &RegistryModelId) -> Option<RegistryRecord> {
         self.entries
             .iter()
             .find(|(id, record)| id == app && &record.id == model)
@@ -89,7 +84,10 @@ impl ResourceHandle for FakeJobHandle {
         let mut state = self.state.lock().unwrap();
         if let Some((model, ownership)) = state.active.remove(&self.key) {
             if ownership == HostRuntimeOwner::HostOwned
-                && !state.active.values().any(|(active_model, _)| active_model == &model)
+                && !state
+                    .active
+                    .values()
+                    .any(|(active_model, _)| active_model == &model)
             {
                 // This mock HOST makes the authoritative last-lease decision;
                 // the MCP integration layer never unloads a GPU context.
@@ -167,7 +165,9 @@ impl HostGateway for FakeHost {
         if state.active.contains_key(&key) {
             return Err(BoundaryError::DispatchFailed);
         }
-        state.active.insert(key, (route.host_model.clone(), route.runtime_owner));
+        state
+            .active
+            .insert(key, (route.host_model.clone(), route.runtime_owner));
         Ok(())
     }
 }
@@ -182,7 +182,11 @@ fn host() -> HostId {
     HostId::new("paired-pc-01").unwrap()
 }
 fn request(app: &str, capability: Capability, args: Arguments) -> ToolRequest {
-    ToolRequest { app_id: app.into(), capability, arguments: args }
+    ToolRequest {
+        app_id: app.into(),
+        capability,
+        arguments: args,
+    }
 }
 fn task(job: &str, registry_model: &str) -> HostTask {
     HostTask {
@@ -224,9 +228,18 @@ fn adapter(
 fn p2_readonly_registry_query_is_scoped_unverified_and_side_effect_free() {
     let registry = Arc::new(FakeRegistry {
         entries: vec![
-            (id("media"), record("ref-v1-a", RegistryVerification::Candidate)),
-            (id("media"), record("ref-v1-b", RegistryVerification::RuntimeVerified)),
-            (id("text"), record("ref-v1-c", RegistryVerification::RuntimeVerified)),
+            (
+                id("media"),
+                record("ref-v1-a", RegistryVerification::Candidate),
+            ),
+            (
+                id("media"),
+                record("ref-v1-b", RegistryVerification::RuntimeVerified),
+            ),
+            (
+                id("text"),
+                record("ref-v1-c", RegistryVerification::RuntimeVerified),
+            ),
         ],
     });
     let host = FakeHost::new();
@@ -264,9 +277,13 @@ fn p2_readonly_registry_query_is_scoped_unverified_and_side_effect_free() {
             "app-media-1",
         )
         .unwrap();
-    assert!(result.summary.contains("2 task candidates; 1 registry runtime-verified"));
+    assert!(result
+        .summary
+        .contains("2 task candidates; 1 registry runtime-verified"));
     assert!(result.summary.contains("ref-v1-a (JanDesktop, Candidate)"));
-    assert!(result.summary.contains("ref-v1-b (JanDesktop, RuntimeVerified)"));
+    assert!(result
+        .summary
+        .contains("ref-v1-b (JanDesktop, RuntimeVerified)"));
     assert!(!result.summary.contains("Jan/path"));
     assert_eq!(host.active(), 0);
     assert_eq!(host.unloads(), 0);
@@ -333,12 +350,20 @@ fn p2_action_requires_one_shot_approval_and_stop_releases_only_owned_lease() {
     );
     assert_eq!(
         bridge.invoke(
-            "jan-chat", &action, None, &cancel, &mut lifecycle, "media-session-1"
+            "jan-chat",
+            &action,
+            None,
+            &cancel,
+            &mut lifecycle,
+            "media-session-1"
         ),
         Err(BridgeError::ApprovalRequired)
     );
     assert_eq!(host.active(), 0);
-    let approval = bridge.permissions_mut().owner_approved_action("jan-chat", &action, "media-session-1").unwrap();
+    let approval = bridge
+        .permissions_mut()
+        .owner_approved_action("jan-chat", &action, "media-session-1")
+        .unwrap();
     let success = bridge.invoke(
         "jan-chat",
         &action,
@@ -361,7 +386,11 @@ fn p2_action_requires_one_shot_approval_and_stop_releases_only_owned_lease() {
         Err(BridgeError::InvalidApproval)
     );
     let report = lifecycle
-        .shutdown("media-session-1", ShutdownReason::HardStop, std::time::Duration::ZERO)
+        .shutdown(
+            "media-session-1",
+            ShutdownReason::HardStop,
+            std::time::Duration::ZERO,
+        )
         .unwrap();
     assert_eq!(report.state, SessionState::Stopped);
     assert_eq!(report.borrowed_preserved, 3);
@@ -373,13 +402,22 @@ fn p2_action_requires_one_shot_approval_and_stop_releases_only_owned_lease() {
         assert_eq!(sentinel.stops(), 0);
     }
     let again = lifecycle
-        .shutdown("media-session-1", ShutdownReason::Exit, std::time::Duration::ZERO)
+        .shutdown(
+            "media-session-1",
+            ShutdownReason::Exit,
+            std::time::Duration::ZERO,
+        )
         .unwrap();
     assert_eq!(again.cancellation_requests, 0);
     assert_eq!(host.unloads(), 1);
     assert_eq!(
         bridge.invoke(
-            "jan-chat", &action, None, &cancel, &mut lifecycle, "media-session-1"
+            "jan-chat",
+            &action,
+            None,
+            &cancel,
+            &mut lifecycle,
+            "media-session-1"
         ),
         Err(BridgeError::SessionStopped)
     );
@@ -396,11 +434,15 @@ impl FakeBorrowedResource {
 }
 impl ResourceHandle for FakeBorrowedResource {
     fn request_cancel(&self) {
-        self.stop_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.stop_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
-    fn is_released(&self) -> bool { false }
+    fn is_released(&self) -> bool {
+        false
+    }
     fn force_close_owned(&self) {
-        self.stop_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.stop_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
 }
 
@@ -431,11 +473,18 @@ fn p2_two_clients_shared_host_last_client_unloads_once_without_shutting_host() {
             Capability::RequestMediaTask,
             Arguments::HostTask(task(&format!("{app}-job"), "ref-v1-abc123")),
         );
-        let ticket = bridge.permissions_mut().owner_approved_action(app, &action, app).unwrap();
+        let ticket = bridge
+            .permissions_mut()
+            .owner_approved_action(app, &action, app)
+            .unwrap();
         bridge
             .invoke(
-                app, &action, Some(ticket), &CancellationToken::default(),
-                &mut lifecycle, app,
+                app,
+                &action,
+                Some(ticket),
+                &CancellationToken::default(),
+                &mut lifecycle,
+                app,
             )
             .unwrap();
     }
@@ -454,22 +503,45 @@ fn p2_two_clients_shared_host_last_client_unloads_once_without_shutting_host() {
 
 #[test]
 fn p2_cannot_override_registry_status_or_cross_app_host_authorization() {
-    for status in [RegistryVerification::Missing, RegistryVerification::Incompatible] {
+    for status in [
+        RegistryVerification::Missing,
+        RegistryVerification::Incompatible,
+    ] {
         let registry = registry_for(&["media"], status);
         let host = FakeHost::new();
         let mut bridge = IntegrationBridge::new();
-        bridge.register_adapter(Box::new(adapter(
-            "media", registry, host.clone(), vec![Capability::RequestMediaTask],
-        ))).unwrap();
-        bridge.permissions_mut().grant("jan", "media", Capability::RequestMediaTask).unwrap();
+        bridge
+            .register_adapter(Box::new(adapter(
+                "media",
+                registry,
+                host.clone(),
+                vec![Capability::RequestMediaTask],
+            )))
+            .unwrap();
+        bridge
+            .permissions_mut()
+            .grant("jan", "media", Capability::RequestMediaTask)
+            .unwrap();
         let mut lifecycle = LifecycleSupervisor::default();
         lifecycle.start_session("app").unwrap();
-        let action = request("media", Capability::RequestMediaTask,
-            Arguments::HostTask(task("job", "ref-v1-abc123")));
-        let ticket = bridge.permissions_mut().owner_approved_action("jan", &action, "app").unwrap();
+        let action = request(
+            "media",
+            Capability::RequestMediaTask,
+            Arguments::HostTask(task("job", "ref-v1-abc123")),
+        );
+        let ticket = bridge
+            .permissions_mut()
+            .owner_approved_action("jan", &action, "app")
+            .unwrap();
         assert_eq!(
-            bridge.invoke("jan", &action, Some(ticket), &CancellationToken::default(),
-                &mut lifecycle, "app"),
+            bridge.invoke(
+                "jan",
+                &action,
+                Some(ticket),
+                &CancellationToken::default(),
+                &mut lifecycle,
+                "app"
+            ),
             Err(BridgeError::AdapterFailure)
         );
         assert_eq!(host.active(), 0);
@@ -479,18 +551,38 @@ fn p2_cannot_override_registry_status_or_cross_app_host_authorization() {
     let mut host = FakeHost::new();
     host.permitted = false;
     let mut bridge = IntegrationBridge::new();
-    bridge.register_adapter(Box::new(adapter(
-        "media", registry, host.clone(), vec![Capability::RequestMediaTask],
-    ))).unwrap();
-    bridge.permissions_mut().grant("jan", "media", Capability::RequestMediaTask).unwrap();
+    bridge
+        .register_adapter(Box::new(adapter(
+            "media",
+            registry,
+            host.clone(),
+            vec![Capability::RequestMediaTask],
+        )))
+        .unwrap();
+    bridge
+        .permissions_mut()
+        .grant("jan", "media", Capability::RequestMediaTask)
+        .unwrap();
     let mut lifecycle = LifecycleSupervisor::default();
     lifecycle.start_session("app").unwrap();
-    let action = request("media", Capability::RequestMediaTask,
-        Arguments::HostTask(task("job", "ref-v1-abc123")));
-    let ticket = bridge.permissions_mut().owner_approved_action("jan", &action, "app").unwrap();
+    let action = request(
+        "media",
+        Capability::RequestMediaTask,
+        Arguments::HostTask(task("job", "ref-v1-abc123")),
+    );
+    let ticket = bridge
+        .permissions_mut()
+        .owner_approved_action("jan", &action, "app")
+        .unwrap();
     assert_eq!(
-        bridge.invoke("jan", &action, Some(ticket), &CancellationToken::default(),
-            &mut lifecycle, "app"),
+        bridge.invoke(
+            "jan",
+            &action,
+            Some(ticket),
+            &CancellationToken::default(),
+            &mut lifecycle,
+            "app"
+        ),
         Err(BridgeError::AdapterFailure)
     );
     assert_eq!(host.active(), 0);
@@ -502,23 +594,50 @@ fn p2_mock_borrowed_host_model_no_unload_or_external_process_stop() {
     let mut host = FakeHost::new();
     host.runtime_owner = HostRuntimeOwner::BorrowedExternal;
     let mut bridge = IntegrationBridge::new();
-    bridge.register_adapter(Box::new(adapter(
-        "media", registry, host.clone(), vec![Capability::RequestMediaTask],
-    ))).unwrap();
-    bridge.permissions_mut().grant("jan", "media", Capability::RequestMediaTask).unwrap();
+    bridge
+        .register_adapter(Box::new(adapter(
+            "media",
+            registry,
+            host.clone(),
+            vec![Capability::RequestMediaTask],
+        )))
+        .unwrap();
+    bridge
+        .permissions_mut()
+        .grant("jan", "media", Capability::RequestMediaTask)
+        .unwrap();
     let mut lifecycle = LifecycleSupervisor::default();
     lifecycle.start_session("media-session").unwrap();
-    let action = request("media", Capability::RequestMediaTask,
-        Arguments::HostTask(task("job", "ref-v1-abc123")));
-    let ticket = bridge.permissions_mut().owner_approved_action("jan", &action, "media-session").unwrap();
-    bridge.invoke("jan", &action, Some(ticket), &CancellationToken::default(),
-        &mut lifecycle, "media-session").unwrap();
-    lifecycle.shutdown("media-session", ShutdownReason::Stop, std::time::Duration::ZERO).unwrap();
+    let action = request(
+        "media",
+        Capability::RequestMediaTask,
+        Arguments::HostTask(task("job", "ref-v1-abc123")),
+    );
+    let ticket = bridge
+        .permissions_mut()
+        .owner_approved_action("jan", &action, "media-session")
+        .unwrap();
+    bridge
+        .invoke(
+            "jan",
+            &action,
+            Some(ticket),
+            &CancellationToken::default(),
+            &mut lifecycle,
+            "media-session",
+        )
+        .unwrap();
+    lifecycle
+        .shutdown(
+            "media-session",
+            ShutdownReason::Stop,
+            std::time::Duration::ZERO,
+        )
+        .unwrap();
     assert_eq!(host.active(), 0);
     assert_eq!(host.unloads(), 0);
     assert_eq!(host.state.lock().unwrap().borrowed_process_stops, 0);
 }
-
 
 #[test]
 fn p2_duplicate_job_id_does_not_cancel_preexisting_owned_host_lease() {
@@ -527,27 +646,58 @@ fn p2_duplicate_job_id_does_not_cancel_preexisting_owned_host_lease() {
     let mut bridge = IntegrationBridge::new();
     bridge
         .register_adapter(Box::new(adapter(
-            "media", registry, host.clone(), vec![Capability::RequestMediaTask],
+            "media",
+            registry,
+            host.clone(),
+            vec![Capability::RequestMediaTask],
         )))
         .unwrap();
-    bridge.permissions_mut().grant("jan", "media", Capability::RequestMediaTask).unwrap();
+    bridge
+        .permissions_mut()
+        .grant("jan", "media", Capability::RequestMediaTask)
+        .unwrap();
     let mut lifecycle = LifecycleSupervisor::default();
     lifecycle.start_session("app").unwrap();
-    let action = request("media", Capability::RequestMediaTask,
-        Arguments::HostTask(task("job-1", "ref-v1-abc123")));
-    let first = bridge.permissions_mut().owner_approved_action("jan", &action, "app").unwrap();
-    bridge.invoke("jan", &action, Some(first), &CancellationToken::default(),
-        &mut lifecycle, "app").unwrap();
+    let action = request(
+        "media",
+        Capability::RequestMediaTask,
+        Arguments::HostTask(task("job-1", "ref-v1-abc123")),
+    );
+    let first = bridge
+        .permissions_mut()
+        .owner_approved_action("jan", &action, "app")
+        .unwrap();
+    bridge
+        .invoke(
+            "jan",
+            &action,
+            Some(first),
+            &CancellationToken::default(),
+            &mut lifecycle,
+            "app",
+        )
+        .unwrap();
     assert_eq!(host.active(), 1);
-    let duplicate = bridge.permissions_mut().owner_approved_action("jan", &action, "app").unwrap();
+    let duplicate = bridge
+        .permissions_mut()
+        .owner_approved_action("jan", &action, "app")
+        .unwrap();
     assert_eq!(
-        bridge.invoke("jan", &action, Some(duplicate), &CancellationToken::default(),
-            &mut lifecycle, "app"),
+        bridge.invoke(
+            "jan",
+            &action,
+            Some(duplicate),
+            &CancellationToken::default(),
+            &mut lifecycle,
+            "app"
+        ),
         Err(BridgeError::AdapterFailure)
     );
     assert_eq!(host.active(), 1); // no second handle to stop the first job
     assert_eq!(host.unloads(), 0);
-    lifecycle.shutdown("app", ShutdownReason::Stop, std::time::Duration::ZERO).unwrap();
+    lifecycle
+        .shutdown("app", ShutdownReason::Stop, std::time::Duration::ZERO)
+        .unwrap();
     assert_eq!(host.active(), 0);
     assert_eq!(host.unloads(), 1);
 }
@@ -559,37 +709,83 @@ fn p2_approval_is_bound_to_host_session_and_host_checks_app_scopes() {
     host.denied_apps.insert(id("text"));
     let mut bridge = IntegrationBridge::new();
     for app in ["media", "text"] {
-        bridge.register_adapter(Box::new(adapter(app, registry.clone(),
-            host.clone(), vec![Capability::RequestMediaTask]))).unwrap();
-        bridge.permissions_mut().grant("jan", app, Capability::RequestMediaTask).unwrap();
+        bridge
+            .register_adapter(Box::new(adapter(
+                app,
+                registry.clone(),
+                host.clone(),
+                vec![Capability::RequestMediaTask],
+            )))
+            .unwrap();
+        bridge
+            .permissions_mut()
+            .grant("jan", app, Capability::RequestMediaTask)
+            .unwrap();
     }
     let mut lifecycle = LifecycleSupervisor::default();
     lifecycle.start_session("media-owner").unwrap();
     lifecycle.start_session("other-owner").unwrap();
-    let action = request("media", Capability::RequestMediaTask,
-        Arguments::HostTask(task("job", "ref-v1-abc123")));
-    let ticket = bridge.permissions_mut().owner_approved_action("jan", &action, "media-owner").unwrap();
+    let action = request(
+        "media",
+        Capability::RequestMediaTask,
+        Arguments::HostTask(task("job", "ref-v1-abc123")),
+    );
+    let ticket = bridge
+        .permissions_mut()
+        .owner_approved_action("jan", &action, "media-owner")
+        .unwrap();
     assert_eq!(
-        bridge.invoke("jan", &action, Some(ticket), &CancellationToken::default(),
-            &mut lifecycle, "other-owner"),
+        bridge.invoke(
+            "jan",
+            &action,
+            Some(ticket),
+            &CancellationToken::default(),
+            &mut lifecycle,
+            "other-owner"
+        ),
         Err(BridgeError::InvalidApproval)
     );
     assert_eq!(host.active(), 0);
-    assert!(bridge.invoke("jan", &action, Some(ticket), &CancellationToken::default(),
-        &mut lifecycle, "media-owner").is_ok());
+    assert!(bridge
+        .invoke(
+            "jan",
+            &action,
+            Some(ticket),
+            &CancellationToken::default(),
+            &mut lifecycle,
+            "media-owner"
+        )
+        .is_ok());
     assert_eq!(host.active(), 1);
 
-    let forbidden = request("text", Capability::RequestMediaTask,
-        Arguments::HostTask(task("job-2", "ref-v1-abc123")));
-    let approval = bridge.permissions_mut().owner_approved_action("jan", &forbidden, "other-owner").unwrap();
+    let forbidden = request(
+        "text",
+        Capability::RequestMediaTask,
+        Arguments::HostTask(task("job-2", "ref-v1-abc123")),
+    );
+    let approval = bridge
+        .permissions_mut()
+        .owner_approved_action("jan", &forbidden, "other-owner")
+        .unwrap();
     assert_eq!(
-        bridge.invoke("jan", &forbidden, Some(approval), &CancellationToken::default(),
-            &mut lifecycle, "other-owner"),
+        bridge.invoke(
+            "jan",
+            &forbidden,
+            Some(approval),
+            &CancellationToken::default(),
+            &mut lifecycle,
+            "other-owner"
+        ),
         Err(BridgeError::AdapterFailure)
     );
     assert_eq!(host.active(), 1); // other app's live lease is preserved
-    lifecycle.shutdown("media-owner", ShutdownReason::Stop,
-        std::time::Duration::ZERO).unwrap();
+    lifecycle
+        .shutdown(
+            "media-owner",
+            ShutdownReason::Stop,
+            std::time::Duration::ZERO,
+        )
+        .unwrap();
 }
 
 #[test]
@@ -598,17 +794,38 @@ fn p2_contradictory_trusted_host_route_rejected_before_lease() {
     let mut host = FakeHost::new();
     host.contradictory_route = true;
     let mut bridge = IntegrationBridge::new();
-    bridge.register_adapter(Box::new(adapter("media", registry,
-        host.clone(), vec![Capability::RequestMediaTask]))).unwrap();
-    bridge.permissions_mut().grant("jan", "media", Capability::RequestMediaTask).unwrap();
+    bridge
+        .register_adapter(Box::new(adapter(
+            "media",
+            registry,
+            host.clone(),
+            vec![Capability::RequestMediaTask],
+        )))
+        .unwrap();
+    bridge
+        .permissions_mut()
+        .grant("jan", "media", Capability::RequestMediaTask)
+        .unwrap();
     let mut lifecycle = LifecycleSupervisor::default();
     lifecycle.start_session("app").unwrap();
-    let action = request("media", Capability::RequestMediaTask,
-        Arguments::HostTask(task("job", "ref-v1-abc123")));
-    let ticket = bridge.permissions_mut().owner_approved_action("jan", &action, "app").unwrap();
+    let action = request(
+        "media",
+        Capability::RequestMediaTask,
+        Arguments::HostTask(task("job", "ref-v1-abc123")),
+    );
+    let ticket = bridge
+        .permissions_mut()
+        .owner_approved_action("jan", &action, "app")
+        .unwrap();
     assert_eq!(
-        bridge.invoke("jan", &action, Some(ticket), &CancellationToken::default(),
-            &mut lifecycle, "app"),
+        bridge.invoke(
+            "jan",
+            &action,
+            Some(ticket),
+            &CancellationToken::default(),
+            &mut lifecycle,
+            "app"
+        ),
         Err(BridgeError::AdapterFailure)
     );
     assert_eq!(host.active(), 0);
@@ -616,9 +833,18 @@ fn p2_contradictory_trusted_host_route_rejected_before_lease() {
 
 #[test]
 fn p2_rejects_token_path_injection_and_unscoped_aipath_fields() {
-    assert_eq!(HostId::new("http://unapproved"), Err(BoundaryError::InvalidIdentifier));
-    assert_eq!(JobId::new("../escape"), Err(BoundaryError::InvalidIdentifier));
-    assert_eq!(RegistryModelId::new("ref-v1-../../secret"), Err(BoundaryError::InvalidIdentifier));
+    assert_eq!(
+        HostId::new("http://unapproved"),
+        Err(BoundaryError::InvalidIdentifier)
+    );
+    assert_eq!(
+        JobId::new("../escape"),
+        Err(BoundaryError::InvalidIdentifier)
+    );
+    assert_eq!(
+        RegistryModelId::new("ref-v1-../../secret"),
+        Err(BoundaryError::InvalidIdentifier)
+    );
     assert_eq!(
         StartupReferences::parse_proposal(
             "schema=1\napp_id=media\nmanager_mode=optional\nremote_host_id=paired-pc-01\nfallback=legacy\ntoken=abc"
@@ -633,26 +859,45 @@ fn p2_rejects_token_path_injection_and_unscoped_aipath_fields() {
     );
 }
 
-
 #[test]
 fn p2_explicit_cancellation_before_action_dispatch_keeps_host_idle() {
     let registry = registry_for(&["media"], RegistryVerification::RuntimeVerified);
     let host = FakeHost::new();
     let mut bridge = IntegrationBridge::new();
-    bridge.register_adapter(Box::new(adapter(
-        "media", registry, host.clone(), vec![Capability::RequestMediaTask],
-    ))).unwrap();
-    bridge.permissions_mut().grant("jan", "media", Capability::RequestMediaTask).unwrap();
+    bridge
+        .register_adapter(Box::new(adapter(
+            "media",
+            registry,
+            host.clone(),
+            vec![Capability::RequestMediaTask],
+        )))
+        .unwrap();
+    bridge
+        .permissions_mut()
+        .grant("jan", "media", Capability::RequestMediaTask)
+        .unwrap();
     let mut lifecycle = LifecycleSupervisor::default();
     lifecycle.start_session("app").unwrap();
-    let action = request("media", Capability::RequestMediaTask,
-        Arguments::HostTask(task("job", "ref-v1-abc123")));
-    let ticket = bridge.permissions_mut().owner_approved_action("jan", &action, "app").unwrap();
+    let action = request(
+        "media",
+        Capability::RequestMediaTask,
+        Arguments::HostTask(task("job", "ref-v1-abc123")),
+    );
+    let ticket = bridge
+        .permissions_mut()
+        .owner_approved_action("jan", &action, "app")
+        .unwrap();
     let cancelled = CancellationToken::default();
     cancelled.cancel();
     assert_eq!(
-        bridge.invoke("jan", &action, Some(ticket), &cancelled,
-            &mut lifecycle, "app"),
+        bridge.invoke(
+            "jan",
+            &action,
+            Some(ticket),
+            &cancelled,
+            &mut lifecycle,
+            "app"
+        ),
         Err(BridgeError::Cancelled)
     );
     assert_eq!(host.active(), 0);
@@ -664,18 +909,40 @@ fn p2_stop_before_authorized_action_rejects_new_tasks_and_keeps_host_idle() {
     let registry = registry_for(&["media"], RegistryVerification::RuntimeVerified);
     let host = FakeHost::new();
     let mut bridge = IntegrationBridge::new();
-    bridge.register_adapter(Box::new(adapter(
-        "media", registry, host.clone(), vec![Capability::RequestMediaTask],
-    ))).unwrap();
-    bridge.permissions_mut().grant("jan", "media", Capability::RequestMediaTask).unwrap();
+    bridge
+        .register_adapter(Box::new(adapter(
+            "media",
+            registry,
+            host.clone(),
+            vec![Capability::RequestMediaTask],
+        )))
+        .unwrap();
+    bridge
+        .permissions_mut()
+        .grant("jan", "media", Capability::RequestMediaTask)
+        .unwrap();
     let mut lifecycle = LifecycleSupervisor::default();
     lifecycle.start_session("old").unwrap();
-    let action = request("media", Capability::RequestMediaTask,
-        Arguments::HostTask(task("job-1", "ref-v1-abc123")));
-    let approval = bridge.permissions_mut().owner_approved_action("jan", &action, "old").unwrap();
-    lifecycle.shutdown("old", ShutdownReason::Stop, std::time::Duration::ZERO).unwrap();
-    let result = bridge.invoke("jan", &action, Some(approval),
-        &CancellationToken::default(), &mut lifecycle, "old");
+    let action = request(
+        "media",
+        Capability::RequestMediaTask,
+        Arguments::HostTask(task("job-1", "ref-v1-abc123")),
+    );
+    let approval = bridge
+        .permissions_mut()
+        .owner_approved_action("jan", &action, "old")
+        .unwrap();
+    lifecycle
+        .shutdown("old", ShutdownReason::Stop, std::time::Duration::ZERO)
+        .unwrap();
+    let result = bridge.invoke(
+        "jan",
+        &action,
+        Some(approval),
+        &CancellationToken::default(),
+        &mut lifecycle,
+        "old",
+    );
     assert_eq!(result, Err(BridgeError::SessionStopped));
     assert_eq!(host.active(), 0);
 }

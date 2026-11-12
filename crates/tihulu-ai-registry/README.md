@@ -28,7 +28,19 @@ are produced by the ledger and must be handled/acknowledged by authorized
 backend adapters.
 
 Synthetic MockResourceLedger exists ONLY in test code, not in production.
-The concrete ResourceLedgerPort implementation must be integrated against
-the real core ResourceLedger after Draft PR #12 is reconciled. Rust mock tests
-cannot demonstrate real GPU/NPU/SDR memory release or Jan/Ollama behavior.
+Feature core-ledger provides a concrete direct ResourceLedgerPort implementation
+for the coordinator's core ResourceLedger, plus feature-gated real-core unit
+tests. Enable ONLY in the PR #17-style integration sandbox containing core
+PR #12; feat/rust-foundation does not yet expose those symbols. The default
+standalone crate still builds without this feature. Stop-app receipt retirement
+must be serialized with ledger access; other app receipts are preserved.
+Rust mock tests and real-core state-machine tests cannot demonstrate physical
+GPU/NPU/SDR memory release or live Jan/Ollama behavior.
 Read docs/discovery/LEDGER_HANDOFF.md for the detailed contract and blockers.
+
+Integration sandbox commands (coordinator-owned overlay only):
+
+    cargo test -p tihulu-ai-registry --features core-ledger --all-targets
+    cargo clippy -p tihulu-ai-registry --features core-ledger --all-targets -- -D warnings
+
+Never enable core-ledger on the pre-PR #12 foundation base.

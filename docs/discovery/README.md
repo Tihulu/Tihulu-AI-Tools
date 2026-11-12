@@ -60,8 +60,9 @@ unload decisions. The Registry now stores private typed ModelId provenance
 and a non-authoritative TaskLeaseReceipt only. The ResourceLedgerPort
 interface forwards registration, attach, individual task release, app
 stop and completion acknowledgement to the authoritative core ledger.
-No production port implementation exists until the coordinator reconciles
-the unmerged sibling PR #12.
+An opt-in production delegation implementation now exists behind the
+core-ledger feature, available only on an integration branch containing the
+coordinator PR #12 core API. The foundation base lacks those symbols.
 
 - ModelId::Artifact / ModelId::Endpoint: typed, complete, stable private
   source reference, NOT a runtime ID or content hash.
@@ -80,10 +81,12 @@ the unmerged sibling PR #12.
 **Exact phase-2 mapping, conflict explanation, tests and remaining blockers:
 see [LEDGER_HANDOFF.md](LEDGER_HANDOFF.md).**
 
-Synthetic model-task tests cover L-03 (two apps share), L-04 (last
-owned lease), L-07 (borrowed Jan/Ollama), L-15 (separate runtime
-instances) and duplicate app Stop. These do not prove GPU/NPU/SDR
-cleanup, core PR #12 cross-branch integration or real provider behavior.
+Synthetic adapter tests and feature-gated real core state-machine tests are
+authored for L-03 (shared app leases), L-04 (last owned lease), L-07
+(borrowed Jan/Ollama), L-15 (distinct runtime contexts), duplicate Stop,
+Start/Quit lock ordering and preserved source paths. All actual execution
+and cross-branch validation remains pending; none proves GPU/NPU/SDR
+cleanup or external provider behavior.
 
 ## Security limitations / integration gates
 

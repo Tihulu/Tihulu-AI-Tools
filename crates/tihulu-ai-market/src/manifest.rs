@@ -3,6 +3,8 @@
 use serde::{Deserialize, Serialize};
 
 pub const MANIFEST_SCHEMA_VERSION: u32 = 1;
+/// Reject oversized, untrusted catalog entries before JSON allocation.
+pub const MAX_MANIFEST_BYTES: usize = 64 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -152,6 +154,9 @@ pub struct ModelManifest {
 
 impl ModelManifest {
     pub fn from_json(input: &str) -> Result<Self, String> {
+        if input.len() > MAX_MANIFEST_BYTES {
+            return Err("manifest JSON exceeds the 64 KiB limit".into());
+        }
         let manifest: Self = serde_json::from_str(input).map_err(|e| e.to_string())?;
         manifest.validate()?;
         Ok(manifest)
@@ -164,10 +169,25 @@ impl ModelManifest {
 
     pub fn validate(&self) -> Result<(), String> {
         if self.schema_version != MANIFEST_SCHEMA_VERSION {
-            return Err(format!("unsupported schema version {}", self.schema_version));
+            return Err(format!(
+                "unsupported schema version {}",
+                self.schema_version
+            ));
         }
         if self.id.trim().is_empty() || self.display_name.trim().is_empty() {
             return Err("model id and display name must be nonempty".into());
+        }
+        if self.id.len() > 512 || self.display_name.len() > 256 {
+            return Err("model identifier or display name is too long".into());
+        }
+        if self.runtimes.len() > 64
+            || self.hardware_targets.len() > 32
+            || self.tasks.len() > 64
+            || self.languages.len() > 128
+            || self.translation_pairs.len() > 128
+            || self.verified_runtimes.len() > 128
+        {
+            return Err("manifest contains too many capabilities or evidence entries".into());
         }
         if matches!(self.availability, ModelStatus::Incompatible) {
             return Err("incompatible is a computed matching result, not inventory".into());
@@ -181,12 +201,20 @@ impl ModelManifest {
             _ => return Err("source and availability contradict each other".into()),
         }
         if let License::Known { spdx } = &self.license {
-            if spdx.trim().is_empty() {
-                return Err("known license must have a nonempty SPDX identifier".into());
+            if spdx.trim().is_empty()
+                || spdx.eq_ignore_ascii_case("unknown")
+                || spdx.eq_ignore_ascii_case("noassertion")
+                || spdx.eq_ignore_ascii_case("none")
+            {
+                return Err("known license requires an actual, declared SPDX identifier".into());
             }
         }
         for pair in &self.translation_pairs {
-            if pair.from.trim().is_empty() || pair.to.trim().is_empty() {
+            if pair.from.trim().is_empty()
+                || pair.to.trim().is_empty()
+                || pair.from.len() > 64
+                || pair.to.len() > 64
+            {
                 return Err("translation pairs must have both language tags".into());
             }
         }
@@ -219,7 +247,9 @@ mod tests {
             schema_version: 1,
             id: "example".into(),
             display_name: "Example".into(),
-            source: ModelSource::External { application: "Jan".into() },
+            source: ModelSource::External {
+                application: "Jan".into(),
+            },
             availability: ModelStatus::Installed,
             format: ModelFormat::Gguf,
             runtimes: vec![Runtime::LlamaCpp],

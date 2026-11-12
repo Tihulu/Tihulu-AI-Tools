@@ -1,6 +1,7 @@
 """Synthetic validation runner behavior, without running Cargo or OS installers."""
 import importlib.util
 from pathlib import Path
+import tomllib
 import subprocess
 import tempfile
 import unittest
@@ -13,7 +14,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
 
-class ManifestRunnerTests(unittest.TestCase):
+class WorkspaceFixture:
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -26,6 +27,9 @@ class ManifestRunnerTests(unittest.TestCase):
         path.write_text("[package]\nname = 'fixture'\n", encoding="utf-8")
         return path
 
+
+
+class ManifestRunnerTests(WorkspaceFixture, unittest.TestCase):
     def test_all_five_are_explicit_and_standalone(self):
         self.assertEqual(set(MODULE.CRATES),
                          {"registry", "market", "transport", "integrations", "desktop"})
@@ -86,9 +90,93 @@ class ManifestRunnerTests(unittest.TestCase):
             outside.write_text("[package]\n", encoding="utf-8")
             dest = self.root / MODULE.CRATES["desktop"]
             dest.parent.mkdir(parents=True)
-            dest.symlink_to(outside)
+            try:
+                dest.symlink_to(outside)
+            except OSError:
+                self.skipTest("Windows host cannot create symlink without developer privileges")
             with self.assertRaises(ValueError):
                 MODULE.inspect_manifests(self.root, ["desktop"])
+
+
+class IntegratedWorkspaceTests(WorkspaceFixture, unittest.TestCase):
+    def setUp(self):
+        super().setUp()
+        self.create_root()
+
+    def create_root(self, members=None, exclude=None):
+        members = members if members is not None else MODULE.INTEGRATED_MEMBERS
+        exclude = exclude if exclude is not None else (MODULE.DESKTOP_DIR,)
+        contents = "[workspace]\nresolver='2'\nmembers = [\n" + "".join(
+            f'  "{member}",\n' for member in members
+        ) + "]\nexclude = [" + ", ".join(f'"{item}"' for item in exclude) + "]\n"
+        (self.root / "Cargo.toml").write_text(contents, encoding="utf-8")
+        for member in MODULE.INTEGRATED_MEMBERS:
+            path = self.root / member / "Cargo.toml"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("[package]\nname = 'fixture'\n", encoding="utf-8")
+
+    def test_root_membership_and_desktop_exclusion_from_integration_snapshot(self):
+        self.assertEqual(MODULE.inspect_integrated_workspace(self.root), [])
+        root = tomllib.loads((self.root / "Cargo.toml").read_text())
+        self.assertIn(MODULE.DESKTOP_DIR, root["workspace"]["exclude"])
+        self.assertEqual(len(root["workspace"]["members"]), 6)
+
+    def test_integrated_plan_is_read_only(self):
+        with patch.object(MODULE.subprocess, "run") as run:
+            self.assertEqual(MODULE.main(["--repo-root", str(self.root),
+                                          "--integrated"]), 0)
+            run.assert_not_called()
+
+    def test_integrated_execute_runs_three_root_commands_with_offline(self):
+        with patch.object(MODULE.shutil, "which", return_value="cargo"), \
+             patch.object(MODULE.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as run:
+            rc = MODULE.main(["--repo-root", str(self.root), "--integrated", "--execute"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(run.call_count, 3)
+            cmds = [call.args[0] for call in run.call_args_list]
+            self.assertEqual(cmds, MODULE.integrated_commands())
+            self.assertIn("--workspace", cmds[1])
+            self.assertIn("--offline", cmds[1])
+            self.assertIn("--workspace", cmds[2])
+            self.assertNotIn("--workspace", cmds[0])
+
+    def test_integrated_requires_all_four_agent_crates(self):
+        (self.root / MODULE.CRATES["transport"]).unlink()
+        with patch.object(MODULE.subprocess, "run") as run:
+            self.assertEqual(MODULE.main(["--repo-root", str(self.root),
+                                          "--integrated", "--execute"]), 3)
+            run.assert_not_called()
+
+    def test_membership_mismatch_fails_closed(self):
+        self.create_root(members=MODULE.INTEGRATED_MEMBERS[:-1])
+        with patch.object(MODULE.subprocess, "run") as run:
+            self.assertEqual(MODULE.main(["--repo-root", str(self.root),
+                                          "--integrated", "--execute"]), 2)
+            run.assert_not_called()
+
+    def test_tauri_must_remain_separate(self):
+        self.create_root(exclude=())
+        self.assertEqual(MODULE.main(["--repo-root", str(self.root),
+                                      "--integrated", "--execute"]), 2)
+        self.create_root(members=MODULE.INTEGRATED_MEMBERS + (MODULE.DESKTOP_DIR,))
+        self.assertEqual(MODULE.main(["--repo-root", str(self.root),
+                                      "--integrated", "--execute"]), 2)
+
+    def test_integration_rejects_invalid_toml(self):
+        (self.root / "Cargo.toml").write_text("[workspace\n", encoding="utf-8")
+        self.assertEqual(MODULE.main(["--repo-root", str(self.root),
+                                      "--integrated", "--execute"]), 2)
+
+    def test_integrated_no_cargo_reports_unavailable(self):
+        with patch.object(MODULE.shutil, "which", return_value=None):
+            self.assertEqual(MODULE.main(["--repo-root", str(self.root),
+                                          "--integrated", "--execute"]), 2)
+
+    def test_cannot_mix_integrated_and_only(self):
+        with self.assertRaises(SystemExit) as exit_result:
+            MODULE.main(["--repo-root", str(self.root), "--integrated",
+                         "--only", "market"])
+        self.assertEqual(exit_result.exception.code, 2)
 
 
 if __name__ == "__main__":

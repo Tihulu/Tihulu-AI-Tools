@@ -71,7 +71,7 @@ function overview() {
     '<div class="cards">' + stats.slice(0, 3).map(([label, value, hint]) =>
       '<section class="card"><div class="micro">' + esc(label) + '</div><div class="value">' + esc(value) + '</div><div class="muted">' + esc(hint) + "</div></section>"
     ).join("") + '</div><div class="two-col"><div>' +
-    panel(t("resourceTitle"), t("resourceSubtitle"), resourceTable(state.resources)) +
+    panel(t("resourceTitle"), t("resourceSubtitle"), resourceTable(typedRead(UI_COMMANDS.OVERVIEW).resources.map((r) => ({ id: r.resource_id, name: r.label, scope: r.resource_kind, ownership: r.provenance, owner: r.owner_id, status: r.mock_phase, ram: r.estimated_ram_mib, vram: r.estimated_vram_mib })))) +
     '</div><div class="stack">' +
     panel(t("shutdown"), t("warning"), shutdownControls()) +
     panel(t("systemPolicy"), t("noBackground"),
@@ -97,9 +97,17 @@ function market() {
       ).join("") : '<p class="hint">' + t("noMatchingModels") + '</p>') + "</div>");
 }
 function myModels() {
+  const models = typedRead(UI_COMMANDS.MODELS).models;
   return pageHeading(t("models"), t("modelNames")) +
-    panel(t("models"), t("marketHint"), resourceTable(state.resources.filter((r) => r.scope === "ai" || r.id === "jan")) +
-      '<p class="hint">' + esc(t("connectionNotReady")) + "</p>");
+    panel(t("models"), t("marketHint"),
+      '<div class="table-scroll"><table><thead><tr><th>' + t("modelIdentity") + '</th><th>' + t("modelFormat") +
+      '</th><th>' + t("modelAvailability") + '</th><th>' + t("owner") + '</th><th>' + t("modelReadiness") + '</th></tr></thead><tbody>' +
+      models.map((model) => {
+        const verdict = typedRead(UI_COMMANDS.COMPATIBILITY, { model_id: model.model_id, task_id: model.modality, host_id: "local" }).verdict;
+        return '<tr><td class="resource-name">' + esc(model.name) + '<div class="resource-meta">' + esc(model.model_id) +
+          '</div></td><td>' + esc(model.format) + '</td><td>' + chip(t(model.availability === "external" ? "external" : "unverified"), "warning") +
+          '</td><td>' + esc(model.owner_type) + '</td><td>' + chip(t("unknownCompatibility") + " · " + verdict, "warning") + '</td></tr>';
+      }).join("") + '</tbody></table></div><p class="hint">' + esc(t("marketHint")) + '</p>');
 }
 function apps() {
   return pageHeading(t("applications"), t("appsHint")) +

@@ -1,5 +1,9 @@
 // UI translation table. English is the default; status and fixture labels remain explicitly marked DEMO.
 const en = {
+  modelIdentity: "Model / ID (demo)",
+  modelFormat: "Format (unverified)",
+  modelAvailability: "Discovery status",
+  modelReadiness: "Runtime readiness",
   stopAiDesc: "Release this GUI's mock Advisor, Agent and AI model leases only.",
   appQuitDesc: "Close this GUI session and release all its mock-owned resources. An opt-in independent host remains for other clients.",
   hardStopDesc: "Escalate simulated cleanup of this GUI's owned resources, including the mock SDR handle. Do not affect external processes.",
@@ -66,6 +70,10 @@ const en = {
   future: "Planned, not functional", unsupported: "Unavailable", summary: "Overview",
 };
 const tr = {
+  modelIdentity: "Model / Kimlik (demo)",
+  modelFormat: "Biçim (doğrulanmadı)",
+  modelAvailability: "Keşif durumu",
+  modelReadiness: "Çalıştırma uygunluğu",
   stopAiDesc: "Yalnızca bu arayüzün demo Danışman, Ajan ve yapay zekâ model kiralarını bırak.",
   appQuitDesc: "Bu arayüz oturumunu kapat ve sahip olduğu demo kaynaklarını bırak. İzinli bağımsız sunucu diğer istemciler için kalır.",
   hardStopDesc: "Demo SDR bağlantısı dahil arayüze ait kaynakları zorunlu simülasyonla durdur. Dış süreçlere dokunma.",
@@ -132,6 +140,10 @@ const tr = {
   future:"Planlandı, çalışmıyor",unsupported:"Kullanılamaz",summary:"Genel Bakış"
 };
 const de = {
+  modelIdentity: "Modell / ID (Demo)",
+  modelFormat: "Format (ungeprüft)",
+  modelAvailability: "Entdeckungsstatus",
+  modelReadiness: "Laufzeitbereitschaft",
   stopAiDesc: "Nur die simulierten KI-Berater-, Agent- und Modell-Leases dieser GUI freigeben.",
   appQuitDesc: "GUI-Sitzung schließen und ihre Demo-Ressourcen freigeben. Der optional unabhängige Host bleibt für andere Clients erhalten.",
   hardStopDesc: "Simulierte Freigabe aller GUI-eigenen Ressourcen einschließlich Demo-SDR eskalieren. Fremde Prozesse unberührt lassen.",

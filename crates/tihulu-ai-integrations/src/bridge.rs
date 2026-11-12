@@ -295,7 +295,8 @@ impl IntegrationBridge {
         if !adapter.capabilities().contains(&request.capability) {
             return Err(BridgeError::CapabilityUnavailable);
         }
-        self.permissions.authorize(client, request, approval, session_id)?;
+        self.permissions
+            .authorize(client, request, approval, session_id)?;
         let response = adapter.invoke(client, request, cancellation, lifecycle, session_id)?;
         if cancellation.is_cancelled() {
             return Err(BridgeError::Cancelled);
@@ -308,7 +309,10 @@ impl IntegrationBridge {
 pub fn safe_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128
-        && value.as_bytes().first().is_some_and(u8::is_ascii_alphanumeric)
+        && value
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphanumeric)
         && !value.contains("..")
         && value
             .bytes()

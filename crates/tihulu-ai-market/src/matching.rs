@@ -1,7 +1,7 @@
 //! Deterministic compatibility gate: metadata never implies successful inference.
 use crate::manifest::{
-    HardwareTarget, LanguagePair, License, ModelFormat, ModelManifest, ModelStatus,
-    Modality, Runtime, TaskKind,
+    HardwareTarget, LanguagePair, License, Modality, ModelFormat, ModelManifest, ModelStatus,
+    Runtime, TaskKind,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,12 +94,14 @@ fn runtime_hardware(runtime: Runtime, hardware: HardwareTarget) -> PairSupport {
         (R::Unknown, _) => PairSupport::Undetermined,
         (R::HailoRt, H::Hailo)
         | (R::Mlx, H::AppleSilicon)
-        | (R::LlamaCpp | R::WhisperCpp | R::OnnxRuntime | R::Ctranslate2,
-           H::Cpu | H::Cuda | H::AppleSilicon | H::RaspberryPiCpu)
-        | (R::JanApi | R::OllamaApi | R::OpenAiApi,
-           H::Cpu | H::Cuda | H::AppleSilicon | H::RaspberryPiCpu | H::PairedGpuHost) => {
-            PairSupport::Supported
-        }
+        | (
+            R::LlamaCpp | R::WhisperCpp | R::OnnxRuntime | R::Ctranslate2,
+            H::Cpu | H::Cuda | H::AppleSilicon | H::RaspberryPiCpu,
+        )
+        | (
+            R::JanApi | R::OllamaApi | R::OpenAiApi,
+            H::Cpu | H::Cuda | H::AppleSilicon | H::RaspberryPiCpu | H::PairedGpuHost,
+        ) => PairSupport::Supported,
         _ => PairSupport::Unsupported,
     }
 }
@@ -116,7 +118,9 @@ fn check_memory(
             incompatible.push(format!("{label} requires {n} MiB; only {a} MiB declared"));
         }
         (Some(_), Some(_)) => {}
-        _ => unknown.push(format!("{label} requirement or available budget is unverified")),
+        _ => unknown.push(format!(
+            "{label} requirement or available budget is unverified"
+        )),
     }
 }
 
@@ -131,9 +135,7 @@ pub fn match_model(
     if let Err(problem) = model.validate() {
         unknown.push(format!("invalid or untrusted manifest: {problem}"));
     }
-    if !model.tasks.contains(&task.task)
-        || model.input != task.input
-        || model.output != task.output
+    if !model.tasks.contains(&task.task) || model.input != task.input || model.output != task.output
     {
         incompatible.push("task or input/output modality not declared".to_string());
     }
@@ -152,8 +154,14 @@ pub fn match_model(
         }
     }
     for (label, result) in [
-        ("artifact format and runtime", format_runtime(model.format, ctx.runtime)),
-        ("runtime and hardware", runtime_hardware(ctx.runtime, ctx.hardware)),
+        (
+            "artifact format and runtime",
+            format_runtime(model.format, ctx.runtime),
+        ),
+        (
+            "runtime and hardware",
+            runtime_hardware(ctx.runtime, ctx.hardware),
+        ),
     ] {
         match result {
             PairSupport::Supported => {}
@@ -164,7 +172,11 @@ pub fn match_model(
     for requested in &task.languages {
         if model.languages.is_empty() {
             unknown.push(format!("language {requested} is unverified"));
-        } else if !model.languages.iter().any(|known| known.eq_ignore_ascii_case(requested)) {
+        } else if !model
+            .languages
+            .iter()
+            .any(|known| known.eq_ignore_ascii_case(requested))
+        {
             incompatible.push(format!("language {requested} is not supported"));
         }
     }
@@ -180,7 +192,10 @@ pub fn match_model(
                         && supported.to.eq_ignore_ascii_case(&pair.to)
                 }) =>
             {
-                incompatible.push(format!("{} to {} translation not supported", pair.from, pair.to));
+                incompatible.push(format!(
+                    "{} to {} translation not supported",
+                    pair.from, pair.to
+                ));
             }
             Some(_) => {}
         }
@@ -199,10 +214,15 @@ pub fn match_model(
     }
     match &model.license {
         License::Unknown => unknown.push("model license is unknown".into()),
-        License::Restricted { reason } => incompatible.push(format!("license is restricted: {reason}")),
+        License::Restricted { reason } => {
+            incompatible.push(format!("license is restricted: {reason}"))
+        }
         License::Known { spdx }
             if !task.license_allowlist.is_empty()
-                && !task.license_allowlist.iter().any(|id| id.eq_ignore_ascii_case(spdx)) =>
+                && !task
+                    .license_allowlist
+                    .iter()
+                    .any(|id| id.eq_ignore_ascii_case(spdx)) =>
         {
             incompatible.push(format!("license {spdx} is not authorized by task policy"));
         }
@@ -215,15 +235,27 @@ pub fn match_model(
         incompatible.push("paired host is not authorized".into());
     }
 
-    check_memory("RAM", model.memory.ram_mib, ctx.available_ram_mib, &mut incompatible, &mut unknown);
+    check_memory(
+        "RAM",
+        model.memory.ram_mib,
+        ctx.available_ram_mib,
+        &mut incompatible,
+        &mut unknown,
+    );
     match ctx.hardware {
         HardwareTarget::Cuda | HardwareTarget::PairedGpuHost => check_memory(
-            "GPU VRAM", model.memory.vram_mib, ctx.available_vram_mib,
-            &mut incompatible, &mut unknown,
+            "GPU VRAM",
+            model.memory.vram_mib,
+            ctx.available_vram_mib,
+            &mut incompatible,
+            &mut unknown,
         ),
         HardwareTarget::Hailo => check_memory(
-            "Hailo NPU memory", model.memory.npu_mib, ctx.available_npu_mib,
-            &mut incompatible, &mut unknown,
+            "Hailo NPU memory",
+            model.memory.npu_mib,
+            ctx.available_npu_mib,
+            &mut incompatible,
+            &mut unknown,
         ),
         // Apple GPUs have unified memory; Pi/CPU have no separate VRAM budget.
         HardwareTarget::AppleSilicon | HardwareTarget::RaspberryPiCpu | HardwareTarget::Cpu => {}
@@ -239,7 +271,11 @@ pub fn match_model(
     }
 
     let (verdict, status, reasons) = if !incompatible.is_empty() {
-        (MatchVerdict::Incompatible, ModelStatus::Incompatible, incompatible)
+        (
+            MatchVerdict::Incompatible,
+            ModelStatus::Incompatible,
+            incompatible,
+        )
     } else if !unknown.is_empty() || model.availability == ModelStatus::Unknown {
         if unknown.is_empty() {
             unknown.push("market inventory status is unknown".into());
@@ -257,7 +293,8 @@ pub fn match_model(
                         && probe.evidence_id == record.evidence_id
                 })
         });
-        if !model.integrity_verified || !has_matching_test
+        if !model.integrity_verified
+            || !has_matching_test
             || model.availability == ModelStatus::Unverified
         {
             (
@@ -265,7 +302,10 @@ pub fn match_model(
                 ModelStatus::Unverified,
                 vec!["file integrity or runtime test on this exact target is unverified".into()],
             )
-        } else if matches!(model.availability, ModelStatus::Installed | ModelStatus::External) {
+        } else if matches!(
+            model.availability,
+            ModelStatus::Installed | ModelStatus::External
+        ) {
             (
                 MatchVerdict::Recommended,
                 model.availability,
@@ -340,9 +380,21 @@ mod tests {
 
     #[test]
     fn format_runtime_never_confuses_hailo_and_cuda() {
-        assert_eq!(format_runtime(ModelFormat::HailoHef, Runtime::LlamaCpp), PairSupport::Unsupported);
-        assert_eq!(runtime_hardware(Runtime::HailoRt, HardwareTarget::Cuda), PairSupport::Unsupported);
-        assert_eq!(runtime_hardware(Runtime::LlamaCpp, HardwareTarget::Hailo), PairSupport::Unsupported);
-        assert_eq!(format_runtime(ModelFormat::Safetensors, Runtime::LlamaCpp), PairSupport::Undetermined);
+        assert_eq!(
+            format_runtime(ModelFormat::HailoHef, Runtime::LlamaCpp),
+            PairSupport::Unsupported
+        );
+        assert_eq!(
+            runtime_hardware(Runtime::HailoRt, HardwareTarget::Cuda),
+            PairSupport::Unsupported
+        );
+        assert_eq!(
+            runtime_hardware(Runtime::LlamaCpp, HardwareTarget::Hailo),
+            PairSupport::Unsupported
+        );
+        assert_eq!(
+            format_runtime(ModelFormat::Safetensors, Runtime::LlamaCpp),
+            PairSupport::Undetermined
+        );
     }
 }

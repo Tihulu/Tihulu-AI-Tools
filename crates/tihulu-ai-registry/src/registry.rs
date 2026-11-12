@@ -100,7 +100,9 @@ pub enum RuntimeVerification {
         host: String,
         evidence: String,
     },
-    Incompatible { reason: String },
+    Incompatible {
+        reason: String,
+    },
 }
 
 /// Stable, typed *source-reference* identity. Never a content hash, GPU
@@ -163,7 +165,10 @@ impl ModelRecord {
     }
 
     pub fn validated_model(&self) -> bool {
-        matches!(&self.artifact_validation, ArtifactValidation::Validated { .. })
+        matches!(
+            &self.artifact_validation,
+            ArtifactValidation::Validated { .. }
+        )
     }
 
     pub fn available_endpoint(&self) -> bool {
@@ -177,7 +182,10 @@ impl ModelRecord {
     }
 
     pub fn verified_runtime_compatibility(&self) -> bool {
-        matches!(&self.runtime_verification, RuntimeVerification::Verified { .. })
+        matches!(
+            &self.runtime_verification,
+            RuntimeVerification::Verified { .. }
+        )
     }
 }
 
@@ -196,7 +204,11 @@ impl ModelRegistry {
     /// filename or unverified size. No content hash is fabricated.
     pub fn register_file(&mut self, observation: ArtifactObservation) -> ModelId {
         let id = ModelId::from_artifact(&observation);
-        self.register(id, observation.owner.clone(), ModelReference::File(observation))
+        self.register(
+            id,
+            observation.owner.clone(),
+            ModelReference::File(observation),
+        )
     }
 
     pub fn register_endpoint(&mut self, observation: EndpointObservation) -> ModelId {
@@ -208,12 +220,7 @@ impl ModelRegistry {
         )
     }
 
-    fn register(
-        &mut self,
-        id: ModelId,
-        owner: ModelOwner,
-        reference: ModelReference,
-    ) -> ModelId {
+    fn register(&mut self, id: ModelId, owner: ModelOwner, reference: ModelReference) -> ModelId {
         use std::collections::btree_map::Entry;
         match self.entries.entry(id.clone()) {
             Entry::Occupied(mut occupied) => {
@@ -285,10 +292,20 @@ mod tests {
     #[test]
     fn dedup_is_by_provenance_not_filename_or_unverified_hash() {
         let mut registry = ModelRegistry::new();
-        let a = registry.register_file(observation("/one/model.gguf", ModelOwner::UserNamed("a".into())));
-        let same = registry.register_file(observation("/one/model.gguf", ModelOwner::UserNamed("a".into())));
-        let b = registry.register_file(observation("/two/model.gguf", ModelOwner::UserNamed("a".into())));
-        let foreign = registry.register_file(observation("/one/model.gguf", ModelOwner::JanDesktop));
+        let a = registry.register_file(observation(
+            "/one/model.gguf",
+            ModelOwner::UserNamed("a".into()),
+        ));
+        let same = registry.register_file(observation(
+            "/one/model.gguf",
+            ModelOwner::UserNamed("a".into()),
+        ));
+        let b = registry.register_file(observation(
+            "/two/model.gguf",
+            ModelOwner::UserNamed("a".into()),
+        ));
+        let foreign =
+            registry.register_file(observation("/one/model.gguf", ModelOwner::JanDesktop));
         assert_eq!(a, same);
         assert_ne!(a, b);
         assert_ne!(a, foreign);
@@ -353,5 +370,4 @@ mod tests {
         assert!(!entry.validated_model());
         assert!(!entry.verified_runtime_compatibility());
     }
-
 }
