@@ -63,3 +63,15 @@ cargo clippy -p tihulu-ai-market --all-targets -- -D warnings
 ```
 
 Physical GPU/Apple/Pi/Hailo/SDR behavior, Jan configuration, model downloads, cross-process lease cleanup and actual host authentication are **not** tested. Green synthetic CI is not hardware acceptance. Coordinator must separately approve any UI integration, persistent paths, model-validation adapter, native packaging or production release.
+
+## QA-CROSS-01 — Registry #20 independent app ownership (integration patch)
+
+**Pinned inputs:** Registry #20 `7c3030d09c30a841ed42813b6427d7e7d7f7b589`; Market #22 `d015a806966d97e340f807b6b5ef418b17d0a492`; independent QA #21 `93b9272fef87e1d70d6a7ae141a719bd5caa4978`. This isolated branch starts from Registry #20 and overlays **only** the eight Market #22 paths before applying the Market-owned cross-contract fix.
+
+- Map `ModelOwner::TihuluApp(app_id)` to **`RegistryOwner::TihuluApp(app_id)`**, not `AiTools`, `UserNamed` or a generic `ExternalService`. The app ID is preserved in the typed read-only `InventoryCompatibilityReport.source_owner`.
+- Catalog source uses explicit `ModelSource::TihuluApp { app_id }` with `availability: external`. Independent app models **cannot** claim `installed` (AI Tools owned). Owner IDs are validated as Registry-compatible lowercase slug identities and compared **exactly**, not case-folded or suffix-matched.
+- Accept `TihuluApp` file provenance only from `SourceAdapter::TihuluAppDirectory` with a self-consistent typed Registry `ModelId`, owner, path and reference. A generic custom folder or endpoint must not impersonate the app directory adapter.
+- A different consumer application cannot propose a binding to another independently owned application's files, **even when synthetic artifact and runtime evidence are marked verified**. The current typed matching contract carries **no cryptographically authorized cross-app borrowing grant**. Cross-app use therefore fails closed until coordinator defines a separately approved owner grant; a catalog-binding string, runtime probe or user-supplied ID alone is insufficient.
+- Same-app (exact `application_id == app_id`) evaluation may reach `runnable_preflight` **only after** identity, source, format, task, license, artifact and target-runtime checks. This still does not execute/load models or grant filesystem access. `discovered` alone is never verified or runnable.
+
+Deterministic regression tests in `tests/cross_market_ownership.rs` cover discovered-only external app model, synthetic verified same-app preflight, mismatched owner IDs, `UserNamed`/generic-external alias rejection, unauthorized cross-app assignment, wrong adapter, malformed owner ID, and forbidden `installed` ownership claim. These tests use no real model files, hardware or provider connections.
