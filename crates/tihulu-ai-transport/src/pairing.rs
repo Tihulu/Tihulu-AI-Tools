@@ -1,9 +1,7 @@
 //! Paired-host control-plane contract. NO TLS handshake or key storage is implemented.
 //! Only a future verified mTLS ingress and trusted user-approval broker may turn a
 //! pairing proposal into an actual host approval. The fixtures here are synthetic.
-use crate::protocol::{
-    valid_sha256_hex, ClientId, HostId, PairingApproval, PairingAttemptId,
-};
+use crate::protocol::{valid_sha256_hex, ClientId, HostId, PairingApproval, PairingAttemptId};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -54,23 +52,16 @@ impl PairingBroker {
         Self::default()
     }
 
-    pub fn propose(
-        &mut self,
-        offer: PairingOffer,
-        now_ms: u64,
-    ) -> Result<(), PairingError> {
+    pub fn propose(&mut self, offer: PairingOffer, now_ms: u64) -> Result<(), PairingError> {
         if !valid_sha256_hex(&offer.server_cert_sha256)
             || !valid_sha256_hex(&offer.client_cert_sha256)
         {
             return Err(PairingError::InvalidFingerprint);
         }
-        if offer.expires_at_ms <= now_ms
-            || offer.expires_at_ms > now_ms.saturating_add(120_000)
-        {
+        if offer.expires_at_ms <= now_ms || offer.expires_at_ms > now_ms.saturating_add(120_000) {
             return Err(PairingError::InvalidLifetime);
         }
-        if self.used_attempts.contains(&offer.attempt)
-            || self.pending.contains_key(&offer.attempt)
+        if self.used_attempts.contains(&offer.attempt) || self.pending.contains_key(&offer.attempt)
         {
             return Err(PairingError::DuplicateAttempt);
         }
