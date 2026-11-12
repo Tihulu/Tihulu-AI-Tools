@@ -21,6 +21,17 @@
 - All agent code must be independent and runnable with `cargo test --manifest-path <owned-crate>/Cargo.toml` when possible. An agent may depend on `tihulu-ai-core` via path dependencies but must not change it without coordinator review.
 - Maintain English engineering docs and an EN/TR/DE UI target, Rust-first implementation, supported per-runtime hardware verification.
 
+## Assignment issues (one chat agent per issue)
+
+1. [Agent 01 — Platform and CI](https://github.com/Tihulu/Tihulu-AI-Tools/issues/2)
+2. [Agent 02 — Model registry and discovery](https://github.com/Tihulu/Tihulu-AI-Tools/issues/3)
+3. [Agent 03 — Market and compatibility](https://github.com/Tihulu/Tihulu-AI-Tools/issues/4)
+4. [Agent 04 — GPU host and secure protocol](https://github.com/Tihulu/Tihulu-AI-Tools/issues/5)
+5. [Agent 05 — Jan MCP and app SDK](https://github.com/Tihulu/Tihulu-AI-Tools/issues/6)
+6. [Agent 06 — Desktop/Pi web UI](https://github.com/Tihulu/Tihulu-AI-Tools/issues/7)
+
+Each branch was updated to the tested foundation head as of 2026-11-12. Agents have **not** started work merely because these issues and branches exist. The user can provide each issue link to an independent chat agent.
+
 ## Agent acceptance contract
 
 1. Read `AGENTS.md`, `docs/IMPLEMENTATION_START.md`, the relevant GitHub Issue and the v0.7 full plan.
