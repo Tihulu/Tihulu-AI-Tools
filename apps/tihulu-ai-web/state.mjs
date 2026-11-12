@@ -39,7 +39,7 @@ export function createDemoState({ independentHost = false } = {}) {
     marketQuery: "",
     background: false,
     keepWarm: false,
-    model: { advisor: "sample-local", agent: "sample-local" },
+    model: { advisor: "demo:ggml-speech", agent: "demo:ggml-speech" },
     appModel: {},
     appHost: {},
     compute: { advisor: "local", agent: "local" },
