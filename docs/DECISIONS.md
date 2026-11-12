@@ -1,6 +1,6 @@
 # Decision register and project gates
 
-**Baseline:** v0.6, 2026-11-12. This is a planning repository, not an implementation repository yet.
+**Baseline:** v0.7, 2026-11-12. This is a planning repository, not an implementation repository yet.
 
 ## Confirmed product requirements
 
@@ -26,6 +26,7 @@
 | Safe paths | Link in place by default; optional staged copy/relocation/consumer repoint with backups and rollback |
 | AI-assisted matching (experimental) | Internet research OFF by default; cited candidate recommendations; apply only after deterministic Rust-side checks and explicit approval |
 | Jan optional integration | Jan Desktop via optional TIHULU Rust MCP server; Jan Agent plugin candidate is separate from Jan Desktop MCP connector |
+| Jan setup wizard | Built-in guide and one-button setup with explicit permission preview, version checks, verified connection, reversible changes and manual fallback |
 | Policy | Default offline/on-demand; no hidden model downloads, service takeover, or user-data movement; UI EN/TR/DE |
 
 ## Proposed design — not final or proven
@@ -56,6 +57,7 @@
 11. External app model registries remain foreign-owned and are accessed read-only by default; a model's path is never changed merely because it is registered.
 12. LLM-generated app matches must pass deterministic compatibility, tool/app adapter checks, diff review, and user permission before config writes.
 13. Jan MCP tools have bounded capabilities and per-action user approval; AI Tools must not change Jan's global auto-approval setting.
+14. Jan setup must use a supported version-checked Jan interface when available, avoid unsupported raw config edits, verify a real handshake, and offer idempotent rollback of only its own MCP entry.
 
 ## Rollout gates
 
