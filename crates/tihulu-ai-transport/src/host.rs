@@ -135,6 +135,18 @@ impl MockComputeHost {
     pub fn lifecycle_authority(&self) -> LifecycleAuthority {
         self.lifecycle_authority
     }
+
+    /// Exposes host identity and declared model provenance to a LOCAL trusted
+    /// core ledger adapter; neither getter is a remotely callable command.
+    pub fn host_id(&self) -> &HostId {
+        &self.id
+    }
+
+    pub fn model_ownership(&self, model: &ModelId) -> Option<RuntimeOwnership> {
+        self.models
+            .get(model)
+            .map(|entry| entry.registration.ownership)
+    }
     /// Switch only before any lease/model load; coordinator mode forbids local unloading.
     pub fn set_lifecycle_authority(&mut self, authority: LifecycleAuthority) -> Result<(), Error> {
         if !self.used_lease_ids.is_empty() || self.models.values().any(|state| state.loaded_by_us) {
@@ -1033,6 +1045,24 @@ impl MockComputeHost {
             .map(|scope| (scope.0.clone(), scope.1.clone(), scope.2.clone()))
             .collect();
         self.stopped_app_sessions.extend(scopes);
+    }
+
+    /// Host administrator revocation of an entire paired device. This is NOT
+    /// called by an app/socket close; another client's leases remain active.
+    pub fn unpair_client(&mut self, client: &ClientId, now_ms: u64) {
+        self.close_client(client, now_ms);
+        self.paired.remove(client);
+        self.grants.retain(|(device, _), _| device != client);
+        self.log(AuditEvent {
+            at_ms: now_ms,
+            action: AuditAction::Revoked,
+            client: Some(client.clone()),
+            app: None,
+            model: None,
+            lease: None,
+            request: None,
+            detail: "host administrator revoked a paired device",
+        });
     }
 
     /// Client-app Quit or Hard Stop; does NOT close another app on the same Pi.
