@@ -5,7 +5,7 @@
 | Threat | Required guard | Current evidence |
 | --- | --- | --- |
 | Rogue LAN device / DNS/mDNS spoofing | Explicit paired host ID and pinned TLS identity; reject untrusted server cert | Mock rejects wrong host/server pin; TLS pending |
-| Client impersonation / compromised app | mTLS-bound client identity + server-issued per-app grant | Mock pin/grant checks; cryptographic credential issuance pending |
+| Client impersonation / compromised app | mTLS-bound device identity **and independent, cryptographically verified app credential** + server-issued grant | Mock rejects unverified app attestation; app token verification and issuance pending |
 | Public endpoint exposure | OFF by default, loopback local admin, explicit host service/allowlisted LAN/VPN, firewall and TLS | No network listener exists |
 | Request replay or cross-app cancellation | Owner-scoped lease+request IDs, authenticated cancellation, dedup and TTL | Mock regression covers idempotence and denied cross-client action |
 | Remote filesystem path injection | Host-controlled opaque model IDs; separate verified staging digest | No raw path accepted by model ID parser or wire API |
