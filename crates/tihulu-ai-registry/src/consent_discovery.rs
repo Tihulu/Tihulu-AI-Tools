@@ -29,8 +29,12 @@ pub enum ModelSource {
     OllamaStore,
     HuggingFaceCache,
     /// Each TIHULU app has an independently approved model directory.
-    TihuluApp { app_id: String },
-    UserFolder { owner_label: String },
+    TihuluApp {
+        app_id: String,
+    },
+    UserFolder {
+        owner_label: String,
+    },
 }
 
 impl ModelSource {
@@ -54,10 +58,13 @@ impl ModelSource {
         match self {
             Self::TihuluApp { app_id } => {
                 app_id.len() <= 64
-                    && app_id.bytes().next().is_some_and(|c| c.is_ascii_lowercase())
-                    && app_id.bytes().all(|c| {
-                        c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-'
-                    })
+                    && app_id
+                        .bytes()
+                        .next()
+                        .is_some_and(|c| c.is_ascii_lowercase())
+                    && app_id
+                        .bytes()
+                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
                     && !app_id.contains("..")
             }
             Self::UserFolder { owner_label } => {
@@ -128,7 +135,10 @@ impl ApprovedModelScope {
             return Err(DiscoveryError::UnsafeScope);
         }
         // Require the selected root itself to be real, not a redirect.
-        if fs::symlink_metadata(selected_root)?.file_type().is_symlink() {
+        if fs::symlink_metadata(selected_root)?
+            .file_type()
+            .is_symlink()
+        {
             return Err(DiscoveryError::UnsafeScope);
         }
         let canonical_root = selected_root.canonicalize()?;
@@ -313,7 +323,8 @@ pub fn discover_approved_models(
 
     while let Some((directory, depth)) = queue.pop_front() {
         grant.ensure_active()?;
-        if result.scanned_entries >= bounds.max_entries || result.models.len() >= bounds.max_models {
+        if result.scanned_entries >= bounds.max_entries || result.models.len() >= bounds.max_models
+        {
             result.truncated = true;
             break;
         }
@@ -453,7 +464,10 @@ fn is_hidden(path: &Path) -> bool {
 fn eligible_directory(grant: &ApprovedModelScope, path: &Path, depth: usize) -> bool {
     match grant.source {
         ModelSource::HuggingFaceCache => {
-            let name = path.file_name().and_then(|name| name.to_str()).unwrap_or("");
+            let name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("");
             (depth == 0 && name.starts_with("models--"))
                 || (depth == 1 && name == "snapshots")
                 || depth >= 2
@@ -467,7 +481,11 @@ fn is_hf_snapshot_file(grant: &ApprovedModelScope, path: &Path) -> bool {
         && path
             .strip_prefix(&grant.canonical_root)
             .ok()
-            .is_some_and(|relative| relative.components().any(|part| part.as_os_str() == "snapshots"))
+            .is_some_and(|relative| {
+                relative
+                    .components()
+                    .any(|part| part.as_os_str() == "snapshots")
+            })
 }
 
 fn checked_file(
@@ -599,12 +617,18 @@ fn verify_header(
                     return Ok(false);
                 }
                 let offsets = descriptor.get("data_offsets").and_then(Value::as_array);
-                let Some(offsets) = offsets else { return Ok(false) };
+                let Some(offsets) = offsets else {
+                    return Ok(false);
+                };
                 if offsets.len() != 2 {
                     return Ok(false);
                 }
-                let Some(start) = offsets[0].as_u64() else { return Ok(false) };
-                let Some(end) = offsets[1].as_u64() else { return Ok(false) };
+                let Some(start) = offsets[0].as_u64() else {
+                    return Ok(false);
+                };
+                let Some(end) = offsets[1].as_u64() else {
+                    return Ok(false);
+                };
                 if start > end || end > payload_size {
                     return Ok(false);
                 }
@@ -624,7 +648,9 @@ fn read_selected_config(
     inventory: &mut DiscoveryInventory,
 ) -> Result<BTreeMap<String, String>, DiscoveryError> {
     let mut result = BTreeMap::new();
-    let Some(parent) = model_path.parent() else { return Ok(result) };
+    let Some(parent) = model_path.parent() else {
+        return Ok(result);
+    };
     let config = parent.join("config.json");
     grant.ensure_active()?;
     let (canonical, bytes) = match checked_file(grant, &config, false) {
