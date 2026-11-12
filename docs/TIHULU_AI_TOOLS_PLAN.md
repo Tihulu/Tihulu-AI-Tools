@@ -2,7 +2,7 @@
 
 > **GitHub migration note (2026-11-12):** The original v0.4 planning text is preserved in this repository. Its legacy downloadable ZIP also contained standalone PNG/SVG/DOT files; those binary assets have not been migrated. References below point to [GitHub-native, editable Mermaid diagrams](ARCHITECTURE.md) or the [interactive HTML mockup](../ui/index.html) instead. These represent design concepts, not tested software.
 
-> **Status:** DRAFT v0.6 — requirements captured; technical choices still subject to review  
+> **Status:** DRAFT v0.7 — requirements captured; technical choices still subject to review  
 > **Date:** 2026-11-12  
 > **Language:** Technical documentation in English; planned product UI in English, Turkish, and German  
 > **Change policy:** Planning only. **No existing applications, branches, repositories, installers, or models are modified.**  
@@ -1018,3 +1018,45 @@ Acceptance tests for future implementation:
 8. Ensure GUI remains optional, background off by default, with EN/TR/DE UI requirement and Rust core.
 
 **Change ledger v0.6:** User-confirmed product scope: external AI app name/directory scanning, link-in-place registry, safe path management, task-level model matching, opt-in AI-assisted Internet matching and optional Jan chat tools. Still proposals/experiments: exact source adapters, registry schema, Jan MCP tool names, scoring, online research source routing, automated app mapping and migration mechanics. No application source, model files, installer, running services, Jan data or other TIHULU repository changes made.
+
+
+---
+
+## 43. v0.7 confirmed — In-app Jan setup guide + one-click connection button
+
+**User request (2026-11-12):** The Jan chat integration must have a **built-in guide** that explains setup and a **button that actually performs the setup** in the eventual Rust application, rather than requiring the user to manually edit Jan's configuration. This applies to the previously approved optional “Jan chat → TIHULU app tools” integration.
+
+The requested primary entry point is **External Apps → Jan → Set Up Jan Integration**. It should work alongside an expandable **How to Connect Jan** guide and a **manual fallback** when the Jan installation or version cannot safely support automated registration.
+
+### Required wizard behavior
+
+1. Detect the installed **Jan Desktop** and/or **Jan Agent** product, version, and supported MCP configuration method; honor any custom data folder. Existing model discovery permissions remain separate from MCP setup permissions.
+2. Check whether the **Rust TIHULU MCP bridge** and required supported TIHULU app adapters actually exist. If not, provide a clear “Feature not installed yet” explanation and a user-approved install path in the real release.
+3. Show a **preview of the MCP tools, target apps, read/write scopes, transport, endpoint and rollback plan**. Read-only tools by default; app-changing actions and remote data transfers require additional explicit approvals.
+4. After confirmation, **register the TIHULU MCP server using Jan's supported configuration interface**. When available, prefer Jan's documented `jan cli mcp` management commands; verify exact command arguments against the detected version. Do not silently patch Jan's `mcp_config.json` while Jan is using it.
+5. Enable only if requested, validate the connection and available tools via the MCP handshake, perform a permissioned read-only smoke test, and check that the selected Jan model supports tool calls.
+6. Show **Connected and verified** only on actual success; provide **Reconnect / Repair / Disconnect / Undo Setup**, removing only the entry introduced by the wizard. Provide a step-by-step **guided manual procedure** for versions/environments without an automated supported adapter.
+
+**Security:** The button must not change Jan's global **Allow All MCP Tool Permissions** setting, grant generic shell access, copy tokens into `aipath.txt`, or enable server processes, models, network ports or AI app writes without permission. Default to STDIO for a locally installed bridge; use authenticated HTTP only for approved remote pairing.
+
+### Intended UI elements
+
+- **Jan Desktop / Jan Agent** selector, detected version and MCP-bridge readiness, connection status.
+- **How to Connect Jan** collapsible guide with installation and troubleshooting steps.
+- Primary **Set Up Jan Integration** button with review/consent and live per-step progress when implementation exists.
+- **Test Connection**, **Open Jan MCP Settings**, **Disconnect / Undo**, **Copy Manual Steps** controls when supported.
+- EN/TR/DE guide translations, responsive web UI for Raspberry Pi/PC/phone.
+- **Planning-only HTML prototype** simulates the wizard and must **never** show a real successful connection, execute a Jan CLI command, modify any app files or claim an MCP handshake occurred.
+
+### Acceptance criteria
+
+- A supported Jan Desktop installation can be connected through the one-button guided workflow without manual JSON edits, after owner consent, once a real Rust MCP bridge exists.
+- A non-supported Jan installation transparently falls back to the built-in manual guide instead of corrupting or silently overwriting its configuration.
+- Repeating setup is idempotent; disabling/undoing only removes TIHULU's own entry and preserves other Jan servers/settings.
+- Unauthorized Jan tool calls are denied by Rust app policy regardless of Jan model behavior.
+- Model import, MCP tool setup, remote GPU host pairing and per-task app configuration remain **separate permission boundaries**.
+- The preview remains explicitly simulated until implementation and real version-pinned testing.
+
+See [Jan Setup Wizard design](JAN_SETUP_WIZARD.md) and [Jan MCP integration specification](JAN_INTEGRATION.md). These requirements are approved, but the actual automated method, CLI availability by Jan distribution and compatibility tests are still **proposed**.
+
+**Change ledger v0.7:** Built-in Jan setup guide and approved automated installation button captured as product requirements. Repo remains documentation/UI-preview only; no Jan settings, TIHULU applications or running services have been changed.
