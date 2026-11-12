@@ -7,8 +7,8 @@ pub mod advisor;
 pub mod lifecycle;
 pub mod manifest;
 pub mod matching;
-pub mod registry_contract;
 pub mod recommendation;
+pub mod registry_contract;
 
 pub use advisor::{
     validate_advisor_proposal, AdvisorPolicy, AdvisorProposal, AdvisorValidation, Citation,
