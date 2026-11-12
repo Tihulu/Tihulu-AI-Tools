@@ -2,7 +2,7 @@
 
 > **GitHub migration note (2026-11-12):** The original v0.4 planning text is preserved in this repository. Its legacy downloadable ZIP also contained standalone PNG/SVG/DOT files; those binary assets have not been migrated. References below point to [GitHub-native, editable Mermaid diagrams](ARCHITECTURE.md) or the [interactive HTML mockup](../ui/index.html) instead. These represent design concepts, not tested software.
 
-> **Status:** DRAFT v0.8 — independent Rust foundation underway; most features remain proposed/experimental  
+> **Status:** DRAFT v0.9 — independent Rust foundation underway; lifecycle ownership & clean shutdown requirements approved  
 > **Date:** 2026-11-12  
 > **Language:** Technical documentation in English; planned product UI in English, Turkish, and German  
 > **Change policy:** Planning only. **No existing applications, branches, repositories, installers, or models are modified.**  
@@ -1095,3 +1095,24 @@ Cross-OS CI runners: Linux x86-64, Linux ARM64, Windows x64, Windows ARM64, and 
 Each agent gets separate branch/path ownership, tests and a Draft PR. Do not merge or modify other apps without subsequent approval. See [independent start and platform matrix](IMPLEMENTATION_START.md) and [parallel workstream divisions](AGENT_WORKSTREAMS.md).
 
 **v0.8 change ledger:** Product requirements from previous versions remain in force. Authorized AI Tools-only Rust development and specified cross-platform targets are confirmed; running GPU/NPU workloads, actual Jan connections, model migrations, app tools, installers and remote hosts are NOT implemented or verified.
+
+
+---
+
+## 45. v0.9 confirmed — Release RAM/VRAM, models, owned AI workers and SDR on Quit/Hard Stop
+
+**User-approved (2026-11-12):** When a TIHULU application exits, its **owned** AI models, RAM/VRAM allocations, loaded inference contexts, child processes/agents, network tasks and SDR device handles must be stopped and released. A closed app must not secretly leave its own AI background tasks running. **Background OFF / On-Demand** is the default. Existing separately owned resources (Jan/Ollama model servers, previously running readsb/tar1090 or another application's jobs and shared models) must not be stopped.
+
+**Shared service exception:** An explicitly enabled independent TIHULU GPU host may remain running after its management UI closes **when it is intentionally serving other authorized clients**. Each client holds a distinct cancellable lease. When the last lease on a shared model ends, unload that model and its runtime context promptly by default, even when the host daemon remains idle; no hidden keep-warm. Provide an explicit **Quit All TIHULU-Owned Services** action that warns affected TIHULU clients and stops only owned services.
+
+**Terminology:** `Stop AI` cancels that feature's jobs; `App Exit` stops all resources owned by that app; `Global Hard Stop` immediately requests cancellation and bounded shutdown of every resource owned by that app (AI+SDR); a separate authorized server/another app must be preserved. An attached, pre-existing readsb/tar1090 service is **borrowed**, not owned.
+
+Shutdown sequence: reject new jobs → cancel in-flight requests and remote leases → bounded graceful drain → unload only unreferenced model contexts and close owned SDR/GPU/CPU/network resources → stop only tracked owned process groups if graceful stop times out → verify/report residual ownership. Never use `pkill`, `killall` or process-name cleanup that might kill unrelated services. GPU memory readings reflect owner-attributable allocations, not necessarily entire system VRAM; third-party runtime caches cannot be forcibly cleared without stopping that third-party runtime.
+
+Apply this invariant to AI Tools' own AI Advisor and App Agent, Jan MCP requests, Model Market smoke tests, PC GPU Host shared leases, Raspberry Pi CPU/NPU jobs, and independently integrated TIHULU apps (when their own repositories are authorized later). A model is **not deleted from disk** when closing an app.
+
+**Cross-platform acceptance:** Unix signals/child supervision, macOS Quit, Windows Job Objects and orderly native window close; Pi 5 CPU with and without Hailo AI HAT+ 2; actual RTX/CUDA, Hailo, and SDR device release. Test owned/borrowed/shared lifecycles, double-stop, timeouts/crashes, GPU/SDR cleanup and model reload. Software mocks alone are not hardware acceptance.
+
+Full contract and L-01 through L-16 regression matrix: [Resource Lifecycle & Hard Stop](RESOURCE_LIFECYCLE.md). Six agents must include these controls in their owned components and report test evidence via their Issues/Draft PRs.
+
+**v0.9 ledger:** Requirements added to independently developed Rust AI Tools. Existing external TIHULU repositories, Jan, model files, readsb/tar1090 services and installed apps remain untouched. Cleanup is a **required implementation criterion**, not a tested feature today.
