@@ -18,6 +18,7 @@ fn fingerprint(n: &str) -> String { n.repeat(64) }
 fn evidence(client_id: &str, app_id: &str) -> PeerEvidence {
     PeerEvidence {
         host: host_id(), client: client(client_id), app: app(app_id),
+        app_authentication: AppAuthentication::VerifiedScopedCredential,
         client_cert_sha256: fingerprint(if client_id == "pi" { "b" } else { "c" }),
         server_cert_sha256: fingerprint("a"),
         security: ChannelSecurity::VerifiedMutualTls,
@@ -194,6 +195,10 @@ fn denial_checks_host_pin_client_pin_tls_and_network_route() {
     assert_eq!(host.open_lease(&peer, lease("a"), model("llm"), 0),
         Err(Error::UnverifiedChannel));
     peer.security = ChannelSecurity::VerifiedMutualTls;
+    peer.app_authentication = AppAuthentication::Unverified;
+    assert_eq!(host.open_lease(&peer, lease("a"), model("llm"), 0),
+        Err(Error::UnverifiedApplication));
+    peer.app_authentication = AppAuthentication::VerifiedScopedCredential;
     peer.route = NetworkRoute::PublicInternet;
     assert_eq!(host.open_lease(&peer, lease("a"), model("llm"), 0),
         Err(Error::UnverifiedChannel));
