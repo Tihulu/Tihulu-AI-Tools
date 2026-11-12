@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "TIHULU AI Tools (Demo)",
+  "version": "0.1.0",
+  "identifier": "io.tihulu.aitools.demo",
+  "build": {
+    "frontendDist": "../../tihulu-ai-web"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "TIHULU AI Tools — Demo",
+        "width": 1250,
+        "height": 820,
+        "minWidth": 360,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    }
+  },
+  "bundle": {
+    "active": false
+  }
+}

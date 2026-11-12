@@ -1,0 +1,11 @@
+{
+  "name": "@tihulu/ai-tools-web-mock",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check app.mjs && node --check state.mjs && node --check i18n.mjs && node --check ui-contract.mjs"
+  },
+  "description": "Static no-network responsive UI preview; not an inference client."
+}

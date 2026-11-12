@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "fixture:translation-tr-de",
+  "display_name": "Synthetic TR-to-DE translation",
+  "source": {
+    "kind": "tihulu"
+  },
+  "availability": "installed",
+  "format": "ctranslate2",
+  "runtimes": [
+    "ctranslate2"
+  ],
+  "hardware_targets": [
+    "cpu"
+  ],
+  "tasks": [
+    "translation"
+  ],
+  "input": "text",
+  "output": "text",
+  "languages": [
+    "en",
+    "tr",
+    "de"
+  ],
+  "translation_pairs": [
+    {
+      "from": "tr",
+      "to": "de"
+    }
+  ],
+  "quantization": "Q4_K_M",
+  "memory": {
+    "ram_mib": 2048,
+    "vram_mib": null,
+    "npu_mib": null
+  },
+  "license": {
+    "kind": "known",
+    "spdx": "Apache-2.0"
+  },
+  "integrity_verified": true,
+  "verified_runtimes": [
+    {
+      "runtime": "ctranslate2",
+      "hardware": "cpu",
+      "evidence_id": "synthetic-fixture-probe"
+    }
+  ],
+  "supports_tool_calling": false,
+  "internet_required": false
+}
