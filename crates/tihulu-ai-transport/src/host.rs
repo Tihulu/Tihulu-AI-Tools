@@ -170,8 +170,10 @@ impl MockComputeHost {
     /// Acknowledges one *delivered* event, not runtime cleanup. Coordinator
     /// must deduplicate by host+sequence in a durable authoritative adapter.
     pub fn acknowledge_ledger_event(&mut self, sequence: u64) -> bool {
-        if let Some(index) = self.ledger_events.iter().position(|e| e.sequence == sequence) {
-            self.ledger_events.remove(index);
+        // No out-of-order acknowledgements: acquire must be applied before
+        // release in the coordinator ResourceLedger. Retried ACK is idempotent.
+        if self.ledger_events.front().is_some_and(|e| e.sequence == sequence) {
+            self.ledger_events.pop_front();
             return true;
         }
         false
@@ -187,7 +189,11 @@ impl MockComputeHost {
             return Err(Error::LedgerAckRejected);
         }
         let binding = self.ledger_models.get(model).ok_or(Error::LedgerBindingRequired)?;
-        if binding.resource != resource || self.model_lease_count(model) != 0 {
+        if binding.resource != resource || self.model_lease_count(model) != 0
+            || self.ledger_events.iter().any(|event| event.model == *model)
+        {
+            // First confirm every acquire/release reached the authoritative ledger.
+            // An old/unprocessed event must not silently be bypassed by an unload ACK.
             return Err(Error::LedgerAckRejected);
         }
         let state = self.models.get_mut(model).ok_or(Error::UnknownModel)?;
