@@ -168,3 +168,26 @@ combined SHA and rerun this suite. Tests/CI must remain blocking.
 **Global status: HOLD.** There is no integration ref containing #20, #22,
 #23, #24, #25, and #26 together, nor evidence that their mocks integrate
 into native UI. Green isolated CI is not a combined acceptance.
+
+
+## Latest source snapshots — AI-01 and AI-07 revision
+
+- **AI-01 platform Draft #27**, head
+  `c73b578970c9a05b12a6a1564f6d0963912f773c`: seven new
+  `scripts/phase5_*`, test, and docs files. No shared source/workflows
+  touched. Author-reported **32 Python synthetic unit tests pass locally**;
+  QA found **no exact-head GitHub Actions run** at this review, because
+  existing PR workflows do not automatically select these script-only
+  changes. Platform shell startup, installers, signing, service-mode
+  supervision and physical memory release remain **untested**.
+- **AI-07 APP-PATH Draft #25** advanced from failing reviewed SHA
+  `0e033b63be555c08262b11cdfe762c87654b2071` to new head
+  `10fcdc76ec5ac3ad8fa013971cdac7316890db3f`.
+  The **old** head's Windows x64 and ARM64 test failures are recorded above;
+  new-head Rust Core multi-OS run **43168301470 was queued at review**.
+  Do not represent the old failures as verified against the revised head or
+  infer that they were fixed without fresh CI evidence.
+
+The independent QA suite itself is based on PR #19 and still has not
+assembled these Drafts. **HOLD** until an exact combined integration ref
+passes all mandatory gates and separate installed/hardware checks.
