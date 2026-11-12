@@ -1,0 +1,114 @@
+name: Phase 6 — Disposable Native Desktop Launch (NO hardware)
+
+on:
+  push:
+    branches: [qa/phase6-disposable-native-gui-20261112]
+    paths:
+      - ".github/workflows/phase6-native-disposable-acceptance.yml"
+      - "scripts/phase6_native_launch_smoke.py"
+      - "scripts/tests/test_phase6_native_launch_smoke.py"
+      - "docs/qa/PHASE6_NATIVE_DISPOSABLE_ACCEPTANCE.md"
+  pull_request:
+    paths:
+      - ".github/workflows/phase6-native-disposable-acceptance.yml"
+      - "scripts/phase6_native_launch_smoke.py"
+      - "scripts/tests/test_phase6_native_launch_smoke.py"
+      - "docs/qa/PHASE6_NATIVE_DISPOSABLE_ACCEPTANCE.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frozen-provenance-and-guards:
+    name: Frozen source unchanged; CI-only safety negatives
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require exact Phase 5 ancestor and allowlist all changed paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=48669240e4595908363f48f4229e70f55e72d7db
+          git cat-file -e "${BASE}^{commit}"
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/phase6-native-disposable-acceptance.yml|\
+              scripts/phase6_native_launch_smoke.py|\
+              scripts/tests/test_phase6_native_launch_smoke.py|\
+              docs/qa/PHASE6_NATIVE_DISPOSABLE_ACCEPTANCE.md) ;;
+              *) echo "::error::Forbidden change to frozen Phase 5: $path"; exit 1 ;;
+            esac
+          done
+          echo "Exact original Phase 5 source remains byte-identical."
+      - name: Python CI runner and symlink safety checks
+        run: python3 -m unittest discover -s scripts/tests -p 'test_phase6_native_launch_smoke.py' -v
+      - name: Syntax validation
+        run: python3 -m py_compile scripts/phase6_native_launch_smoke.py scripts/tests/test_phase6_native_launch_smoke.py
+      - name: Existing browser mock negative regressions
+        run: npm --prefix apps/tihulu-ai-web test
+
+  ubuntu-real-native-window:
+    name: Native Ubuntu 24.04 Tauri binary + Xvfb window and Quit
+    runs-on: ubuntu-24.04
+    needs: frozen-provenance-and-guards
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install disposable Linux UI dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libssl-dev libxdo-dev patchelf \
+            xvfb xauth xdotool openbox dbus-x11
+      - name: Existing native read-only IPC contract tests
+        run: cargo test --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml --all-targets
+      - name: Build real non-bundled Tauri demo executable
+        run: cargo build --manifest-path apps/tihulu-ai-desktop/src-tauri/Cargo.toml
+      - name: Copy executable into temporary versioned private install root
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "$RUNNER_TEMP"
+          install -Dm700 apps/tihulu-ai-desktop/src-tauri/target/debug/tihulu-ai-desktop \
+            "$RUNNER_TEMP/phase6-program/bin/tihulu-ai-tools-phase6-disposable"
+          sha256sum "$RUNNER_TEMP/phase6-program/bin/tihulu-ai-tools-phase6-disposable"
+      - name: Observe real native window and graceful Quit on private Xvfb
+        shell: bash
+        env:
+          PHASE6_CHECKOUT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          dbus-run-session -- xvfb-run -a --server-args="-screen 0 1440x900x24" bash -euo pipefail -c '
+            openbox --sm-disable >"$RUNNER_TEMP/phase6-wm.log" 2>&1 &
+            wm=$!
+            trap '\''kill "$wm" 2>/dev/null || true; wait "$wm" 2>/dev/null || true'\'' EXIT
+            python3 scripts/phase6_native_launch_smoke.py \
+              --binary "$RUNNER_TEMP/phase6-program/bin/tihulu-ai-tools-phase6-disposable" \
+              --report "$RUNNER_TEMP/phase6-observation.json"
+          '
+      - name: Show bounded, non-sensitive observation
+        if: always()
+        shell: bash
+        run: |
+          if test -f "$RUNNER_TEMP/phase6-observation.json"; then
+            cat "$RUNNER_TEMP/phase6-observation.json"
+          else
+            echo "No verified native observation produced: HOLD"
+          fi
+
+# This workflow runs in throwaway CI only. It neither packages nor installs on
+# the owner's machine. No approved model, Jan/Ollama, GPU, SDR, remote pairing,
+# physical cleanup or signed/reversible installer is tested here.
