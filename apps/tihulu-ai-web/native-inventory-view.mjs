@@ -146,7 +146,7 @@ export function renderNativeInventoryWorkspace(snapshot, state = createInventory
          `<div class="inv-metric"><span>${esc(key)}</span><strong>${value}</strong></div>`).join("")}
     </div>
     <nav class="inv-tabs" aria-label="${esc(t("title"))}">${nav}</nav>
-    <main class="inv-main" data-inv-screen="${activeTab}">${body}</main>
+    <section class="inv-main" aria-label="${esc(t("title"))}" data-inv-screen="${activeTab}">${body}</section>
     <footer class="inv-foot">${esc(t("integrationNote"))}</footer>
   </section>`;
 }
