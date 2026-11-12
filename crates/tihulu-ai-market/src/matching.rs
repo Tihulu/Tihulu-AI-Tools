@@ -82,7 +82,7 @@ fn format_runtime(format: ModelFormat, runtime: Runtime) -> PairSupport {
         | (F::Ctranslate2, R::Ctranslate2)
         | (F::HailoHef, R::HailoRt)
         | (F::Endpoint, R::JanApi | R::OllamaApi | R::OpenAiApi) => PairSupport::Supported,
-        (F::Safetensors | F::Unknown, _) | (_, R::Unknown) => PairSupport::Undetermined,
+        (F::Safetensors | F::Tflite | F::Unknown, _) | (_, R::Unknown) => PairSupport::Undetermined,
         _ => PairSupport::Unsupported,
     }
 }
