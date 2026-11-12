@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "id": "fixture:unknown-license",
+  "display_name": "Synthetic unknown-license GGUF",
+  "source": {
+    "kind": "tihulu"
+  },
+  "availability": "installed",
+  "format": "gguf",
+  "runtimes": [
+    "llama_cpp"
+  ],
+  "hardware_targets": [
+    "cpu"
+  ],
+  "tasks": [
+    "chat"
+  ],
+  "input": "text",
+  "output": "text",
+  "languages": [
+    "en",
+    "tr",
+    "de"
+  ],
+  "translation_pairs": [],
+  "quantization": "Q4_K_M",
+  "memory": {
+    "ram_mib": 4096,
+    "vram_mib": null,
+    "npu_mib": null
+  },
+  "license": {
+    "kind": "unknown"
+  },
+  "integrity_verified": true,
+  "verified_runtimes": [
+    {
+      "runtime": "llama_cpp",
+      "hardware": "cpu",
+      "evidence_id": "synthetic-fixture-probe"
+    }
+  ],
+  "supports_tool_calling": false,
+  "internet_required": false
+}
